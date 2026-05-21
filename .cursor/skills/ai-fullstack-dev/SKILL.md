@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.3.20260521
+metadata: v0.0.4.20260521
 ---
 
 # AI 全栈开发工作流
@@ -151,21 +151,97 @@ src/
    3. 里程碑甘特图：M0–M5 共 6 个里程碑，按天/周可视化
 2. **里程碑**
    1. 每个里程碑的详细规划卡片（4 张卡 = 后端 + 前端 + 联调 + 风险/注意事项）
-3. **实施细节**
+3. **开发环境准备**（进入 M0 之前必做，参考本文 3.1 章节）
+   1. 工具与版本清单：JDK / Maven / Node / 包管理器 / Docker / Git / OpenSSL
+   2. 本地服务方案：Docker Compose vs 本机原生，含端口冲突预案
+   3. 凭据与密钥：JWT RS256 密钥生成、BCrypt hash 生成、`.env` 填值
+   4. 代码仓库与 Git 规范：仓库布局、`.gitignore`、分支策略、commit 规范
+   5. IDE 与编辑器推荐插件
+   6. 环境自检脚本（Bash + PowerShell 双版本）
+   7. 常见问题预案：端口冲突 / 镜像源 / WSL2 / BCrypt $ 转义等
+4. **实施细节**
    1. 完整任务清单表格：编号 `MX-XX`、任务、类型（BE/FE/MIX/OPS/DB）、依赖、预估工时、优先级
    2. 关键技术要点代码片段：JWT 流程、状态机声明、看板回滚、文件上传校验、全文搜索
    3. 联调节点表：每个里程碑末的必跑场景 + 关键检查项
-4. **协作规范**
+5. **协作规范**
    1. AI 辅助 SOP：Prompt 模板、生成粒度、多方案取舍原则
-   2. 代码自检清单：后端 + 前端，参考本文 3.3 章节
-   3. DoD（Definition of Done）**：单任务完成标准，参考本文 3.4 章节
-5. **风险与交付**
+   2. 代码自检清单：后端 + 前端，参考本文 3.4 章节
+   3. DoD（Definition of Done）**：单任务完成标准，参考本文 3.5 章节
+6. **风险与交付**
    1. 风险矩阵：高/中/低 3 档 + 应对策略
    2. 阶段交付物清单
 
 按需扩充。
 
-### 3.1 参考里程碑划分
+### 3.1 开发环境准备（M0 之前必做）
+
+> ⚠ **超过一半的 MVP 项目卡在环境问题**：JDK 版本不匹配、端口被占、镜像拉不下、JWT 密钥未生成……进入 M0 之前花 1–2 小时把环境彻底打通，能节省后面 3–5 倍调试时间。本节自检 100% 通过才能开始编码。
+
+**工具与最低版本**：
+
+| 工具 | 最低版本 | 用途 | 检查命令 |
+|------|---------|------|---------|
+| JDK | 21 (LTS) | 后端运行/编译 | `java -version` |
+| Maven | 3.9+ | 后端构建 | `mvn -v` |
+| Node.js | 20 (LTS) | 前端工具链 | `node -v` |
+| 包管理器 | pnpm 9 / npm 10 / bun 1.1+ | 前端依赖 | `pnpm -v` |
+| Docker | 24+ + Compose v2 | 本地 pg/redis | `docker compose version` |
+| Git | 2.40+ | 版本控制 | `git --version` |
+| OpenSSL | 3.0+ | 生成 JWT 密钥 | `openssl version` |
+
+**本地服务方案**：
+
+- **方案 A（MVP 推荐）**：Docker Compose 起 `postgres` + `redis`，schema.sql 挂到 `/docker-entrypoint-initdb.d/` 自动初始化
+- **方案 B（长期开发）**：本机原生安装；启动更快但跨平台版本对齐困难
+- 默认端口 5432 / 6379 / 8080 / 5173 被占时在 compose 改映射如 `15432:5432`
+
+**凭据与密钥（不可省略）**：
+
+```bash
+openssl genrsa -out jwt-private.pem 2048
+openssl rsa -in jwt-private.pem -pubout -out jwt-public.pem
+htpasswd -bnBC 12 "" "YourPassword" | tr -d ':\n'
+```
+
+`.env`、`*.pem`、`*.b64`、`secrets/` 必须全部加入 `.gitignore`，**任何 commit / 截图 / 日志都不得包含真实密钥**。
+
+**Git 规范**：
+
+- 仓库布局：MVP 阶段用 monorepo（`ats-backend/` + `ats-frontend/` + `docker-compose.yml`）
+- 分支：`main` 保护 + 每里程碑一条 `feature/m1-auth`
+- commit 格式：`[模块] 动词 + 内容`，禁止 `WIP` / `update` / `fix bug`
+- `.gitignore` 必含：`.env*` / `*.pem` / `*.b64` / `target/` / `node_modules/` / `dist/` / `logs/` / `uploads/` / `.idea/` / `.DS_Store`
+
+**IDE 推荐**：
+
+- 后端：IntelliJ IDEA / Cursor + Java Extension Pack + Spring Boot Tools + Lombok
+- 前端：Cursor / VS Code + Vue (Official) + ESLint + Oxlint + EditorConfig
+- DB：DBeaver / DataGrip / RedisInsight
+- 禁用旧版 Vetur（与 Volar 冲突）
+
+**环境自检**：提供 `scripts/check-env.sh`（Bash）和 `scripts/check-env.ps1`（PowerShell），覆盖：
+
+1. JDK / Maven / Node / Docker / Git / OpenSSL 版本
+2. 5432 / 6379 / 8080 / 5173 端口空闲
+3. `docker compose up -d` 后 pg / redis 健康
+4. `psql ... -c "\dt"` 能列出全部表
+5. `redis-cli ping` 返回 PONG
+6. JWT 密钥已生成并写入 `.env`
+
+**常见问题预案**：
+
+| 问题 | 解决 |
+|------|------|
+| 端口被占 | compose 改映射；或停掉本机服务 |
+| Maven 慢 | `~/.m2/settings.xml` 配阿里云 mirror |
+| npm 慢 | `npm config set registry https://registry.npmmirror.com` |
+| Docker 拉镜像超时 | Docker Desktop → Engine 配国内 mirror |
+| Windows Docker 启动失败 | 启用 WSL2 + Hyper-V |
+| BCrypt hash 含 `$` 被 shell 截断 | 单引号包裹或写到 application.yml |
+
+按需扩充。
+
+### 3.2 参考里程碑划分
 
 | 里程碑 | 名称        | 工期参考 | 关键产出 |
 |--------|-------------|----------|----------|
@@ -180,7 +256,7 @@ src/
 
 每个里程碑结束都必须**能跑起来、能演示一个完整场景**。Mn 未通过联调验收禁止进入 Mn+1。
 
-### 3.2 AI 辅助 SOP
+### 3.3 AI 辅助 SOP
 
 **契约先行**：每次让 AI 写接口前，必须把以下信息一起喂给它：
 - 任务（接口路径 + 一句话目标）
@@ -201,7 +277,7 @@ src/
 - 方案差异显著时让 AI 列 trade-off，自己定夺，**不要直接接受 "AI 推荐"**
 - 与 `project-tech-design.html` 冲突时，**以设计文档为准**
 
-### 3.3 代码自检清单（每次 AI 生成后必做）
+### 3.4 代码自检清单（每次 AI 生成后必做）
 
 **后端 7 项**：
 
@@ -223,7 +299,7 @@ src/
 6. 接口失败时本地乐观更新是否有回滚？
 7. `any` 是否已消除？枚举是否从 `enums.ts` 引用？
 
-### 3.4 单任务完成判定（DoD）
+### 3.5 单任务完成判定（DoD）
 
 1. 本地能跑通对应场景（含至少一条 happy path + 一条异常 path）
 2. 接口返回结构符合 `{ code, msg, data }`，HTTP 状态码与 code 一致
@@ -232,7 +308,7 @@ src/
 5. 提交前 `git diff` self-review，删除 console.log / 调试代码
 6. commit message 遵循 `[模块] 动词 + 内容`（如 `[auth] add refresh endpoint`）
 
-### 3.5 高风险点速查（务必单测覆盖）
+### 3.6 高风险点速查（务必单测覆盖）
 
 - **状态机非法流转**：用 `Map<Stage, Set<Stage>>` 声明合法图 + 终态不在 key 中保护
 - **Token refresh 死循环**：拦截器内 refresh 失败必须清状态跳 `/login`，并用队列防重入

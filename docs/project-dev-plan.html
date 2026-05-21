@@ -336,6 +336,8 @@
     <a href="#m3">M3 状态机看板</a>
     <a href="#m4">M4 辅助模块</a>
     <a href="#m5">M5 打磨交付</a>
+    <div class="nav-group">开发环境准备</div>
+    <a href="#env">开发环境准备</a>
     <div class="nav-group">实施细节</div>
     <a href="#task-list">完整任务清单</a>
     <a href="#tech-points">关键技术要点</a>
@@ -965,8 +967,342 @@
     </div>
   </div>
 
+  <!-- ═══ 5. 开发环境准备 ═══ -->
+  <h2 id="env">5. 开发环境准备</h2>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">为什么单独成章</div>
+    <p>
+      MVP 项目超过一半的时间被环境问题吞掉：JDK 版本不匹配、端口被占、镜像拉不下来、JWT 密钥没生成、
+      Docker Desktop 没开 WSL2……<strong>在 M0 之前花 1–2 小时把环境彻底打通</strong>，
+      能节省后面 3–5 倍的调试时间。本章必须 100% 通过自检后才能进入 M0。
+    </p>
+  </div>
+
+  <h3>5.1 工具与版本清单</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>工具</th>
+          <th>最低版本</th>
+          <th>必要性</th>
+          <th>用途</th>
+          <th>检查命令</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>JDK</td><td>21 (LTS)</td><td><span class="badge badge-h">必须</span></td><td>后端运行时 / 编译</td><td><code>java -version</code></td></tr>
+        <tr><td>Maven</td><td>3.9+</td><td><span class="badge badge-h">必须</span></td><td>后端构建</td><td><code>mvn -v</code></td></tr>
+        <tr><td>Node.js</td><td>20 (LTS)</td><td><span class="badge badge-h">必须</span></td><td>前端构建 / 工具链</td><td><code>node -v</code></td></tr>
+        <tr><td>包管理器</td><td>pnpm 9 / npm 10 / bun 1.1+</td><td><span class="badge badge-h">必须</span></td><td>前端依赖</td><td><code>pnpm -v</code> / <code>npm -v</code></td></tr>
+        <tr><td>Docker Desktop</td><td>24+ (Compose v2)</td><td><span class="badge badge-h">必须</span></td><td>本地 pg / redis / 一键启动</td><td><code>docker version</code><br><code>docker compose version</code></td></tr>
+        <tr><td>Git</td><td>2.40+</td><td><span class="badge badge-h">必须</span></td><td>版本控制</td><td><code>git --version</code></td></tr>
+        <tr><td>OpenSSL</td><td>3.0+</td><td><span class="badge badge-h">必须</span></td><td>生成 JWT RS256 密钥对</td><td><code>openssl version</code></td></tr>
+        <tr><td>psql 客户端</td><td>16</td><td><span class="badge badge-m">可选</span></td><td>本机连 Docker pg 调试</td><td><code>psql --version</code></td></tr>
+        <tr><td>redis-cli</td><td>7</td><td><span class="badge badge-m">可选</span></td><td>缓存调试</td><td><code>redis-cli --version</code></td></tr>
+        <tr><td>HTTP 客户端</td><td>Postman / curl / httpie</td><td><span class="badge badge-m">可选</span></td><td>接口自测</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.2 本地服务方案对比</h3>
+
+  <div class="ms-grid">
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">方案 A：Docker Compose（推荐）</div>
+        <span class="ms-id ms-blue">推荐 MVP</span>
+      </div>
+      <div class="ms-card-body">
+        <h5>优点</h5>
+        <ul>
+          <li>一条命令 <code>docker compose up -d</code> 就绪</li>
+          <li>schema.sql 自动初始化到 <code>/docker-entrypoint-initdb.d/</code></li>
+          <li>移除 / 重建数据库一条命令，演示数据可反复重置</li>
+          <li>团队成员环境完全一致</li>
+        </ul>
+        <h5>注意</h5>
+        <ul>
+          <li>Windows 需启用 WSL2 + Docker Desktop 集成</li>
+          <li>第一次拉镜像可能需配置国内镜像源（见 3.7）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">方案 B：本机原生安装</div>
+        <span class="ms-id ms-teal">长期开发</span>
+      </div>
+      <div class="ms-card-body">
+        <h5>优点</h5>
+        <ul>
+          <li>启动更快，无 Docker overhead</li>
+          <li>调试连接、日志、磁盘 IO 更直接</li>
+        </ul>
+        <h5>缺点</h5>
+        <ul>
+          <li>跨平台差异大（macOS Homebrew / Windows installer / Linux apt）</li>
+          <li>schema.sql 需手动 <code>psql -f</code> 执行</li>
+          <li>团队成员版本难以严格对齐</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-info">
+    <div class="callout-title">建议</div>
+    <p>
+      MVP 阶段统一使用 <strong>方案 A</strong>，等正式进入团队协作或部署阶段再考虑混合使用。
+      Phase 2 技术设计文档已提供 <code>docker-compose.yml</code> 的服务规划。
+    </p>
+  </div>
+
+  <h3>5.3 凭据与密钥准备</h3>
+
+  <h4>5.3.1 JWT RS256 密钥对（必做）</h4>
+  <p>在仓库外的 <code>~/.ats/keys/</code> 或 backend 的 <code>secrets/</code>（已加入 <code>.gitignore</code>）生成密钥对：</p>
+
+  <div class="code-block"><span class="ck-comment"># Bash / Git Bash / WSL</span>
+<span class="ck-fn">openssl</span> genrsa -out jwt-private.pem 2048
+<span class="ck-fn">openssl</span> rsa -in jwt-private.pem -pubout -out jwt-public.pem
+
+<span class="ck-comment"># 转 base64 写入 .env</span>
+<span class="ck-fn">base64</span> -w0 jwt-private.pem &gt; jwt-private.b64
+<span class="ck-fn">base64</span> -w0 jwt-public.pem  &gt; jwt-public.b64
+
+<span class="ck-comment"># PowerShell（Windows 等价）</span>
+<span class="ck-fn">openssl</span> genrsa -out jwt-private.pem 2048
+<span class="ck-fn">openssl</span> rsa -in jwt-private.pem -pubout -out jwt-public.pem
+[<span class="ck-key">Convert</span>]::<span class="ck-fn">ToBase64String</span>([<span class="ck-key">IO.File</span>]::<span class="ck-fn">ReadAllBytes</span>(<span class="ck-str">"jwt-private.pem"</span>)) | <span class="ck-fn">Set-Content</span> jwt-private.b64
+[<span class="ck-key">Convert</span>]::<span class="ck-fn">ToBase64String</span>([<span class="ck-key">IO.File</span>]::<span class="ck-fn">ReadAllBytes</span>(<span class="ck-str">"jwt-public.pem"</span>))  | <span class="ck-fn">Set-Content</span> jwt-public.b64</div>
+
+  <h4>5.3.2 .env 文件准备</h4>
+  <ul>
+    <li>后端：<code>ats-backend/.env</code> ← 复制自 <code>.env.example</code>，填入 DB / Redis / JWT base64 值</li>
+    <li>前端：<code>ats-frontend/.env.local</code> ← 复制自 <code>.env.example</code>，填 <code>VITE_API_BASE_URL</code></li>
+    <li>初始管理员账号的 BCrypt hash 生成：</li>
+  </ul>
+
+  <div class="code-block"><span class="ck-comment"># 用 htpasswd 生成（推荐）</span>
+<span class="ck-fn">htpasswd</span> -bnBC 12 <span class="ck-str">""</span> <span class="ck-str">"YourAdminPassword"</span> | <span class="ck-fn">tr</span> -d <span class="ck-str">':\n'</span>
+
+<span class="ck-comment"># 替换 schema.sql 种子数据中的占位 hash</span></div>
+
+  <div class="callout callout-warn">
+    <div class="callout-title">安全红线</div>
+    <p>
+      <code>.env</code>、<code>*.pem</code>、<code>*.b64</code>、<code>jwt-*</code> 必须全部加入 <code>.gitignore</code>。
+      切勿在任何 commit / log / 截图中泄露真实密钥与密码。
+    </p>
+  </div>
+
+  <h3>5.4 代码仓库与 Git 规范</h3>
+
+  <div class="spec-grid">
+    <div class="spec-card">
+      <h4>仓库布局</h4>
+      <ul>
+        <li>MVP 阶段建议 <strong>Monorepo</strong>：
+          <code>ats/</code> 根目录下 <code>ats-backend/</code> + <code>ats-frontend/</code> + <code>docker-compose.yml</code></li>
+        <li>团队规模 &gt; 5 人或前后端发版节奏差异大时再拆 polyrepo</li>
+        <li>所有文档放 <code>docs/</code>，与 Phase 1/2 产出对齐</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h4>.gitignore 必含项</h4>
+      <ul>
+        <li><code>.env</code>, <code>.env.local</code>, <code>.env.*.local</code></li>
+        <li><code>*.pem</code>, <code>*.b64</code>, <code>secrets/</code></li>
+        <li>后端：<code>target/</code>, <code>*.iml</code>, <code>.idea/</code>, <code>logs/</code>, <code>uploads/</code></li>
+        <li>前端：<code>node_modules/</code>, <code>dist/</code>, <code>.vite/</code></li>
+        <li>系统：<code>.DS_Store</code>, <code>Thumbs.db</code></li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h4>分支策略</h4>
+      <ul>
+        <li><code>main</code>：保护分支，仅通过 PR 合并</li>
+        <li><code>feature/m1-auth</code>、<code>feature/m3-pipeline</code>：每个里程碑一条 feature 分支</li>
+        <li>提交频率：每完成一个 DoD 单元即 commit + push</li>
+      </ul>
+    </div>
+    <div class="spec-card">
+      <h4>Commit 规范</h4>
+      <ul>
+        <li>格式：<code>[模块] 动词 + 内容</code>，例：<code>[auth] add refresh endpoint</code></li>
+        <li>或采用 conventional commits：<code>feat(auth): ...</code> / <code>fix(pipeline): ...</code></li>
+        <li>禁止 <code>WIP</code>、<code>update</code>、<code>fix bug</code> 等无信息量提交</li>
+        <li>commit 前 self-review：<code>git diff --staged</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>5.5 IDE 与编辑器推荐</h3>
+  <div class="ms-grid">
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">后端：IntelliJ IDEA / Cursor</div>
+        <span class="ms-id ms-green">BE</span>
+      </div>
+      <div class="ms-card-body">
+        <ul>
+          <li><strong>IDEA Ultimate</strong> 最佳，Community 也够用</li>
+          <li>Cursor + VS Code 时需装：Extension Pack for Java、Spring Boot Tools、Lombok</li>
+          <li>启用 <code>annotation processing</code>（Lombok / MapStruct）</li>
+          <li>项目 SDK 选 JDK 21；Maven 用 wrapper（<code>./mvnw</code>）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">前端：Cursor / VS Code</div>
+        <span class="ms-id ms-blue">FE</span>
+      </div>
+      <div class="ms-card-body">
+        <ul>
+          <li>必装：<strong>Vue (Official)</strong>（原 Volar）、<strong>TypeScript Vue Plugin</strong></li>
+          <li>必装：ESLint、Oxlint、EditorConfig</li>
+          <li>推荐：GitLens、Error Lens、Auto Import</li>
+          <li>禁用旧版 Vetur（与 Volar 冲突）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">数据库 / Redis 客户端</div>
+        <span class="ms-id ms-purple">DB</span>
+      </div>
+      <div class="ms-card-body">
+        <ul>
+          <li>DBeaver（免费跨平台） / DataGrip / TablePlus</li>
+          <li>VS Code 扩展：Database Client、PostgreSQL（cweijan）</li>
+          <li>Redis：RedisInsight 或 VS Code Database Client</li>
+        </ul>
+      </div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-card-header">
+        <div class="ms-title">通用</div>
+        <span class="ms-id ms-teal">ALL</span>
+      </div>
+      <div class="ms-card-body">
+        <ul>
+          <li>API 调试：Postman / Bruno / Insomnia / VS Code REST Client</li>
+          <li>提交辅助：lazygit / VS Code Git Graph</li>
+          <li>Markdown 预览：Cursor 内置 / Markdown All in One</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>5.6 环境自检脚本</h3>
+  <p>把以下脚本保存为 <code>scripts/check-env.sh</code>（Bash）或 <code>scripts/check-env.ps1</code>（PowerShell），在 M0 启动前运行一次：</p>
+
+  <div class="code-block"><span class="ck-comment">#!/usr/bin/env bash · check-env.sh</span>
+<span class="ck-key">set</span> -e
+
+<span class="ck-fn">check</span>() { <span class="ck-fn">printf</span> <span class="ck-str">"%-22s"</span> <span class="ck-str">"$1"</span>; <span class="ck-fn">eval</span> <span class="ck-str">"$2"</span> &gt; /dev/null 2&gt;&amp;1 &amp;&amp; <span class="ck-fn">echo</span> <span class="ck-str">"✅"</span> || <span class="ck-fn">echo</span> <span class="ck-str">"❌"</span>; }
+
+<span class="ck-fn">check</span> <span class="ck-str">"JDK 21+"</span>        <span class="ck-str">'java -version 2&gt;&amp;1 | grep -E "version \"(2[1-9]|[3-9][0-9])"'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"Maven 3.9+"</span>     <span class="ck-str">'mvn -v | grep -E "Apache Maven 3\.(9|1[0-9])"'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"Node 20+"</span>       <span class="ck-str">'node -v | grep -E "^v(2[0-9]|[3-9][0-9])"'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"pnpm 或 npm"</span>     <span class="ck-str">'pnpm -v || npm -v'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"Docker"</span>         <span class="ck-str">'docker version'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"Docker Compose"</span> <span class="ck-str">'docker compose version'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"Git"</span>            <span class="ck-str">'git --version'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"OpenSSL"</span>        <span class="ck-str">'openssl version'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"5432 端口空闲"</span>   <span class="ck-str">'! lsof -i:5432'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"6379 端口空闲"</span>   <span class="ck-str">'! lsof -i:6379'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"8080 端口空闲"</span>   <span class="ck-str">'! lsof -i:8080'</span>
+<span class="ck-fn">check</span> <span class="ck-str">"5173 端口空闲"</span>   <span class="ck-str">'! lsof -i:5173'</span></div>
+
+  <div class="code-block"><span class="ck-comment"># PowerShell · check-env.ps1</span>
+<span class="ck-key">function</span> <span class="ck-fn">Check</span>($name, $cmd) {
+  <span class="ck-key">try</span> { <span class="ck-fn">Invoke-Expression</span> $cmd *&gt; $<span class="ck-key">null</span>; <span class="ck-str">"{0,-22} ✅"</span> -f $name }
+  <span class="ck-key">catch</span> { <span class="ck-str">"{0,-22} ❌"</span> -f $name }
+}
+
+<span class="ck-fn">Check</span> <span class="ck-str">"JDK 21+"</span>        <span class="ck-str">'java -version'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"Maven 3.9+"</span>     <span class="ck-str">'mvn -v'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"Node 20+"</span>       <span class="ck-str">'node -v'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"Docker"</span>         <span class="ck-str">'docker version'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"Docker Compose"</span> <span class="ck-str">'docker compose version'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"Git"</span>            <span class="ck-str">'git --version'</span>
+<span class="ck-fn">Check</span> <span class="ck-str">"OpenSSL"</span>        <span class="ck-str">'openssl version'</span>
+<span class="ck-comment"># 端口检查</span>
+<span class="ck-fn">foreach</span> ($p <span class="ck-key">in</span> 5432, 6379, 8080, 5173) {
+  $busy = <span class="ck-fn">Test-NetConnection</span> -ComputerName localhost -Port $p -InformationLevel Quiet
+  <span class="ck-str">"{0,-22} {1}"</span> -f <span class="ck-str">"$p 端口空闲"</span>, ($busy ? <span class="ck-str">"❌ 被占"</span> : <span class="ck-str">"✅"</span>)
+}</div>
+
+  <h3>5.7 常见问题与预案</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>问题</th><th>表现</th><th>解决方案</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>5432 端口被占</td>
+          <td>Docker 起 pg 失败：<code>port is already allocated</code></td>
+          <td>本机已装 PG，停掉服务或在 compose 中映射到 <code>15432:5432</code></td>
+        </tr>
+        <tr>
+          <td>Maven 拉依赖慢</td>
+          <td><code>mvn install</code> 卡在中央仓库</td>
+          <td><code>~/.m2/settings.xml</code> 配置阿里云镜像（mirror 节点）</td>
+        </tr>
+        <tr>
+          <td>npm install 卡死</td>
+          <td>依赖下载超时</td>
+          <td><code>npm config set registry https://registry.npmmirror.com</code></td>
+        </tr>
+        <tr>
+          <td>Docker 拉镜像超时</td>
+          <td><code>pull access denied</code> / 超时</td>
+          <td>Docker Desktop → Settings → Docker Engine 添加国内镜像 mirror</td>
+        </tr>
+        <tr>
+          <td>Windows Docker 无法启动</td>
+          <td>提示 WSL2 未启用</td>
+          <td>启用 WSL2 + Hyper-V，<code>wsl --install</code> + 重启</td>
+        </tr>
+        <tr>
+          <td>JDK 版本混乱</td>
+          <td>编译报错 <code>--release 21 is not supported</code></td>
+          <td>用 SDKMAN（mac/linux）或 jEnv 管理多版本；或直接 <code>JAVA_HOME</code> 切换</td>
+        </tr>
+        <tr>
+          <td>OpenSSL 在 Windows 找不到</td>
+          <td><code>'openssl' is not recognized</code></td>
+          <td>装 Git for Windows（自带 openssl）或独立安装 <code>winget install openssl</code></td>
+        </tr>
+        <tr>
+          <td>BCrypt hash 含 <code>$</code> 写入 .env</td>
+          <td>变量被 shell 解释截断</td>
+          <td>用单引号包裹，或转义 <code>\$</code>；或写入 application.yml 配置而非 .env</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.8 环境就绪验收</h3>
+  <ul>
+    <li>✅ 自检脚本所有项目均 ✅</li>
+    <li>✅ <code>docker compose -f docker-compose.dev.yml up -d</code> 成功，<code>docker ps</code> 显示 pg / redis 健康</li>
+    <li>✅ <code>psql -h localhost -U ats_user -d ats_db -c "\\dt"</code> 能列出 7 张表</li>
+    <li>✅ <code>redis-cli ping</code> 返回 <code>PONG</code></li>
+    <li>✅ JWT 公私钥已生成并填入 <code>.env</code></li>
+    <li>✅ Git 仓库已初始化、<code>.gitignore</code> 已配齐</li>
+    <li>✅ IDE 能识别后端 JDK 21、前端 TS / Vue 项目</li>
+  </ul>
+
+  <div class="callout callout-green">
+    <div class="callout-title">达到本节验收 → 即可进入 M0</div>
+    <p>建议把本节自检脚本与就绪 checklist 写进 <code>README.md</code>，新人入项后照单复核即可。</p>
+  </div>
+
   <!-- ═══ 完整任务清单 ═══ -->
-  <h2 id="task-list">5. 完整任务清单</h2>
+  <h2 id="task-list">6. 完整任务清单</h2>
   <p>所有任务以「<code>MX-编号</code>」标识，依赖列引用其他任务编号；后端=BE / 前端=FE / 联调=MIX / 运维=OPS。</p>
 
   <div class="table-wrap">
@@ -1049,9 +1385,9 @@
   </div>
 
   <!-- ═══ 关键技术要点 ═══ -->
-  <h2 id="tech-points">6. 关键技术实现要点</h2>
+  <h2 id="tech-points">7. 关键技术实现要点</h2>
 
-  <h3>6.1 JWT 双 Token 流程</h3>
+  <h3>7.1 JWT 双 Token 流程</h3>
   <div class="code-block"><span class="ck-comment">// 登录成功后</span>
 {
   accessToken:  RS256(claims, 2h),   <span class="ck-comment">// 仅放内存/localStorage</span>
@@ -1067,7 +1403,7 @@
   waitQueue.<span class="ck-fn">forEach</span>(fn =&gt; <span class="ck-fn">fn</span>());  <span class="ck-comment">// 队列重试</span>
 }</div>
 
-  <h3>6.2 状态机声明（Java）</h3>
+  <h3>7.2 状态机声明（Java）</h3>
   <div class="code-block"><span class="ck-key">private static final</span> Map&lt;Stage, Set&lt;Stage&gt;&gt; LEGAL = Map.<span class="ck-fn">of</span>(
   Stage.APPLIED,         Set.<span class="ck-fn">of</span>(Stage.SCREENING_PASS, Stage.REJECTED),
   Stage.SCREENING_PASS,  Set.<span class="ck-fn">of</span>(Stage.PHONE_INTERVIEW, Stage.REJECTED),
@@ -1082,7 +1418,7 @@
   <span class="ck-key">throw new</span> <span class="ck-fn">BizException</span>(ErrorCode.ILLEGAL_TRANSITION);
 }</div>
 
-  <h3>6.3 看板拖拽 + 失败回滚（Vue）</h3>
+  <h3>7.3 看板拖拽 + 失败回滚（Vue）</h3>
   <div class="code-block"><span class="ck-comment">// PipelineView.vue</span>
 <span class="ck-key">async function</span> <span class="ck-fn">onDrop</span>(evt) {
   <span class="ck-key">const</span> snapshot = JSON.<span class="ck-fn">parse</span>(JSON.<span class="ck-fn">stringify</span>(board.value));
@@ -1096,7 +1432,7 @@
   }
 }</div>
 
-  <h3>6.4 文件上传白名单（后端）</h3>
+  <h3>7.4 文件上传白名单（后端）</h3>
   <ul>
     <li>读取魔数（PDF 起始字节 <code>%PDF-</code>）而非只信任 <code>Content-Type</code></li>
     <li>大小校验放在 <code>MultipartConfigElement</code>（避免占满磁盘）</li>
@@ -1104,7 +1440,7 @@
     <li>下载接口必须鉴权后流式返回，不要直接由 nginx 静态暴露 <code>/uploads/</code></li>
   </ul>
 
-  <h3>6.5 全文搜索（PostgreSQL）</h3>
+  <h3>7.5 全文搜索（PostgreSQL）</h3>
   <div class="code-block"><span class="ck-comment">-- Mapper XML</span>
 <span class="ck-key">SELECT</span> * <span class="ck-key">FROM</span> jobs
 <span class="ck-key">WHERE</span> status = <span class="ck-str">'OPEN'</span>
@@ -1114,7 +1450,7 @@
 <span class="ck-key">LIMIT</span> #{size} <span class="ck-key">OFFSET</span> #{offset};</div>
 
   <!-- ═══ 联调节点 ═══ -->
-  <h2 id="integration">7. 联调节点</h2>
+  <h2 id="integration">8. 联调节点</h2>
 
   <div class="table-wrap">
     <table>
@@ -1155,7 +1491,7 @@
   </div>
 
   <!-- ═══ AI 辅助 SOP ═══ -->
-  <h2 id="ai-sop">8. AI 辅助开发 SOP</h2>
+  <h2 id="ai-sop">9. AI 辅助开发 SOP</h2>
 
   <div class="callout callout-purple">
     <div class="callout-title">原则一：契约先行</div>
@@ -1165,7 +1501,7 @@
     </p>
   </div>
 
-  <h3>8.1 Prompt 模板</h3>
+  <h3>9.1 Prompt 模板</h3>
 
   <div class="code-block"><span class="ck-comment">## 任务</span>
 实现 <span class="ck-str">POST /api/v1/applications</span> 候选人投递接口。
@@ -1194,7 +1530,7 @@ ApiResponse&lt;ApplicationVO&gt;
 <span class="ck-comment">## 数据库 DDL（相关表）</span>
 &lt;贴 applications 与 stage_logs 的 CREATE TABLE&gt;</div>
 
-  <h3>8.2 AI 生成代码的合理粒度</h3>
+  <h3>9.2 AI 生成代码的合理粒度</h3>
   <ul>
     <li>✅ <strong>OK</strong>：一次生成一个 <code>Controller + Service + Mapper</code> 三件套（同一业务）</li>
     <li>✅ <strong>OK</strong>：一次生成一个 Vue 页面 + 对应的 api 函数</li>
@@ -1202,7 +1538,7 @@ ApiResponse&lt;ApplicationVO&gt;
     <li>❌ <strong>避免</strong>：先让 AI 写完 30 个文件再统一调试 —— 累积错误难定位</li>
   </ul>
 
-  <h3>8.3 多方案时如何选择</h3>
+  <h3>9.3 多方案时如何选择</h3>
   <ul>
     <li><strong>选最接近已有代码风格的那一种</strong>，不要混用（如 MyBatis-Plus 已在用，就不要再引 JPA）</li>
     <li>方案差异显著时让 AI 列出 trade-off，自己定夺，不要直接接受 "AI 推荐"</li>
@@ -1210,7 +1546,7 @@ ApiResponse&lt;ApplicationVO&gt;
   </ul>
 
   <!-- ═══ 代码自检清单 ═══ -->
-  <h2 id="review">9. 代码自检清单（每次 AI 生成后必做）</h2>
+  <h2 id="review">10. 代码自检清单（每次 AI 生成后必做）</h2>
 
   <div class="spec-grid">
     <div class="spec-card">
@@ -1240,7 +1576,7 @@ ApiResponse&lt;ApplicationVO&gt;
   </div>
 
   <!-- ═══ DoD ═══ -->
-  <h2 id="dod">10. 单任务完成判定（Definition of Done）</h2>
+  <h2 id="dod">11. 单任务完成判定（Definition of Done）</h2>
   <ol>
     <li>本地能跑通对应场景（含至少一条 happy path + 一条异常 path）</li>
     <li>接口返回结构符合 <code>{ code, msg, data }</code>，HTTP 状态码与 code 一致</li>
@@ -1251,7 +1587,7 @@ ApiResponse&lt;ApplicationVO&gt;
   </ol>
 
   <!-- ═══ 风险与应对 ═══ -->
-  <h2 id="risk">11. 风险与应对</h2>
+  <h2 id="risk">12. 风险与应对</h2>
 
   <div class="risk-grid">
     <div class="risk-card risk-h">
@@ -1283,7 +1619,7 @@ ApiResponse&lt;ApplicationVO&gt;
   </div>
 
   <!-- ═══ 阶段交付物 ═══ -->
-  <h2 id="deliverables">12. 阶段交付物清单</h2>
+  <h2 id="deliverables">13. 阶段交付物清单</h2>
 
   <div class="table-wrap">
     <table>
