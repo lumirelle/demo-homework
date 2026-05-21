@@ -6,7 +6,8 @@
   "scripts": {
     "docs:project-selection-analysis": "bun run docs/project-selection-analysis.html",
     "docs:project-requirements": "PORT=3001 bun run docs/project-requirements.html",
-    "docs:project-tech-design": "PORT=3002 bun run docs/project-tech-design.html"
+    "docs:project-tech-design": "PORT=3002 bun run docs/project-tech-design.html",
+    "docs:project-dev-plan": "PORT=3003 bun run docs/project-dev-plan.html"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
