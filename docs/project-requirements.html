@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>招聘管理系统（ATS）需求文档 v1.0</title>
+  <title>招聘管理系统（ATS）需求文档 v1.1</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -230,7 +230,7 @@
 
 <!-- 侧边导航 -->
 <div class="sidebar">
-  <div class="sidebar-logo">ATS 需求文档 <span>v1.0</span></div>
+  <div class="sidebar-logo">ATS 需求文档 <span>v1.1</span></div>
   <nav>
     <div class="nav-group">概述</div>
     <a href="#overview">项目背景</a>
@@ -262,7 +262,7 @@
   <div class="doc-header">
     <h1>招聘管理系统（ATS）需求文档</h1>
     <div class="doc-meta">
-      <span><strong>版本：</strong>v1.0</span>
+      <span><strong>版本：</strong>v1.1</span>
       <span><strong>状态：</strong>草稿</span>
       <span><strong>日期：</strong>2026-05-21</span>
       <span><strong>作者：</strong>AI 辅助调研</span>
@@ -340,11 +340,6 @@
         </tr>
       </tbody>
     </table>
-  </div>
-
-  <div class="callout callout-info" style="margin-top:16px;">
-    <div class="callout-title">MVP 简化方案</div>
-    <p>MVP 阶段合并 ADMIN 与 HR 为同一角色，仅区分 <code>HR</code> 与 <code>CANDIDATE</code> 两种权限，降低实现复杂度。</p>
   </div>
 
   <!-- ══ 4. 功能需求 ══ -->
@@ -654,8 +649,8 @@
         <tr><td><strong>安全</strong></td><td>文件访问</td><td>简历 PDF 仅 HR 可访问，需验证权限</td></tr>
         <tr><td><strong>可用性</strong></td><td>表单校验</td><td>前后端双重校验，错误信息友好</td></tr>
         <tr><td><strong>可用性</strong></td><td>加载状态</td><td>所有异步操作展示 Loading 状态</td></tr>
-        <tr><td><strong>兼容性</strong></td><td>浏览器支持</td><td>Chrome 100+、Edge 100+</td></tr>
-        <tr><td><strong>可维护性</strong></td><td>代码规范</td><td>ESLint + Prettier（前端），统一异常处理（后端）</td></tr>
+        <tr><td><strong>兼容性</strong></td><td>浏览器支持</td><td>Baseline Widely Available（Vite 默认）</td></tr>
+        <tr><td><strong>可维护性</strong></td><td>代码规范</td><td>OXLint + ESLint（前端，参考项目根目录），统一异常处理（后端）</td></tr>
       </tbody>
     </table>
   </div>
