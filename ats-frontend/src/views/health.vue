@@ -33,7 +33,8 @@ onMounted(fetch)
   <main
     max-w="[760px]"
     mx-auto
-    p="y-12 x-6"
+    p="x-6"
+    class="pb-12 pt-[calc(60px+2rem)]"
   >
     <header
       flex="~ items-end justify-between wrap"

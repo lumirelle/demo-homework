@@ -19,6 +19,10 @@ public enum ErrorCode {
     UNAUTHORIZED(10001, "未登录或登录已过期"),
     FORBIDDEN(10002, "无权限执行此操作"),
     INVALID_TOKEN(10003, "无效或过期的 token"),
+    EMAIL_ALREADY_EXISTS(10004, "该邮箱已被注册"),
+    INVALID_CREDENTIALS(10005, "邮箱或密码错误"),
+    REFRESH_TOKEN_INVALID(10006, "Refresh token 无效或已过期，请重新登录"),
+    USER_DISABLED(10007, "账号已被禁用，请联系管理员"),
 
     BIZ_RULE_VIOLATED(20001, "业务规则校验失败"),
     ILLEGAL_TRANSITION(20002, "非法状态流转"),

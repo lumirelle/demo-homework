@@ -258,11 +258,21 @@ CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
 
 -- ────────────────────────────────────────────────────────────
 --  种子数据：初始化管理员账号 & 示例部门
---  密码：Admin@123 → BCrypt hash（实际部署请替换）
+--
+--  ⚠️ Admin 账号：
+--    email    = admin@ats.local
+--    password = Admin@123         （首次登录后必须改！）
+--    BCrypt   = $2b$12$8daJQt9...（cost=12，由 Bun.password.hash 生成，Spring 兼容 2a/2b）
+--
+--  生产环境部署前请重新生成 hash 并替换此行：
+--    bun -e "console.log(await Bun.password.hash('YOUR_NEW_PWD', { algorithm: 'bcrypt', cost: 12 }))"
 -- ────────────────────────────────────────────────────────────
 
 INSERT INTO users (email, password_hash, full_name, role) VALUES
-    ('admin@ats.local', '$2a$12$placeholder_admin_bcrypt_hash_here', 'System Admin', 'ADMIN');
+    ('admin@ats.local',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     'System Admin',
+     'ADMIN');
 
 INSERT INTO departments (name) VALUES
     ('技术研发'),

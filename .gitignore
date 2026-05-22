@@ -171,6 +171,12 @@ secrets/
 keys/
 ~/.ats/
 
+# 例外：dev-only JWT keypair 故意 commit（仅本地开发用，README 已警示）
+# 真实环境必须重新生成且通过 secret 注入；任何 .prod.pem / .local.pem 一律 ignore
+!infra/jwt/dev-*.pem
+infra/jwt/*.prod.pem
+infra/jwt/*.local.pem
+
 # ── 运行时数据 ──────────────────────────────────────
 uploads/
 backups/

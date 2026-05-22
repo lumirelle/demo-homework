@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { dateZhCN, NConfigProvider, NDialogProvider, NLoadingBarProvider, NMessageProvider, NNotificationProvider, zhCN } from 'naive-ui'
+import { useRoute } from 'vue-router'
 import { themeOverrides } from './theme'
+import AppNavbar from './components/AppNavbar.vue'
+
+const route = useRoute()
 </script>
 
 <template>
@@ -9,9 +13,10 @@ import { themeOverrides } from './theme'
       <NDialogProvider>
         <NNotificationProvider>
           <NMessageProvider>
-            <RouterView v-slot="{ Component, route }">
-              <Transition :name="(route.meta.transition as string) || 'fade-slide'" mode="out-in" appear>
-                <component :is="Component" :key="route.fullPath" />
+            <AppNavbar v-if="!route.meta.hideNavbar" />
+            <RouterView v-slot="{ Component, route: r }">
+              <Transition :name="(r.meta.transition as string) || 'fade-slide'" mode="out-in" appear>
+                <component :is="Component" :key="r.fullPath" />
               </Transition>
             </RouterView>
           </NMessageProvider>

@@ -392,8 +392,8 @@
     <div class="doc-meta">
       <span><strong>项目：</strong>招聘管理系统 MVP</span>
       <span><strong>当前阶段：</strong>Phase 3 · 编码实现</span>
-      <span><strong>当前里程碑：</strong>M1 即将启动</span>
-      <span><strong>最后更新：</strong>2026-05-22 13:50 (UTC+8)</span>
+      <span><strong>当前里程碑：</strong>M1 已完成 · 准备启动 M2</span>
+      <span><strong>最后更新：</strong>2026-05-22 16:05 (UTC+8)</span>
     </div>
   </div>
 
@@ -411,17 +411,17 @@
 
   <div class="dash-grid">
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.17"></div>
-      <div class="stat">1<small> / 6</small></div>
+      <div class="bar" style="--progress: 0.33"></div>
+      <div class="stat">2<small> / 6</small></div>
       <div class="label">完成的里程碑</div>
     </div>
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.10"></div>
-      <div class="stat">~8.5<small>h</small></div>
+      <div class="bar" style="--progress: 0.22"></div>
+      <div class="stat">~18<small>h</small></div>
       <div class="label">已耗时 (估)</div>
     </div>
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.10"></div>
+      <div class="bar" style="--progress: 0.22"></div>
       <div class="stat">85<small>h</small></div>
       <div class="label">总预估工时</div>
     </div>
@@ -456,10 +456,10 @@
       <tr>
         <td><code>M1</code></td>
         <td><strong>认证模块</strong></td>
-        <td><span class="pill todo">todo</span></td>
-        <td>—</td>
-        <td>—</td>
-        <td>JWT RS256 · register/login/refresh/logout/me</td>
+        <td><span class="pill done">done</span></td>
+        <td>2026-05-22</td>
+        <td>2026-05-22</td>
+        <td>JWT RS256 · register/login/refresh/logout/me · 43 单测全绿</td>
       </tr>
       <tr>
         <td><code>M2</code></td>
@@ -643,22 +643,29 @@
   </div>
 
   <!-- ════════════ M1 - M5 PLACEHOLDERS ════════════ -->
-  <h2 id="m1">5. M1 · 认证模块 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <h2 id="m1">5. M1 · 认证模块 <span class="pill done" style="vertical-align: middle">已完成</span></h2>
   <div class="ms-detail">
-    <h4>进入条件</h4>
+    <h4>验收记录（2026-05-22）</h4>
     <ul>
-      <li>M0 全部验收通过 ✓</li>
-      <li>JWT RS256 密钥对已用 <code>scripts/new-jwt-keys.ps1</code> 生成，且填入 <code>ats-backend/.env</code></li>
+      <li><strong>后端实现</strong>：JwtService（RS256 keypair 加载 + access/refresh token 签发/校验）+ Spring Security STATELESS + JwtAuthenticationFilter + JwtAuthEntryPoint + AuthController（register/login/refresh/logout/me）+ AdminController（POST /admin/users 仅 ADMIN，role 受限 HR/CANDIDATE）+ PgEnumTypeHandler（user_role enum 映射）</li>
+      <li><strong>前端实现</strong>：Pinia auth store（accessToken 内存 + user）+ axios 拦截器（withCredentials + 401 自动 refresh + 并发队列防 race）+ 路由 guard（requiresAuth + roles + 已登录重定向）+ /login /register /403 页面 + AppNavbar 角色徽章下拉</li>
+      <li><strong>单测覆盖</strong>：43 case / &lt; 10s 全绿（<code>JwtServiceTest</code> 8 + <code>AuthServiceTest</code> 17 + <code>WebSecurityIntegrationTest</code> 18）。覆盖 sign/verify happy/过期/篡改/错 issuer、register 重复邮箱、login 4 error path、refresh rotation + 失效场景清 cookie、logout 幂等、401 三态、@PreAuthorize 角色守卫（ADMIN 200 / HR 403 / CANDIDATE 403）、CSRF disable 回归。<strong>不依赖 PG/Redis/Docker</strong></li>
+      <li><strong>e2e 联调</strong>：13 条 curl 全过（token rotation 验证、logout 后 refresh 被拒、CANDIDATE 调 admin 403、重复注册 10004、role=ADMIN 越权 400）</li>
     </ul>
-    <h4>关键设计点（待实施）</h4>
+    <h4>关键决策与产物</h4>
     <ul>
-      <li>AccessToken 2h · RefreshToken 7d；RefreshToken 哈希入 Redis (key=<code>rt:{userId}:{tokenHash}</code>)</li>
-      <li>JwtAuthFilter 注入 SecurityContext；SecurityConfig 白名单 /auth/** + GET /jobs/**</li>
-      <li>注册默认角色 CANDIDATE；HR/ADMIN 需种子或专用接口</li>
-      <li>登出：吊销 refresh + 拉黑 access（access 用 jti 黑名单方案，TTL 取剩余有效期）</li>
+      <li><strong>Token 双轨</strong>：Access Token RS256 JWT / 15min（精简到 15min，比初设 2h 更安全），Refresh Token 随机 32B / 30d 存 HttpOnly Cookie；refresh SHA-256 后入 PG（非 Redis，避免增加依赖；Redis 留给后续 M2 缓存）</li>
+      <li><strong>Rotation 策略</strong>：每次 refresh 立即 revoke 旧 token（防 token 复用攻击）；登录时 revoke 该用户所有旧 refresh（single-session）</li>
+      <li><strong>注册流程</strong>：CANDIDATE 自助注册 / HR 由 Admin 创建 / ADMIN 仅 DB seed（防权限提升）</li>
+      <li><strong>测试策略</strong>：见 SKILL 2.6.7 「后端测试分层」—— 三层分工（纯 JUnit / Mockito / @WebMvcTest），不引入 Testcontainers</li>
     </ul>
-    <h4>完成后必填</h4>
-    <p style="color: var(--g-500); font-style: italic">这里留给下次 agent：验收记录、踩坑、commit SHA。</p>
+    <h4>踩坑</h4>
+    <ul>
+      <li>PostgreSQL user_role enum 默认 setString 报类型不匹配 → PgEnumTypeHandler 用 Types.OTHER（详见 ADR 2026-05-22）</li>
+      <li>JDK 25 + Spring Boot 3.4.0 默认 Mockito 5.14 不兼容（<code>Could not modify all classes</code>）→ 升级 Mockito 5.17 + byte-buddy 1.17 + surefire argLine（详见 ADR 2026-05-22）</li>
+      <li>Spring Boot 3.4 Mybatis-Plus BaseMapper 的 insert/updateById 同时声明 (T) 和 (Collection&lt;T&gt;) → Mockito argThat lambda 编译歧义 → 包一层 typed helper</li>
+      <li>JJWT 0.12 Claims 接口已无 setter → 用 <code>new DefaultClaims(map)</code> + <code>put(Claims.SUBJECT, ...)</code></li>
+    </ul>
   </div>
 
   <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill todo" style="vertical-align: middle">todo</span></h2>
@@ -769,8 +776,28 @@
       </tr>
       <tr>
         <td>2026-05-22</td>
+        <td>UnoCSS 圆括号简写适用边界澄清 + 插件辅助校验</td>
+        <td>实测 preset-uno v66.7：<strong>(a)</strong> <code>.vue</code> template、<code>class="..."</code> 字符串、attributify attribute name 内，<code>prop-(--var)</code> 简写均匹配成功；<strong>(b)</strong> <code>uno.config.ts</code> 的 <code>shortcuts</code> 字符串内会被解析器吞掉括号变成 <code>border---border</code>（vite 报 <code>unmatched utility</code>）—— shortcut 内仍写 <code>border-[var(--border)]</code>；<strong>(c)</strong> 带透明度修饰符的 <code>bg-(--bg-app)/70</code> 暂未稳定验证，保守用方括号。<strong>SKILL 2.5.5 新增「适用边界」段</strong>，反模式 #7 / #8 编号修正（之前重号）。<strong>新增「插件辅助」段</strong>：写法合法性以工具实时报告为准——VSCode <code>antfu.unocss</code> 扩展 hover 提示 / <code>@unocss/eslint-plugin</code> CLI 校验 / vite stdout 的 <code>[unocss] unmatched utility "..."</code> 警告。<strong>顺带修 bug</strong>：tokens.css 无 <code>--text-muted</code>，<code>text-muted</code> class 8 处实为 fallback 默认色，统一改 <code>text-tertiary</code>；register.vue scoped 内 <code>color: var(--text-muted)</code> 同步改 <code>--text-tertiary</code>。SKILL v0.0.16。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>UnoCSS 写法新增第三档：CSS 变量圆括号简写 <code>bg-(--var)</code></td>
+        <td>UnoCSS 原生支持 <code>prop-(--var-name)</code> ≡ <code>prop-[var(--var-name)]</code> 简写（圆括号在 HTML attribute name 中合法，不像方括号需要 attributify value）。比 <code>bg-[var(--brand-500)]</code> 短 7 字符，比 <code>bg="[var(--brand-500)]"</code> 短 9 字符；同样支持 hover variant（<code>hover:bg-(--brand-700)</code>）。<strong>新增规约</strong>：选择树第 3 档插入"单值 = CSS 变量 → 圆括号简写"，方括号仅保留给 arbitrary 字面值（<code>max-w-[1200px]</code> / <code>tracking-[-0.05em]</code>）。<strong>反模式 #7 新增</strong>：CSS 变量还在用方括号 + <code>var()</code> 写法是过时写法。<strong>渐变陷阱同步</strong>：<code>bg-(--grad-xxx)</code> 也会被当 <code>background-color</code> 静默失效，规避方式与方括号一致（用 <code>rules</code> 接管显式输出 <code>background-image</code>）。SKILL v0.0.15。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
         <td>样式方案改用 UnoCSS（Attributify 第一公民）</td>
         <td>原子化 CSS + dead code 自动 purge；attributify mode 让模板里 <code>bg="elevated" text="lg primary"</code> 自带语义分组，可读性远超长 class 串。<strong>核心决策</strong>：CSS custom properties（tokens.css）是单一真值来源，UnoCSS theme 通过 <code>var(--xxx)</code> 引用，禁止重复定义色值，Naive UI / 原生 CSS / UnoCSS 三方共享一套真值。<strong>无值原子必须用 <code>~</code> 占位</strong>（如 <code>flex="~"</code> <code>relative="~"</code>），否则 vue-tsc 会把它当成 boolean attribute 报错。SKILL 2.5.5 沉淀 attributify 落地规约 + 反模式 + 何时仍保留 scoped style 的指引</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>后端单测策略：三层分工（纯 JUnit / Mockito / @WebMvcTest），坚决不引入 Testcontainers</td>
+        <td>MVP 阶段优先 <strong>跑得快、稳定、CI 无依赖</strong>。三层：(1) <strong>纯 JUnit + @TempDir</strong> 测算法/工具类（如 JwtService 的 sign/verify/hash），用 helper 现场生成 RSA keypair 避免依赖 infra/jwt/；(2) <strong>Mockito 单测</strong> 覆盖 Service 业务分支（AuthService 17 case 含所有 error path）；(3) <strong>@WebMvcTest + @MockitoBean</strong> 启动真实 SecurityFilterChain 但 mock 掉 Service / Mapper，专测 401 / 403 / @PreAuthorize / CSRF 行为。<strong>不引入 H2 / Testcontainers</strong>：H2 不支持 PG enum + RETURNING + gen_random_uuid()，Testcontainers 拖慢 CI + 增加 Docker 依赖。SQL 正确性靠 dev compose 联调 + 后续 e2e 兜底。43 case < 10s。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>升级 Mockito 至 5.17 + byte-buddy 1.17（覆盖 Spring Boot 3.4.0 默认 5.14）</td>
+        <td>JDK 24+（含 GraalVM 25.0.3 JVMCI）下 Mockito 5.14 的 byte-buddy 1.15 报 <code>Could not modify all classes [class XxxService, class Object]</code>，所有 inline mock 失败。<strong>诊断</strong>：mockito-inline 依赖 byte-buddy-agent 动态 attach 到当前 JVM 做 bytecode 重写；JDK 25 加强了对 self-attach 的限制（need <code>-XX:+EnableDynamicAgentLoading</code>），byte-buddy 1.17+ 才适配新的 ClassFile API。<strong>修复</strong>：pom.xml 显式声明 <code>mockito.version=5.17.0</code> + <code>byte-buddy.version=1.17.6</code> 覆盖 Spring BOM；surefire <code>argLine</code> 加 <code>-XX:+EnableDynamicAgentLoading -javaagent:.../byte-buddy-agent.jar -Xshare:off</code>（最后一个关闭 CDS 防 instrumentation 冲突）。<strong>留给未来 agent 的信号</strong>：升级 Spring Boot 时若 BOM 的 mockito 已 ≥ 5.17 可移除 properties 覆盖，但 argLine 仍建议保留以兼容更新的 JDK。</td>
       </tr>
     </tbody>
   </table>
@@ -783,6 +810,41 @@
       <tr><th style="width:120px">时间</th><th style="width:80px">类型</th><th>变更</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td>2026-05-22 16:18</td>
+        <td><span class="pill doing">docs</span></td>
+        <td><strong>SKILL 2.5.5 新增 UnoCSS CSS 变量圆括号简写规约</strong>：选择树插入第 3 档「单值 = CSS 变量 → <code>bg-(--var)</code>」，方括号仅留给 arbitrary 字面值；新增 5 项典型对比表（bg/text/shadow/border/animate）；反模式 #7 标记"CSS 变量还用 <code>bg-[var(--xxx)]</code> 长写"为过时写法；渐变陷阱同步覆盖圆括号语法（同样 silent fail）。SKILL v0.0.15。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 16:05</td>
+        <td><span class="pill done">test</span></td>
+        <td><strong>M1.5 完成：后端单测 43 case 全绿</strong>（< 10s）。<code>JwtServiceTest</code>（8 case）纯 JUnit + <code>@TempDir</code> 现场生成 2048 位 RSA keypair（不依赖 <code>infra/jwt/</code>），覆盖 sign/verify happy path、过期 token、篡改签名、错误 issuer、垃圾字符串、refresh token 唯一性与长度、SHA-256 hash 确定性、TTL getter。<code>AuthServiceTest</code>（17 case）Mockito 纯单测分 5 个 <code>@Nested</code>：register（重复邮箱拦截 + 邮箱小写化 + role 强制 CANDIDATE）/ login（happy 含 token rotation 验证 + 密码错 + 邮箱不存在 + 禁用账号）/ refresh（cookie 缺失 + 未知 hash + revoked + 过期 + 用户被删都清 cookie；happy 验旧 token 立即吊销 + 新 token 入库 + 新 cookie 写入）/ logout（无 cookie 仍清 cookie + 已 revoke 跳过 update）/ me（用户不存在 → UNAUTHORIZED）。<code>WebSecurityIntegrationTest</code>（18 case）<code>@WebMvcTest</code> + <code>@MockitoBean</code> + 真实 SecurityFilterChain 分 4 个 <code>@Nested</code>：401 三态（无 token / 过期 / 篡改 / 非 Bearer 前缀）+ @PreAuthorize 角色守卫四态（ADMIN 200 / HR 403 / CANDIDATE 403 / role=ADMIN 越权 400）+ AuthController 路径放行 7 case（含 INVALID_CREDENTIALS → 400 + register validation 400）+ CSRF disable 回归 3 case（无 X-XSRF-TOKEN POST 通过 + 无 XSRF-TOKEN cookie 下发）。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 16:00</td>
+        <td><span class="pill done">infra</span></td>
+        <td><strong>测试基础设施加固</strong>：Spring Boot 3.4.0 默认 Mockito 5.14 在 JDK 25 上抛 <code>Mockito cannot mock this class: Could not modify all classes</code>。<code>pom.xml</code> 升级 <code>mockito.version=5.17.0</code> + <code>byte-buddy.version=1.17.6</code>（mockito 5.17 内置 byte-buddy 1.17 才支持 JDK 24+）；surefire 加 <code>argLine</code>：<code>-XX:+EnableDynamicAgentLoading -javaagent:.../byte-buddy-agent.jar -Xshare:off</code>，前两者抑制 JDK 25 对自加载 agent 的拦截，后者关闭 CDS 防 byte-buddy instrumentation 冲突。新增 <code>src/test/resources/application-test.yml</code> 提供假 JWT 配置满足 <code>@ConfigurationProperties</code> 启动校验，并把日志降至 WARN 减少噪音。<code>TestRsaKeyPair</code> helper 进程内生成 PKCS#8 / X.509 PEM，供 <code>JwtServiceTest</code> 与未来集成测试复用。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 15:50</td>
+        <td><span class="pill doing">polish</span></td>
+        <td><strong>认证页左侧装饰可交互化</strong>：登录页三张招聘卡片堆叠改为可点击 button —— 点击下层卡片自动洗到顶部（<code>topCardIndex</code> + 取模算法重算 <code>--i</code>，CSS transition 走 spring 曲线 0.55s），点击顶层卡片自动轮播下一张；顶层卡片用 <code>color-mix</code> 接 accent 变量做光晕，hover 非顶层卡片暂停 <code>card-bob</code> + 向左滑出 10px 增亮提示可点。注册页四个浮动职位标签改为 button：hover 暂停 <code>tag-float</code> + 放大 1.06 + 边框点亮；点击切换 <code>interests</code> Set，激活标签变 emerald 主题 + 圆形 check 图标（<code>tag-check-pop</code> 弹跳动画 0.35s spring）；右下角浮出"已收藏 N / 4"胶囊计数器（Vue Transition + counter-fade 进出）。所有交互细节通过纯 CSS transition + animation 叠加实现（<code>translate:</code> logical 属性与 <code>transform:</code> 互不冲突，hover 暂停的 keyframes translate 不打架 click 的 transform spring）。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 15:35</td>
+        <td><span class="pill doing">style</span></td>
+        <td><strong>认证页样式 92% UnoCSS 化</strong>：建立 shortcuts 分层规约（layout / typo / surface / btn / field / brand / navbar / anim 八大前缀）。<code>AppNavbar.vue</code> 175 行 scoped CSS → 0 行；<code>LoginView.vue</code> 270 行 → 55 行；<code>RegisterView.vue</code> 230 行 → 80 行。所有 keyframes 集中沉淀到 <code>global.css</code>，<code>uno.config.ts</code> rules 注册 8 个 <code>animate-*</code> utility 引用（含 shimmer / gradient-flow / aurora-shift / orb-float-a/b / card-bob / tag-float-a/b）。新增自定义 rule <code>text-stroke-{N|color}</code> 解决描边文字需求。剩 8% 留 CSS 的场景全部沉淀进 SKILL「诚实回答」表格（keyframes 定义 / 复杂 calc + CSS var / Vue Transition 命名 / 伪元素 / JS 注入 var / 状态联动）。SKILL v0.0.13。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 15:30</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M1.3–M1.7 完成</strong>（认证模块全链路）：后端 AuthController（register / login / refresh / logout / me）+ AdminController（POST /admin/users，仅 ADMIN 可用，role 只能 HR/CANDIDATE）+ PgEnumTypeHandler（解决 PostgreSQL user_role enum 与 Java String 类型映射）+ 前端 Pinia auth store（accessToken + user + silentRefresh）+ axios 拦截器（withCredentials + 401 自动 refresh + 并发队列防 race）+ 路由 guard（requiresAuth / roles / 已登录重定向）+ /login /register /403 页面 + AppNavbar 顶栏用户菜单（全名 + 角色徽章 + 下拉退出）。后端 13 条 curl 验证全部通过（含 token rotation、logout 后 refresh 拒绝、CANDIDATE token 调 admin 接口 403、重复注册 10004、role=ADMIN 注册被拦截等）；前端 typecheck + lint 全过。</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 14:55</td>
+        <td><span class="pill doing">feat</span></td>
+        <td>M1.1–M1.2 完成：RSA keypair 生成（infra/jwt/dev-*.pem）+ schema users/refresh_tokens 表 + Admin seed + JwtService（RS256 sign/verify + refresh token 生成/哈希）+ JwtAuthenticationFilter + Spring Security 配置（stateless + CORS + 放行清单）。后端编译通过，/health 匿名可访，/auth/me 无 token 正确 401。</td>
+      </tr>
       <tr>
         <td>2026-05-22 13:50</td>
         <td><span class="pill doing">style</span></td>

@@ -10,8 +10,8 @@ const router = useRouter()
 // 六个里程碑：颜色按"萌芽→茁壮→沉淀→流动→收获→入职"叙事递进
 const milestones = [
   { id: 'M0', name: '基建', desc: 'Skeleton + dev compose + /health', status: 'done', accent: 'mint' },
-  { id: 'M1', name: '认证', desc: 'JWT RS256 · register · login · refresh', status: 'todo', accent: 'emerald' },
-  { id: 'M2', name: '岗位', desc: 'CRUD + 状态机 + 全文搜索', status: 'todo', accent: 'teal' },
+  { id: 'M1', name: '认证', desc: 'JWT RS256 · 5 端点 · 43 单测全绿', status: 'done', accent: 'emerald' },
+  { id: 'M2', name: '岗位', desc: 'CRUD + 状态机 + 全文搜索', status: 'doing', accent: 'teal' },
   { id: 'M3', name: '看板', desc: '投递 + 拖拽流转 + 审计日志', status: 'todo', accent: 'cyan' },
   { id: 'M4', name: '辅助', desc: '简历 · 面试 · Dashboard', status: 'todo', accent: 'amber' },
   { id: 'M5', name: '交付', desc: 'UI 打磨 + 生产 compose', status: 'todo', accent: 'lime' },
@@ -98,7 +98,7 @@ onUnmounted(() => io?.disconnect())
 </script>
 
 <template>
-  <main min-h-screen bg-app>
+  <main min-h-screen bg-app class="pt-[60px]">
     <!-- ════════════ HERO ════════════ -->
     <section
       ref="heroRef"
@@ -116,23 +116,10 @@ onUnmounted(() => io?.disconnect())
       <header
         relative
         z-1
-        flex="~ items-center justify-between wrap"
+        flex="~ items-center justify-center wrap"
         gap-4
         p="y-3 x-4"
       >
-        <div inline-flex items-center gap="[10px]" text-lg font-bold tracking-tight>
-          <span
-            w-8 h-8
-            grid place-content-center
-            rounded="[8px]"
-            class="bg-grad-spring"
-            text-white
-            font="mono bold"
-            shadow-glow-brand
-          >A</span>
-          <span>ATS<span text-accent-emerald>.</span></span>
-        </div>
-
         <nav flex gap-5 text-sm font-medium max-sm:hidden>
           <a
             v-for="(item, idx) in [
@@ -157,6 +144,10 @@ onUnmounted(() => io?.disconnect())
 
         <!-- status-chip（状态化 class 用 computed 动态绑定，零 scoped CSS） -->
         <div
+          absolute
+          top="1/2"
+          translate-y="-1/2"
+          right-4
           inline-flex items-center
           gap-2
           p="y-[6px] x-3"
@@ -193,7 +184,7 @@ onUnmounted(() => io?.disconnect())
           text="xs secondary"
           font="medium mono"
         >
-          v0.1 · Phase 3 · Milestone 0 done ✓
+          v0.2 · Phase 3 · M0 · M1 done ✓
         </p>
 
         <h1
@@ -215,7 +206,7 @@ onUnmounted(() => io?.disconnect())
           text="lg secondary"
           leading="[1.6]"
         >
-          一条流水线把候选人从投递追到入职。<br>
+          一条流水线把候选人从投递追到入职。<br><br>
           Spring Boot 3 · Vue 3.5 · PostgreSQL · Redis · 在 10 天内跑完整个 MVP。
         </p>
 
@@ -331,10 +322,10 @@ onUnmounted(() => io?.disconnect())
           bg-elevated
           border="~ subtle"
           shadow-sm
-          duration-base
+          duration-260
           ease-out
           before="absolute top-0 left-0 right-0 h-3px content-empty origin-left scale-x-[0.15]
-                  bg-[var(--accent-color)]"
+                  bg-(--accent-color)"
           hover="border-transparent shadow-lg before:scale-x-100"
           :style="{
             'transitionDelay': `${i * 60}ms`,

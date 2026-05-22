@@ -1,5 +1,10 @@
 package com.ats.config;
 
+import com.ats.auth.JwtAuthEntryPoint;
+import com.ats.auth.JwtAuthenticationFilter;
+import com.ats.auth.JwtProperties;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,13 +14,31 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * M0 阶段最小配置：放行 /health 与 /auth/**；其他路径暂放行，待 M1 接 JwtFilter 后收紧
+ * Spring Security 主配置（M1 接入 JWT）。
+ *
+ * <h3>策略</h3>
+ * <ul>
+ *   <li><strong>无状态</strong>：SessionCreationPolicy.STATELESS</li>
+ *   <li><strong>CSRF disable</strong>：JWT + SameSite=Lax 防御已足够，关闭可简化前端</li>
+ *   <li><strong>CORS</strong>：由 {@link CorsConfig#corsFilter} 提供，{@code allowCredentials=true}
+ *       让前端 axios {@code withCredentials} 能携带 refresh cookie</li>
+ *   <li><strong>放行清单</strong>：/health、/auth/(register|login|refresh)、GET /jobs(/*)
+ *       —— 其余全部 .authenticated()，由 method-level {@code @PreAuthorize} 做细粒度</li>
+ *   <li><strong>认证入口</strong>：未认证访问受保护资源由 {@link JwtAuthEntryPoint}
+ *       统一输出 ApiResponse 401</li>
+ * </ul>
  */
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
+@EnableConfigurationProperties(JwtProperties.class)
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtFilter;
+    private final JwtAuthEntryPoint authEntryPoint;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -29,16 +52,21 @@ public class SecurityConfig {
                 .cors(cors -> {
                 })
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(eh -> eh.authenticationEntryPoint(authEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/health", "/auth/**").permitAll()
+                        .requestMatchers("/health").permitAll()
+                        // /auth/register · /auth/login 公开；/auth/refresh · /auth/logout 只凭 cookie 操作
+                        .requestMatchers("/auth/register", "/auth/login", "/auth/refresh", "/auth/logout").permitAll()
+                        // 候选人可未登录浏览岗位（M2 视设计可再收紧）
                         .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*").permitAll()
-                        // M0 阶段其他全部放行，待 M1 实装 JWT 过滤器后改为 .authenticated()
-                        .anyRequest().permitAll()
+                        // 其他全部需要登录
+                        .anyRequest().authenticated()
                 )
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(form -> form.disable())
-                .logout(logout -> logout.disable());
+                .logout(logout -> logout.disable())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -28,6 +28,11 @@
         <jjwt.version>0.12.6</jjwt.version>
         <lombok.version>1.18.42</lombok.version>
         <postgresql.version>42.7.4</postgresql.version>
+
+        <!-- 测试栈：Spring Boot 3.4.0 默认 Mockito 5.14 不支持 JDK 24+
+             升级 Mockito 至 5.17 + byte-buddy 1.17，配合 surefire argLine 启用动态 agent -->
+        <mockito.version>5.17.0</mockito.version>
+        <byte-buddy.version>1.17.6</byte-buddy.version>
     </properties>
 
     <dependencies>
@@ -129,6 +134,19 @@
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <!-- Surefire: 启用 dynamic agent loading（JDK 21+ 默认 warn，JDK 25+ 必需）
+                 + 显式加载 mockito agent 让 mockito-inline 在 JDK 25 上正常工作 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>
+                        -XX:+EnableDynamicAgentLoading
+                        -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar
+                        -Xshare:off
+                    </argLine>
                 </configuration>
             </plugin>
         </plugins>

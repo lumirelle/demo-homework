@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.11.20260522
+metadata: v0.0.16.20260522
 ---
 
 # AI 全栈开发工作流
@@ -260,17 +260,19 @@ theme: {
 ```
 1. valueless（display / position / 状态 keyword）？  → <div flex relative grid>
 2. 单值 + 无括号？                                    → <div bg-app mt-8 rounded-full>
-3. 单值 + 带括号（arbitrary）？                       → <div max-w="[1200px]" gap="[10px]">  ⚠️ 必须 attributify
-4. 单值 variant（hover/focus/group-hover/max-sm）？    → <div hover:bg-active group-hover:translate-x-1>
-5. 多值（含 ~ 或空格分隔的多个 utility）？             → <div flex="~ items-center" p="y-3 x-4">
-6. shortcut / 状态化 / 含 . is-visible？               → class="text-gradient reveal ms-card"
+3. 单值 = CSS 变量？                                  → <div bg-(--brand-500) text-(--text-primary)>  ✨ 圆括号简写
+4. 单值 + 带括号（arbitrary 字面值）？                 → <div max-w="[1200px]" gap="[10px]">  ⚠️ 必须 attributify
+5. 单值 variant（hover/focus/group-hover/max-sm）？    → <div hover:bg-active group-hover:translate-x-1>
+6. 多值（含 ~ 或空格分隔的多个 utility）？             → <div flex="~ items-center" p="y-3 x-4">
+7. shortcut / 状态化 / 含 . is-visible？               → class="text-gradient reveal ms-card"
 ```
 
 | 场景 | 写法 | 说明 |
 |---|---|---|
 | **无值原子（display/position 等 keyword）** | `<div flex relative grid inline-flex>` | 直接 valueless，UnoCSS scanner 会扫到。**禁止** `flex="~"` 这种冗余形式 |
 | **单值无括号** | `<div bg-app mt-8 rounded-full text-lg font-bold>` | **当 class 用**，更紧凑（`bg="app"` 比 `bg-app` 多 4 字符却没好处） |
-| **单值带括号（arbitrary value）** | `<div max-w="[1200px]" tracking="[-0.05em]" gap="[10px]">` | **⚠️ 必须 attributify value 形式**，**禁止** `max-w-[1200px]` 写在 attribute name 上 —— HTML attribute name 不允许 `[` `]` 字符，浏览器虽宽容但 vue-tsc / prettier / 严格 parser 会出问题；attributify value 字符串里方括号完全合法 |
+| **单值带括号（arbitrary 字面值）** | `<div max-w="[1200px]" tracking="[-0.05em]" gap="[10px]">` | **⚠️ 必须 attributify value 形式**，**禁止** `max-w-[1200px]` 写在 attribute name 上 —— HTML attribute name 不允许 `[` `]` 字符，浏览器虽宽容但 vue-tsc / prettier / 严格 parser 会出问题；attributify value 字符串里方括号完全合法 |
+| **单值 = CSS 变量** ✨ | `<div bg-(--brand-500) text-(--text-primary) shadow-(--shadow-lg)>` | UnoCSS **圆括号简写**：`prop-(--var)` ≡ `prop-[var(--var)]`，比方括号 + `var()` 短 7 字符。HTML attribute name **允许** `(` `)`（与 `[` `]` 不同），所以可以直接当 attribute 写，无需 attributify value。**优先用此形式**替代 `bg-[var(--xxx)]`／`bg="[var(--xxx)]"` |
 | **单值 variant** | `<div hover:bg-active group-hover:translate-x-1 max-sm:hidden focus:ring-2>` | **当 class 用**，单值时连字符 + 冒号比 `hover="bg-active"` 更短更直观 |
 | **多值（同 prefix，含 prefix 本身）** | `flex="~ items-center justify-between wrap"` | `~` 表示 prefix 本身作为 class（`display:flex`）；**此处 `~` 不能省**——去掉就只剩 `align-items` `justify-content` `flex-wrap`，没有 `display:flex` |
 | **多值（同 prefix，不含 prefix 本身）** | `border="t subtle"` ／ `text="xs secondary uppercase"` | 不写 `~`，只组合子 class |
@@ -285,6 +287,30 @@ theme: {
 
 > 💡 **`duration-*` 默认 unit**：UnoCSS 对 `duration-N`（纯数字）默认 `N` 毫秒——`duration-260` ≡ `duration-[260ms]`，前者更短，**优先用**。同理 `delay-*`。但 `w-` `h-` `p-` `m-` 等纯数字走的是 theme.spacing（`w-4` ≠ `w-[4px]`），不要混淆。
 
+> 💡 **CSS 变量圆括号简写** ✨：`prop-(--var-name)` ≡ `prop-[var(--var-name)]`，三档展开率（短 7 字符）：
+>
+> | 旧写法 | 新写法 | 等价 CSS |
+> |---|---|---|
+> | `bg-[var(--brand-500)]` | `bg-(--brand-500)` | `background-color: var(--brand-500)` |
+> | `text="[var(--text-primary)]"` | `text-(--text-primary)` | `color: var(--text-primary)` |
+> | `shadow-[var(--shadow-lg)]` | `shadow-(--shadow-lg)` | `box-shadow: var(--shadow-lg)` |
+> | `border-[var(--border-default)]` | `border-(--border-default)` | `border-color: var(--border-default)` |
+> | `animate-[var(--blink)]` | `animate-(--blink)` | `animation: var(--blink)` |
+>
+> 同样适用于 hover variant：`hover:bg-(--brand-700)`。**全项目优先用圆括号简写**，仅当不是 CSS 变量而是任意字面值（`max-w-[1200px]`、`tracking-[-0.05em]`、复杂渐变字符串等）时才用方括号。
+>
+> 🚧 **适用边界**（preset-uno v66 实测）：
+> - ✅ `.vue` template 内、`class="..."` 字符串内、attributify attribute name 上（`<div bg-(--brand-500)>`）：**圆括号简写匹配成功**
+> - ❌ `uno.config.ts` 内 `shortcuts` 字符串里：**会被解析器吞掉括号变成 `border---border`**（vite 报 `unmatched utility "border---border"`）。shortcut 字符串内仍写 `border-[var(--border)]`
+> - ❌ 带透明度修饰符的复合写法 `bg-(--bg-app)/70` 暂未验证稳定，遇到这种保留方括号 `bg-[var(--bg-app)]/70` 更稳
+>
+> ⚠️ 圆括号简写**不会自动生成 gradient**——`bg-(--grad-spring)` 仍然展开为 `background-color`，渐变同样会静默失效，规避方式与方括号一致：用自定义 `rules` 接管（见下方反模式 #8）。
+
+> 💡 **借助插件做权威校验**：UnoCSS 写法的合法性以工具实时报告为准，**不要凭记忆判断**：
+> - **VSCode**：装 `antfu.unocss` 扩展，hover / 行内即可看到 utility 是否匹配 + 生成的 CSS
+> - **CLI 校验**：装 `@unocss/eslint-plugin`，配 minimal `eslint.config.js` 跑 `eslint . --rule '@unocss/order: error' --rule '@unocss/blocklist: error'` 验证；也可直接看 vite dev server stdout 的 `[unocss] unmatched utility "..."` 警告
+> - **凡是 vite 报 unmatched 的写法都是无效的**——立即修，不要 ship 残缺 class
+
 ##### ⚠️ 反模式
 
 1. **单独 `xxx="~"` 冗余写法**（如 `<div flex="~" relative="~">`）—— `~` 只在"prefix 本身 + 子值"混合场景才必要；单独无值原子直接 `<div flex relative>` 即可。全项目统一 valueless 风格
@@ -293,7 +319,8 @@ theme: {
 4. **同一原子同时出现在 class 和 attribute 上**—— diff 难读，规约混乱
 5. **shortcut / 复杂状态 class 拆成 atomic**（如把 `text-gradient` 拆成 5 个属性）—— 失去 shortcut 的语义聚合价值
 6. **在 UnoCSS theme 里重新写一遍颜色值**（如 `brand: { 500: '#10b981' }`）—— 破坏"token 单一真值"，Naive UI 和 UnoCSS 会渐行渐远
-7. **用 `bg-[var(--grad-xxx)]` 或 shortcut 拼出渐变**—— UnoCSS 把 `bg-[...]` 默认推断为 `background-color`，**`background-color` 不接受 `linear-gradient(...)`，渐变会静默失效**（不报错，但页面上就是一片透明 / 默认色）
+7. **CSS 变量还用方括号 + `var()` 长写**（如 `bg-[var(--brand-500)]` / `text="[var(--text-primary)]"` / `class="shadow-[var(--shadow-lg)]"`）—— UnoCSS 早已支持**圆括号简写** `bg-(--brand-500)`，等价但短 7 字符且可直接当 attribute name（圆括号在 HTML 中合法）。template / class 字符串内统一走简写；**shortcut 字符串内例外**（preset-uno 解析失败，保留方括号 + `var()`）
+8. **用 `bg-[var(--grad-xxx)]` ／ `bg-(--grad-xxx)` ／ shortcut 拼出渐变**—— UnoCSS 把 `bg-[...]` 和 `bg-(--xxx)` 都默认推断为 `background-color`，**`background-color` 不接受 `linear-gradient(...)`，渐变会静默失效**（不报错，但页面上就是一片透明 / 默认色）
    - **必须用 `rules` 接管**，显式输出 `background-image`：
      ```ts
      rules: [
@@ -314,17 +341,6 @@ theme: {
    - **自测**：浏览器打开页面，如果 `text-gradient` 文字是 `transparent` 但没看到渐变（一片空白） → 100% 是这个坑
    - **DOM 检查法**：dev tools 看 `__uno.css` 是否生成的是 `background-color: var(--grad-xxx)`（错）还是 `background-image: var(--grad-xxx)`（对）
 
-##### 什么场景仍然保留 scoped `<style>`
-
-- 依赖**伪元素**的视觉（`::before` 渐变层、`::after` 下划线滑入、`::after` 噪点 overlay）
-- 依赖 **JS 注入 CSS var** 的特效（`cursor-glow` 跟随鼠标、`reveal` 滚动入场）
-- **状态化**样式（`[data-state='up']` 联动多个子元素颜色 + animation）
-- 复杂 **hover 联动**（hover 父元素 → 子 `::before` scaleX + `arrow` 滑入）
-- **路由 Transition class**（Vue Transition 命名约定要求是 plain class）
-- 复杂 **`@keyframes`**
-
-> 原则：能用一个 attribute 表达的别拆成 5 个 atomic；能用 atomic 表达的别写 scoped style；只有 atomic 写不出来或写起来比 scoped CSS 更啰嗦才退回 scoped。
-
 ##### shims.d.ts 必备声明
 
 ```ts
@@ -332,6 +348,106 @@ declare module 'virtual:uno.css'
 ```
 
 > 💡 vue-tsc 现在对 attributify 属性是宽容的（任意未知 attribute 接受 string，**包括 valueless attribute 不再报 boolean 错**），无需为 `bg` / `text` / `p` / `m` 等做 HTMLAttributes augmentation。如果你看到旧文章建议加 `~` 来"绕过 boolean 报错"，那是过时信息——直接 valueless 即可。
+
+##### Shortcuts 分层规约（≥ 3 处复用就抽 shortcut）
+
+**判断标准**：同一段 utility 组合在 ≥ 3 个组件出现，或单段 ≥ 40 字符 → 立即抽进 `uno.config.ts` 的 `shortcuts`，模板里只剩语义类名。
+
+**命名前缀分组**（来自 M1 实战沉淀，扫一眼前缀就知道用途）：
+
+| 前缀 | 用途 | 示例 |
+|---|---|---|
+| `layout-*` / `center-*` / `between-*` / `col-*` | 布局原子 | `center-flex`、`between-flex`、`col-flex`、`card-base` |
+| `typo-*` / `heading-*` / `kicker` / `eyebrow` | 排版语义 | `heading-1`、`eyebrow`（uppercase + tracking）|
+| `surface-*` | 容器（玻璃 / 卡片） | `surface-glass`、`surface-glass-dark`、`surface-elevated` |
+| `btn-*` | 按钮变体（含 hover/active） | `btn-primary`、`btn-secondary`、`btn-cta` |
+| `field-*` / `kbd-hint` / `error-banner` / `demo-*` | 表单原子 | `error-banner`、`error-icon`、`demo-card`、`kbd-hint` |
+| `navbar-*` / `logo-*` / `avatar` / `user-trigger` / `version-pill` | 导航栏专属 | `navbar-glass`、`navbar-glow-line`、`logo-mark`、`logo-mark-lg` |
+| `brand-*` / `hero-*` / `aurora-bg-*` / `orb-*` | 品牌视觉（认证页 / Hero） | `brand-pane`、`hero-display`、`hero-outline`、`hero-gradient` |
+| `anim-*` / `animate-*` / `btn-shimmer` / `cta-glow` | 动画绑定 | `animate-shimmer`、`btn-shimmer`、`cta-glow`（搭配 `group` 用）|
+
+**实战收益**（M1 认证页迁移）：
+
+| 文件 | scoped 样式行数（前 → 后） | 减少 |
+|---|---|---|
+| `AppNavbar.vue` | 175 → 0 | -100% |
+| `LoginView.vue` | 270 → 55 | -80% |
+| `RegisterView.vue` | 230 → 80 | -65% |
+
+**总体「UnoCSS 化率」≈ 92%**，剩 8% 都是合理留存（见下条）。
+
+##### Keyframes 集中沉淀策略
+
+`@keyframes` 定义**只能写在 CSS** 里（UnoCSS 不支持定义，只能引用）。集中沉淀到 `styles/global.css`，shortcuts 通过 `animate-xxx` utility 引用：
+
+```css
+/* global.css —— 所有共享 keyframes 集中 */
+@keyframes shimmer       { 0%{transform:translateX(-100%)} 50%,100%{transform:translateX(100%)} }
+@keyframes gradient-flow { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+@keyframes aurora-shift  { 0%,100%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(-3%,2%,0) scale(1.05)} }
+@keyframes orb-float-a   { 0%,100%{transform:translate3d(0,0,0)} 50%{transform:translate3d(40px,30px,0)} }
+@keyframes card-bob      { 0%,100%{translate:0 0} 50%{translate:0 -6px} }
+```
+
+```ts
+// uno.config.ts rules 里逐个注册 animate-* utility
+rules: [
+  ['animate-shimmer',       { animation: 'shimmer 2.5s ease-in-out infinite' }],
+  ['animate-gradient-flow', { animation: 'gradient-flow 6s ease-in-out infinite' }],
+  ['animate-aurora-shift',  { animation: 'aurora-shift 18s ease-in-out infinite' }],
+  // ...
+]
+```
+
+> ⚠️ **不要用 `theme.animation`**：实测 theme.animation 在不同时填 `keyframes` 字段时 UnoCSS **不生成 utility**（即使 keyframes 已在 global.css 定义）。统一走 rules 更直观可靠。
+
+**reduced-motion 兜底用通配符匹配**，避免每加一个 keyframe 都要补声明：
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-aurora"],
+  [class*="animate-orb"],
+  [class*="animate-gradient"],
+  [class*="animate-card-bob"],
+  [class*="animate-tag-float"],
+  [class*="animate-shimmer"],
+  [class*="animate-pulse"] { animation: none !important; }
+}
+```
+
+##### text-stroke / 复杂多层渐变的自定义 rule 套路
+
+UnoCSS 默认不带 `-webkit-text-stroke`（描边文字），加规则即可：
+
+```ts
+rules: [
+  [/^text-stroke-(\d+)$/, ([, w]) => ({
+    '-webkit-text-stroke-width': `${w}px`,
+    'color': 'transparent',
+  })],
+  [/^text-stroke-(\[[^\]]+\]|white|black|brand)$/, ([, c]) => {
+    const color = c.startsWith('[') ? c.slice(1, -1) : c === 'brand' ? 'var(--brand-500)' : c
+    return { '-webkit-text-stroke-color': color }
+  }],
+]
+```
+
+用法：`<span class="text-stroke-2 text-stroke-[rgba(255,255,255,.85)]">`。
+
+##### 「能否完全替代 scoped CSS？」诚实回答
+
+**理论上 100% 可以，实战 92%**。剩下 8% 必须 / 推荐留 plain CSS：
+
+| 场景 | 为什么留 CSS | 例子 |
+|---|---|---|
+| **`@keyframes` 本身** | UnoCSS 不能定义，只能引用 | `keyframes shimmer { ... }` |
+| **复杂 calc + CSS var** | `translate-x-[calc(var(--i)*36px)]` 可写但极丑 | `transform: translateX(calc(var(--i) * 36px))` |
+| **Vue Transition 命名 class** | Vue 命名约定要求 plain class | `.fade-slide-enter-active` |
+| **依赖 `::before` `::after` 伪元素** + 复杂结构 | utility 写多层伪元素链路啰嗦 | `.with-noise::after`（噪点 overlay）|
+| **依赖 JS 注入 CSS var** | `--mx --my` 跟随鼠标场景 | `.cursor-glow` |
+| **状态化 `[data-state='up']` 联动多个子元素** | 父级状态控制多个 selector 时 utility 难表达 | health card 状态色联动 |
+
+> 原则：**这一行写 utility 比写 CSS 更短更清晰 → 用 utility；反之 → 留 CSS**。不要为了"100% UnoCSS 化"硬塞复杂表达式，可读性永远第一。
 
 #### 2.5.4 页面过渡 / 路由动画基线（强制）
 
@@ -690,3 +806,156 @@ podman compose up -d
 | **里程碑活文档** | `docs/project-milestones.html` | **活文档 · 每个里程碑必更** |
 
 > 接手项目第一份要看：**`docs/project-milestones.html` 的「续接说明」**章节。
+
+---
+
+## 2.6 JWT + 认证模块落地规约（M1 沉淀）
+
+### 2.6.1 密钥管理策略
+
+| 环境 | 方式 | 文件位置 | git |
+|---|---|---|---|
+| dev | 文件 mount | `infra/jwt/dev-private.pem` / `dev-public.pem` | ✅ 允许提交（非生产密钥）|
+| prod | 环境变量 / 密钥管理系统 | 容器内 mount 路径 | ❌ 绝不提交 |
+
+- `.gitignore` 策略：`*.pem` 全局忽略 + `!infra/jwt/dev-*.pem` 白名单豁免
+- `ATS_JWT_KEY_DIR` 环境变量：dev 默认 `../infra/jwt`（相对于 ats-backend/），Docker 内通过卷覆盖
+
+### 2.6.2 Token 双轨架构
+
+```
+Access Token  RS256 JWT  15min TTL  → Authorization: Bearer <token>
+Refresh Token 随机串(32B) 30d TTL  → HttpOnly Cookie, SameSite=Lax
+              SHA-256 后存 DB，原值只在内存/cookie 里
+```
+
+**Rotation 策略**：每次 refresh 吊销旧 token，生成新 token（防 token 复用攻击）
+
+### 2.6.3 Spring Security 配置要点
+
+```java
+// 放行清单（permitAll）：
+// /health, /auth/register, /auth/login, /auth/refresh, /auth/logout
+// GET /jobs, GET /jobs/*
+
+// 关键：/auth/logout 必须 permitAll
+// 原因：refresh cookie 过期前 access token 可能已失效，不能要求 Bearer 才能登出
+```
+
+### 2.6.4 PostgreSQL Enum 处理
+
+MyBatis-Plus 默认用 `setString()` 写 PG enum 列会报 `column "role" is of type user_role but expression is of type character varying`。
+
+**解决**：
+1. 自定义 `PgEnumTypeHandler extends BaseTypeHandler<String>`，在 `setNonNullParameter` 里改用 `ps.setObject(i, value, Types.OTHER)`
+2. 实体字段加 `@TableField(typeHandler = PgEnumTypeHandler.class)`
+3. `@TableName(value = "xxx", autoResultMap = true)` —— SELECT 时 TypeHandler 才生效
+4. `application.yml` 加 `type-handlers-package: com.ats.config`
+
+### 2.6.5 前端认证 Store 架构
+
+```
+useAuthStore (Pinia)
+├── accessToken: string | null     (内存，不持久化)
+├── user: MeVO | null
+├── login()                        → 调 /auth/login，setTokens
+├── logout()                       → 调 /auth/logout，clearTokens，跳 /login
+├── silentRefresh()                → 调 /auth/refresh（浏览器自动带 cookie）
+└── initialize()                   → 页面刷新时调用，静默恢复登录态
+```
+
+**循环依赖处理**：`stores/auth` → `api/request` → `stores/auth` 的循环，通过在 axios interceptor 内用 `await import('@/stores/auth')` 懒加载解决（Vite 模块缓存，无性能损耗）。
+
+**401 自动 refresh 并发控制**：
+```
+第一个 401 请求 → 发起 silentRefresh，设 isRefreshing = true
+后续并发 401   → 进入 pendingQueue 排队等新 token
+refresh 完成   → drainQueue 分发新 token，原请求全部重试
+```
+
+### 2.6.6 注册流程决策
+
+| 角色 | 注册方式 | 端点 |
+|---|---|---|
+| CANDIDATE | 自助注册 | `POST /auth/register`（role 硬编码为 CANDIDATE）|
+| HR | Admin 创建 | `POST /admin/users`（ADMIN 角色鉴权）|
+| ADMIN | DB seed / 直接 SQL | 不开放 API（防权限提升）|
+
+> ⚠️ `POST /admin/users` 的 role 字段必须通过 `@Pattern(regexp = "HR|CANDIDATE")` 校验，禁止创建 ADMIN。
+
+### 2.6.7 后端测试分层（MVP 阶段）
+
+> ⚡ **核心原则**：MVP 阶段坚决**不引入 Testcontainers / H2**。让单测在 10s 内跑完、CI 无 Docker 依赖、新人 `mvn test` 就过。SQL 正确性靠 dev compose 联调 + 后续 e2e 兜底。
+
+**三层分工**（按"启动成本"由低到高，能下沉就下沉）：
+
+| 层 | 工具 | 适用场景 | 启动成本 |
+|---|---|---|---|
+| **L1 · 纯 JUnit** | JUnit 5 + `@TempDir` | 算法 / 工具类 / 纯函数（如 JwtService 的 sign/verify/hash）| 0ms |
+| **L2 · Mockito 单测** | `@ExtendWith(MockitoExtension)` + `@Mock` / `@InjectMocks` | Service 业务分支（所有 error path 必须覆盖）| ~500ms |
+| **L3 · Web 集成** | `@WebMvcTest` + `@MockitoBean` + `@Import(SecurityConfig, Filter, Handler)` | 401 / 403 / `@PreAuthorize` / CSRF / 路径放行 | ~2.5s |
+
+**关键技巧**：
+
+1. **L1 不依赖外部文件**：用 `TestRsaKeyPair` helper 现场生成 RSA keypair 写入 `@TempDir`，跑完即删，CI/离线都能跑（不依赖 `infra/jwt/`）
+2. **L2 用 `@Nested` 按方法分组**：`Register / Login / Refresh / Logout / Me` 五组，每组独立 setup，IDE 树形展示一目了然
+3. **L3 用 `@WebMvcTest` 而非 `@SpringBootTest`**：只装 controller + security 链路，启动快 5×；`@MockitoBean`（Spring 6.2+）替换 Service / Mapper bean，无需 DB
+4. **JJWT 0.12 mock claims**：`Claims` 接口已无 setter，必须用 `new DefaultClaims(map)` + `put(Claims.SUBJECT, ...)`
+5. **CSRF disable 回归测试**：写一个 `noCsrfCookieIssued()` 显式验证无 XSRF-TOKEN 下发，防止有人偷偷把 `csrf.disable()` 改回去
+
+**Mockito + JDK 24/25 兼容性**（Spring Boot 3.4.0 默认 mockito 5.14 在 JDK 25 上失效）：
+
+```xml
+<!-- pom.xml -->
+<properties>
+  <mockito.version>5.17.0</mockito.version>     <!-- 覆盖 BOM 默认 5.14 -->
+  <byte-buddy.version>1.17.6</byte-buddy.version>
+</properties>
+
+<plugin>
+  <artifactId>maven-surefire-plugin</artifactId>
+  <configuration>
+    <argLine>
+      -XX:+EnableDynamicAgentLoading
+      -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${byte-buddy.version}/byte-buddy-agent-${byte-buddy.version}.jar
+      -Xshare:off
+    </argLine>
+  </configuration>
+</plugin>
+```
+
+> ⚠️ **症状**：`Mockito cannot mock this class ... Could not modify all classes` —— 别去查代码，先看 JDK 版本 + Mockito 版本对应表。Mockito 5.17 内置 byte-buddy 1.17 才适配 JDK 24+ 新的 ClassFile API。
+
+**MyBatis-Plus `argThat` 编译歧义**：
+
+```java
+// ❌ 编译失败：BaseMapper 同时声明 insert(T) 和 insert(Collection<T>)
+verify(userMapper).insert(argThat(u -> "alice".equals(u.getEmail())));
+
+// ✅ 用类型化 helper 消除 lambda 推断歧义
+private static User argThatUser(ArgumentMatcher<User> m) { return argThat(m); }
+verify(userMapper).insert(argThatUser(u -> "alice".equals(u.getEmail())));
+```
+
+**测试 application-test.yml 关键**：
+
+```yaml
+# 仅供 @SpringBootTest / @WebMvcTest 使用；@ConfigurationProperties 启动校验需要值
+# 但 JwtService 在 web 测试里也是 @MockitoBean，不会真去读 keypair
+ats:
+  jwt:
+    key-dir: build/test-jwt       # 假路径
+    private-key-file: priv.pem
+    public-key-file: pub.pem
+    access-ttl-seconds: 900
+    refresh-ttl-seconds: 86400
+    issuer: ats.test
+```
+
+**M1 测试覆盖参考矩阵**（43 case / 10s）：
+
+| 类 | Case 数 | 覆盖点 |
+|---|---|---|
+| `JwtServiceTest` | 8 | sign + verify happy / 篡改 / 过期 / 错 issuer / 垃圾输入 / refresh 唯一 / hash 确定 / TTL |
+| `AuthServiceTest` | 17 | register × 2 / login × 4 / refresh × 6 / logout × 3 / me × 2 |
+| `WebSecurityIntegrationTest` | 18 | 401 × 4 / 角色守卫 × 4 / Auth 路径 × 7 / CSRF 回归 × 3 |

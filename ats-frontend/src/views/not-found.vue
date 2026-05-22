@@ -11,6 +11,7 @@ const router = useRouter()
     grid place-content-center
     text-center
     gap-3
+    class="pt-[60px]"
   >
     <p
       m-0
