@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.4.20260521
+metadata: v0.0.5.20260522
 ---
 
 # AI 全栈开发工作流
@@ -133,9 +133,45 @@ src/
   router/      → 路由配置（meta.roles 声明权限）+ 全局路由守卫
   utils/       → token.ts / format.ts / stageMap.ts（枚举→标签/颜色）
   types/       → api.d.ts（与后端 VO 对齐）+ enums.ts
+  styles/      → tokens.css（design tokens）+ global.css
 ```
 
 按需扩充。
+
+### 2.5 UI 设计基线（B 端 SaaS 风）
+
+> 参考 awwwards 上 Linear / Vercel Dashboard / Cron / Notion 这类**克制现代**的设计，而非重视觉的展示型站点。B 端工具优先**信息密度、可读性、操作可预期**，再追求质感。
+
+**色彩**（统一通过 design token 引用，禁止 hardcode 颜色）：
+
+- 主色：单一品牌色（如 `#5b6bff` indigo / `#0a0a0a` near-black），高饱和度小面积点缀
+- 语义色：success / warning / danger / info 各一组（base + bg + border）
+- 中性色 9-11 阶灰度（`gray-50` … `gray-950`），背景、边框、文字层级全靠它
+- 暗色模式预留 token 切换位（即便 MVP 只发亮色，token 命名也别绑死颜色）
+
+**排版**：
+
+- 中文：`PingFang SC` / `Microsoft YaHei` / `Noto Sans SC`；英文/数字：`Inter` / `SF Pro` / `JetBrains Mono`（代码与数字）
+- 字号 6 档：`12 / 13 / 14 / 16 / 20 / 24`；行高 `1.5` 默认、`1.3` 标题
+- 标题字重 600/700；正文 400；重要数字 500–600 + tabular-nums
+
+**布局与质感**：
+
+- 8px 栅格；圆角统一 6 / 8 / 12 三档
+- 阴影只用 1–2 档（`shadow-sm` 用于卡片、`shadow-md` 用于浮层），不堆叠
+- 表格 / 列表零或细 1px 分隔；hover 行用极浅背景（`gray-50`）而非边框跳动
+- 卡片白底 + 1px 浅边框 > 厚阴影
+
+**交互**：
+
+- 微动画 `transition: all 150-200ms cubic-bezier(.4,0,.2,1)`，仅用于颜色/位移/透明度
+- 看板拖拽、抽屉、Toast 等都给一个 200ms 内的入场动画，禁用大幅缩放/弹跳
+- 空态、loading、错误都要有专属插画或图标 + 文案，不留白屏
+
+**Naive UI 落地**：
+
+- 用 `NConfigProvider` + `themeOverrides` 把上述 token 注入主题，组件级颜色全部走主题
+- 自定义组件用 CSS variables（`var(--n-color)` 等）跟随主题切换
 
 ---
 
@@ -184,14 +220,26 @@ src/
 | JDK | 21 (LTS) | 后端运行/编译 | `java -version` |
 | Maven | 3.9+ | 后端构建 | `mvn -v` |
 | Node.js | 20 (LTS) | 前端工具链 | `node -v` |
-| 包管理器 | pnpm 9 / npm 10 / bun 1.1+ | 前端依赖 | `pnpm -v` |
-| Docker | 24+ + Compose v2 | 本地 pg/redis | `docker compose version` |
+| 包管理器 | bun 1.3+ / pnpm 9 / npm 10 | 前端依赖 | `bun -v` |
+| 容器引擎 | Docker 24+ **或** Podman 4+ | 本地 pg/redis | 见下 |
+| compose | Docker Compose v2 **或** docker-compose v1 **或** podman compose | 编排 | 见下 |
 | Git | 2.40+ | 版本控制 | `git --version` |
 | OpenSSL | 3.0+ | 生成 JWT 密钥 | `openssl version` |
 
+**容器命令兼容矩阵**（compose 文件用 `version: "3.8"` + 不使用 v2 独有语法即可三家通吃）：
+
+| 引擎 | 启动命令 | 备注 |
+|------|---------|------|
+| Docker Desktop | `docker compose -f xxx up -d` | 现代默认 |
+| `docker-compose` v1（独立 binary） | `docker-compose -f xxx up -d` | 兼容旧仓 / Podman 上常装 |
+| Podman + podman compose | `podman compose -f xxx up -d` | Podman 4.0+ 内置 |
+| Podman + docker-compose | `DOCKER_HOST=unix://...podman.sock docker-compose ...` | 走 podman socket |
+
+> **Windows + Podman 用户**：装 Podman Desktop 后，命令行里直接用 `podman` 看容器、`docker-compose` 起服务最稳；npm scripts 里**统一写 `docker-compose`**（v1 写法），无论底层是 Docker 还是 Podman 都能跑。
+
 **本地服务方案**：
 
-- **方案 A（MVP 推荐）**：Docker Compose 起 `postgres` + `redis`，schema.sql 挂到 `/docker-entrypoint-initdb.d/` 自动初始化
+- **方案 A（MVP 推荐）**：compose 起 `postgres` + `redis`，schema.sql 挂到 `/docker-entrypoint-initdb.d/` 自动初始化
 - **方案 B（长期开发）**：本机原生安装；启动更快但跨平台版本对齐困难
 - 默认端口 5432 / 6379 / 8080 / 5173 被占时在 compose 改映射如 `15432:5432`
 
@@ -234,10 +282,12 @@ htpasswd -bnBC 12 "" "YourPassword" | tr -d ':\n'
 |------|------|
 | 端口被占 | compose 改映射；或停掉本机服务 |
 | Maven 慢 | `~/.m2/settings.xml` 配阿里云 mirror |
-| npm 慢 | `npm config set registry https://registry.npmmirror.com` |
-| Docker 拉镜像超时 | Docker Desktop → Engine 配国内 mirror |
-| Windows Docker 启动失败 | 启用 WSL2 + Hyper-V |
+| npm/bun 慢 | `npm config set registry https://registry.npmmirror.com` 或 `~/.bunfig.toml` 配 `registry` |
+| 容器拉镜像超时 | Docker Desktop → Engine 配国内 mirror；Podman 改 `~/.config/containers/registries.conf` 加 mirror |
+| Windows Docker 启动失败 | 启用 WSL2 + Hyper-V；或改用 Podman Desktop |
+| Podman 起 pg 端口绑不上 | 默认 rootless 不能 < 1024 端口；5432/6379 没问题，若需 80/443 用 rootful 或映射高端口 |
 | BCrypt hash 含 `$` 被 shell 截断 | 单引号包裹或写到 application.yml |
+| PowerShell 多行命令 | 用反引号 \` 续行，**不要**用反斜杠 \\ |
 
 按需扩充。
 
@@ -323,8 +373,14 @@ htpasswd -bnBC 12 "" "YourPassword" | tr -d ':\n'
 ### 本地运行
 
 提供 `docker-compose.yml`，一条命令启动所有服务：
-```
+
+```bash
+# Docker
 docker compose up -d
+# 或 v1 / Podman 兼容写法
+docker-compose up -d
+# Podman 原生
+podman compose up -d
 ```
 
 包含服务：postgres、redis、backend、frontend（nginx）

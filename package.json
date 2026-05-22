@@ -7,7 +7,16 @@
     "docs:project-selection-analysis": "bun run docs/project-selection-analysis.html",
     "docs:project-requirements": "PORT=3001 bun run docs/project-requirements.html",
     "docs:project-tech-design": "PORT=3002 bun run docs/project-tech-design.html",
-    "docs:project-dev-plan": "PORT=3003 bun run docs/project-dev-plan.html"
+    "docs:project-dev-plan": "PORT=3003 bun run docs/project-dev-plan.html",
+    "check-env": "pwsh -File scripts/check-env.ps1",
+    "dev:up": "docker-compose -f infra/docker-compose.dev.yml --env-file infra/.env up -d",
+    "dev:down": "docker-compose -f infra/docker-compose.dev.yml --env-file infra/.env down",
+    "dev:reset": "docker-compose -f infra/docker-compose.dev.yml --env-file infra/.env down -v",
+    "dev:logs": "docker-compose -f infra/docker-compose.dev.yml --env-file infra/.env logs -f",
+    "dev:ps": "docker-compose -f infra/docker-compose.dev.yml ps",
+    "be:dev": "cd ats-backend && ./mvnw spring-boot:run",
+    "fe:dev": "cd ats-frontend && bun run dev",
+    "fe:build": "cd ats-frontend && bun run build"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",

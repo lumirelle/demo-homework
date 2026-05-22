@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: ats-backend
+  config:
+    import: optional:file:./.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ats_db}
+    username: ${DB_USER:ats_user}
+    password: ${DB_PASSWORD:ats_pwd}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_FILE_MB:5}MB
+      max-request-size: ${UPLOAD_MAX_FILE_MB:5}MB
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
+  error:
+    include-message: always
+    include-binding-errors: always
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-not-delete-value: false
+      logic-delete-value: true
+
+ats:
+  jwt:
+    private-key-b64: ${JWT_PRIVATE_KEY_B64:}
+    public-key-b64: ${JWT_PUBLIC_KEY_B64:}
+    access-ttl-seconds: ${JWT_ACCESS_TTL_SECONDS:7200}
+    refresh-ttl-seconds: ${JWT_REFRESH_TTL_SECONDS:604800}
+    issuer: ${JWT_ISSUER:ats.local}
+  upload:
+    path: ${UPLOAD_PATH:./uploads}
+    max-file-mb: ${UPLOAD_MAX_FILE_MB:5}
+
+logging:
+  level:
+    root: INFO
+    com.ats: DEBUG
+    org.springframework.security: INFO
+    com.baomidou.mybatisplus: INFO
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} : %m%n"

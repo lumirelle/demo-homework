@@ -141,3 +141,42 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# ── Java / Maven (backend) ──────────────────────────
+target/
+*.class
+*.jar
+*.war
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# ── IDE ─────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# ── 密钥 / 凭据（红线：永远不入库）────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.b64
+secrets/
+keys/
+~/.ats/
+
+# ── 运行时数据 ──────────────────────────────────────
+uploads/
+backups/
+*.dump
+*.sql.gz
+
+# ── Podman / Docker ─────────────────────────────────
+.docker/
+podman-volume/
