@@ -1,13 +1,16 @@
+import process from 'node:process'
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Unocss from 'unocss/vite'
+import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiBase = env.VITE_API_BASE_URL || '/api/v1'
 
   return {
-    plugins: [vue()],
+    // UnoCSS 必须在 vue 之前，以保证 attributify 模板里的属性能被扫描
+    plugins: [Unocss(), vue()],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

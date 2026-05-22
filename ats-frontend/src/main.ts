@@ -1,10 +1,11 @@
-import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import piniaPersist from 'pinia-plugin-persistedstate'
+import { createApp } from 'vue'
 
 import App from './App.vue'
 import router from './router'
 
+import 'virtual:uno.css'
 import './styles/global.css'
 
 const app = createApp(App)

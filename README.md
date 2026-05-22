@@ -20,7 +20,8 @@ demo-homework/
 │   ├── project-requirements.html        Phase 1 需求
 │   ├── project-schema.sql               Phase 2 数据库 DDL
 │   ├── project-tech-design.html         Phase 2 技术设计
-│   └── project-dev-plan.html            Phase 3 开发计划
+│   ├── project-dev-plan.html            Phase 3 总体编码计划
+│   └── project-milestones.html          ★ 活文档·进度追踪·给未来 agent 看
 ├── infra/
 │   ├── docker-compose.dev.yml  # 开发用：pg + redis
 │   └── .env.example
@@ -72,7 +73,13 @@ bun run fe:dev          # 默认 http://localhost:5173
 
 ## 开发进度
 
-按 `docs/project-dev-plan.html` 的 M0 → M5 推进，每个里程碑结束在本节登记完成情况：
+按 `docs/project-dev-plan.html` 的 M0 → M5 推进。**实时进度、决策记录、风险台账、给未来 agent 的续接说明全部在活文档** `docs/project-milestones.html`：
+
+```powershell
+bun run docs:project-milestones    # 在 http://localhost:3004 打开活文档
+```
+
+里程碑速览：
 
 - [x] **M0** 项目基建 · 骨架 + dev compose + /health 联调 _(2026-05-22)_
 - [ ] **M1** 认证模块 · register/login/refresh/logout/me

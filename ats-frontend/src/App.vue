@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider, NDialogProvider, NLoadingBarProvider, NNotificationProvider, dateZhCN, zhCN } from 'naive-ui'
+import { dateZhCN, NConfigProvider, NDialogProvider, NLoadingBarProvider, NMessageProvider, NNotificationProvider, zhCN } from 'naive-ui'
 import { themeOverrides } from './theme'
 </script>
 
@@ -9,7 +9,11 @@ import { themeOverrides } from './theme'
       <NDialogProvider>
         <NNotificationProvider>
           <NMessageProvider>
-            <RouterView />
+            <RouterView v-slot="{ Component, route }">
+              <Transition :name="(route.meta.transition as string) || 'fade-slide'" mode="out-in" appear>
+                <component :is="Component" :key="route.fullPath" />
+              </Transition>
+            </RouterView>
           </NMessageProvider>
         </NNotificationProvider>
       </NDialogProvider>

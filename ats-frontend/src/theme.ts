@@ -6,10 +6,10 @@ import type { GlobalThemeOverrides } from 'naive-ui'
  */
 export const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#5b6bff',
-    primaryColorHover: '#6b7aff',
-    primaryColorPressed: '#4554e6',
-    primaryColorSuppl: '#5b6bff',
+    primaryColor: '#10b981',
+    primaryColorHover: '#34d399',
+    primaryColorPressed: '#059669',
+    primaryColorSuppl: '#10b981',
 
     infoColor: '#3b82f6',
     successColor: '#10b981',
@@ -31,9 +31,9 @@ export const themeOverrides: GlobalThemeOverrides = {
     dividerColor: '#ececef',
 
     fontFamily:
-      "Inter, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
+      'Inter, -apple-system, BlinkMacSystemFont, \'PingFang SC\', \'Microsoft YaHei\', \'Noto Sans SC\', sans-serif',
     fontFamilyMono:
-      "'JetBrains Mono', 'SF Mono', Consolas, 'Liberation Mono', monospace",
+      '\'JetBrains Mono\', \'SF Mono\', Consolas, \'Liberation Mono\', monospace',
 
     fontSize: '14px',
     fontSizeMedium: '14px',

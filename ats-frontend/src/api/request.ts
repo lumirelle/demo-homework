@@ -1,4 +1,6 @@
-import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
+/* oxlint-disable promise/prefer-await-to-callbacks, promise/no-promise-in-callback -- axios interceptors are callback-based by design */
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import axios from 'axios'
 
 /** 后端统一响应结构 */
 export interface ApiResponse<T = unknown> {
@@ -23,7 +25,7 @@ request.interceptors.request.use(
     // M1: 从 useAuthStore 取 accessToken 注入 Authorization
     return config
   },
-  (err) => Promise.reject(err),
+  err => Promise.reject(err),
 )
 
 /* ── 响应拦截器：解包 { code, msg, data } ──────────── */
@@ -31,7 +33,8 @@ request.interceptors.response.use(
   (resp: AxiosResponse<ApiResponse>) => {
     const body = resp.data
     if (body && typeof body === 'object' && 'code' in body) {
-      if (body.code === 0) return body.data as never
+      if (body.code === 0)
+        return body.data as never
       return Promise.reject(new BizError(body.code, body.msg, body))
     }
     return resp.data as never

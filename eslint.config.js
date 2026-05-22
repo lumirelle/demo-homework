@@ -4,7 +4,18 @@ import oxlint from 'eslint-plugin-oxlint'
 
 export default antfu(
   {
-    // Additional options...
+    // monorepo：root 检测不到 vue/ts dep，需要显式开启
+    vue: true,
+    typescript: true,
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/target/**',
+      'ats-backend/**',
+      'docs/**/*.html',
+      // 运维 yaml 由 docker-compose / Spring 消费，引号风格有语义且需跨 YAML 1.1/1.2 兼容
+      '**/*.{yml,yaml}',
+    ],
   },
   ...oxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 )

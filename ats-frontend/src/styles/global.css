@@ -1,5 +1,17 @@
 @import './tokens.css';
 
+/*  ─────────────────────────────────────────────────────────────
+ *  global.css 极简化（UnoCSS 接管 utilities 后）
+ *  本文件只负责：
+ *    1. 基础 reset / 字体 / 滚动条
+ *    2. 复杂 keyframes（aurora-drift / pulse）
+ *    3. 依赖伪元素或 JS 注入变量的特殊 class（with-noise / aurora-layer / cursor-glow / reveal）
+ *    4. 路由 Transition 类（Vue Transition 的命名机制要求是 plain class，不能走 atomic）
+ *    5. prefers-reduced-motion 的全局兜底
+ *
+ *  其它一切 utility（text-gradient / spacing / typography ...）请用 UnoCSS atomic / shortcut。
+ *  ───────────────────────────────────────────────────────────── */
+
 *,
 *::before,
 *::after {
@@ -54,3 +66,115 @@ a:hover { color: var(--brand-600); }
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+/* ────────────────────────────────────────
+ * 复杂视觉效果（依赖伪元素 / JS 变量，不适合 atomic）
+ * ──────────────────────────────────────── */
+
+/* 噪点 overlay（::after 伪元素叠在大色块上） */
+.with-noise { position: relative; isolation: isolate; }
+.with-noise::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: var(--noise-url);
+  background-repeat: repeat;
+  opacity: 0.5;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  z-index: 0;
+}
+.with-noise > * { position: relative; z-index: 1; }
+
+/* aurora 漂移背景（24s 缓慢有机感） */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0%, 0%, 0)   scale(1);    }
+  33%  { transform: translate3d(2%, -3%, 0)  scale(1.04); }
+  66%  { transform: translate3d(-2%, 2%, 0)  scale(0.98); }
+  100% { transform: translate3d(0%, 0%, 0)   scale(1);    }
+}
+.aurora-layer {
+  position: absolute; inset: -10%;
+  background: var(--grad-aurora);
+  filter: blur(40px);
+  animation: aurora-drift var(--dur-aurora) ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 鼠标跟随光晕（依赖 JS 注入 --mx/--my） */
+.cursor-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    400px circle at var(--mx, 50%) var(--my, 30%),
+    rgba(16, 185, 129, 0.10),
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 400ms var(--ease-out);
+}
+
+/* 状态徽章脉冲（hero status-chip 用） */
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  50%      { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+/* scroll-triggered reveal（依赖 JS 加 .is-visible，不适合 atomic） */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity   var(--dur-fade) var(--ease-page-in),
+    transform 480ms           var(--ease-page-in);
+  will-change: opacity, transform;
+}
+.reveal.is-visible { opacity: 1; transform: none; }
+
+/* ────────────────────────────────────────
+ * 路由 Transition 类（Vue Transition 的命名约定，必须是 plain class）
+ * ──────────────────────────────────────── */
+.fade-slide-enter-active {
+  transition:
+    opacity   var(--dur-fade)    var(--ease-page-in),
+    transform var(--dur-page-in) var(--ease-page-in);
+  will-change: opacity, transform;
+}
+.fade-slide-leave-active {
+  transition:
+    opacity   160ms               var(--ease-page-out),
+    transform var(--dur-page-out) var(--ease-page-out);
+  will-change: opacity, transform;
+}
+.fade-slide-enter-from { opacity: 0; transform: translate3d(0, 12px, 0); }
+.fade-slide-leave-to   { opacity: 0; transform: translate3d(0, -6px, 0); }
+
+.fade-enter-active { transition: opacity var(--dur-page-in)  var(--ease-page-in); }
+.fade-leave-active { transition: opacity var(--dur-page-out) var(--ease-page-out); }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.fade-scale-enter-active {
+  transition:
+    opacity   220ms var(--ease-page-in),
+    transform 320ms var(--ease-bounce);
+  will-change: opacity, transform;
+}
+.fade-scale-leave-active {
+  transition:
+    opacity   160ms var(--ease-page-out),
+    transform 200ms var(--ease-page-out);
+}
+.fade-scale-enter-from { opacity: 0; transform: scale3d(0.96, 0.96, 1); }
+.fade-scale-leave-to   { opacity: 0; transform: scale3d(1.03, 1.03, 1); }
+
+/* 全局可达性兜底 */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-layer { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .fade-slide-enter-active, .fade-slide-leave-active,
+  .fade-enter-active, .fade-leave-active,
+  .fade-scale-enter-active, .fade-scale-leave-active { transition: none !important; }
+  .fade-slide-enter-from, .fade-slide-leave-to,
+  .fade-scale-enter-from, .fade-scale-leave-to { transform: none !important; }
+}

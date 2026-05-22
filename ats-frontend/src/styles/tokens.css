@@ -5,17 +5,20 @@
  * ───────────────────────────────────────────────────────────── */
 
 :root {
-  /* ── Brand ────────────────────────── */
-  --brand-50:  #eef0ff;
-  --brand-100: #dbe0ff;
-  --brand-200: #b9c2ff;
-  --brand-300: #8e9bff;
-  --brand-400: #6b7aff;
-  --brand-500: #5b6bff;   /* primary */
-  --brand-600: #4554e6;
-  --brand-700: #3741b8;
-  --brand-800: #2b338f;
-  --brand-900: #1d2266;
+  /* ── Brand · Emerald「成长 / 好苗子」──
+   * 色彩叙事：mint 萌芽 → emerald 茁壮 → teal 沉淀 → lime 准入职 → amber 收获
+   * 主色 brand-500 = emerald (#10b981) — 招聘漏斗的"茁壮成长"段
+   */
+  --brand-50:  #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;   /* primary · emerald */
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
 
   /* ── Neutral / Gray (11 ranks) ───── */
   --gray-0:   #ffffff;
@@ -104,16 +107,81 @@
   --sp-12: 48px;
   --sp-16: 64px;
 
-  /* ── Shadows (only 2 ranks, no stacking) */
+  /* ── Shadows ─────────────────────── */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 40px -8px rgba(15, 23, 42, 0.16), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
 
-  /* ── Motion ──────────────────────── */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* ── Bold style武器库（张扬风格 · 成长色系） ─── */
+
+  /* 强色 accent palette（小面积重击）
+   * 全部围绕"萌芽→成长→收获"叙事；保留 amber 做 offer 收获时的反差点缀
+   */
+  --accent-mint:    #6ee7b7;   /* 嫩芽 · 新候选人 */
+  --accent-emerald: #10b981;   /* 茁壮 · 同 brand-500 */
+  --accent-teal:    #14b8a6;   /* 深度沉淀 · 面试 */
+  --accent-cyan:    #06b6d4;   /* 清流 · 数据看板 */
+  --accent-lime:    #84cc16;   /* 准入职 · 收成在望 */
+  --accent-amber:   #fbbf24;   /* 收获 · offer 时刻（暖色反差） */
+  --accent-forest:  #047857;   /* 深绿 · 终态 hired */
+
+  /* mesh gradients — 用作背景 / 文字 fill */
+  --grad-aurora:
+    radial-gradient(40% 60% at 20% 30%, rgba(20, 184, 166, 0.40) 0%, transparent 60%),
+    radial-gradient(35% 55% at 80% 20%, rgba(110, 231, 183, 0.45) 0%, transparent 60%),
+    radial-gradient(45% 50% at 60% 80%, rgba(132, 204, 22, 0.30) 0%, transparent 60%);
+  --grad-spring:
+    linear-gradient(135deg, #6ee7b7 0%, #10b981 50%, #14b8a6 100%);
+  --grad-bloom:
+    linear-gradient(135deg, #fbbf24 0%, #84cc16 45%, #10b981 100%);
+  --grad-forest:
+    linear-gradient(135deg, #34d399 0%, #14b8a6 50%, #0e7490 100%);
+  --grad-brand:
+    linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%);
+
+  /* 复合背景：hero 区专用（含底色 fallback） */
+  --bg-hero:
+    radial-gradient(circle at top right, rgba(110, 231, 183, 0.10), transparent 50%),
+    var(--gray-50);
+
+  /* 光晕（hero CTA / 焦点元素） */
+  --glow-brand:   0 0 0 1px rgba(16, 185, 129, 0.20), 0 8px 32px -8px rgba(16, 185, 129, 0.55);
+  --glow-mint:    0 0 0 1px rgba(110, 231, 183, 0.20), 0 8px 32px -8px rgba(110, 231, 183, 0.55);
+  --glow-teal:    0 0 0 1px rgba(20, 184, 166, 0.20), 0 8px 32px -8px rgba(20, 184, 166, 0.55);
+  --glow-amber:   0 0 0 1px rgba(251, 191, 36, 0.20), 0 8px 32px -8px rgba(251, 191, 36, 0.55);
+
+  /* 噪点 overlay（叠在大色块上抗 banding，加质感） */
+  --noise-url:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+
+  /* 巨型字号（hero 专用） */
+  --fs-display-sm: clamp(48px, 8vw, 80px);
+  --fs-display-md: clamp(64px, 11vw, 128px);
+  --fs-display-lg: clamp(80px, 14vw, 160px);
+
+  /* ── Motion ──────────────────────── *
+   * 微交互（hover / focus / 小尺寸图标）用 --ease-out + --dur-fast/base
+   * 页面转场 / 卡片飞入 / 模态等"大动作"用 --ease-page-* + --dur-page-*
+   * 区分的原因：expo-out 在 hover 上 snappy 利落，但在页面转场上前段过猛显跳
+   */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);          /* expo-out，snappy hover 用 */
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 页面 / 模态级转场专用曲线（仿 iOS spring 与 gentle ease）*/
+  --ease-page-in:  cubic-bezier(0.32, 0.72, 0, 1);    /* decelerate · 末段稳，避免"猛冲" */
+  --ease-page-out: cubic-bezier(0.4, 0, 0.6, 1);      /* gentle ease · 离场不抢戏 */
+
   --dur-fast: 120ms;
   --dur-base: 180ms;
   --dur-slow: 260ms;
+
+  /* 页面转场专用时长（甜区 220-320ms） */
+  --dur-page-in:  280ms;   /* 新内容入场：稍长，让 decel 曲线展现末段稳定 */
+  --dur-page-out: 200ms;   /* 旧内容离场：略短，制造"前进感" */
+  --dur-fade:     180ms;   /* 纯 opacity（登录页等）：不带位移 */
+
+  --dur-aurora: 24s;
 
   /* ── Z-index 层级 ────────────────── */
   --z-dropdown: 100;

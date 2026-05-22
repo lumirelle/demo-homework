@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATS 里程碑进度追踪 · 活文档</title>
+  <style>
+    *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* 青绿成长系：mint→emerald→teal 主线，amber 反差 */
+      --brand: #10b981;
+      --brand-700: #047857;
+      --mint:    #6ee7b7;
+      --emerald: #10b981;
+      --teal:    #14b8a6;
+      --cyan:    #06b6d4;
+      --amber:   #fbbf24;
+      --lime:    #84cc16;
+      --forest:  #047857;
+
+      --g-0: #ffffff;
+      --g-50: #fafafa;
+      --g-100: #f4f4f5;
+      --g-200: #e4e4e7;
+      --g-300: #d4d4d8;
+      --g-500: #71717a;
+      --g-600: #52525b;
+      --g-700: #3f3f46;
+      --g-900: #18181b;
+      --g-950: #0b0b12;
+
+      --green-50: #ecfdf5;
+      --green-700: #047857;
+      --red-50:   #fef2f2;
+      --red-700:  #b91c1c;
+      --orange-50:#fffbeb;
+      --orange-700:#b45309;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--g-50);
+      color: var(--g-900);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    /* ── sidebar ───────────────────── */
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: 240px; height: 100vh;
+      background: var(--g-0);
+      border-right: 1px solid var(--g-200);
+      overflow-y: auto;
+      padding: 24px 0 40px;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 0 20px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--g-900);
+      border-bottom: 1px solid var(--g-200);
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+    .sidebar-logo .dot { color: var(--emerald); }
+    .sidebar nav a {
+      display: block;
+      padding: 6px 20px;
+      font-size: 13px;
+      color: var(--g-600);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar nav a:hover { color: var(--g-900); background: var(--g-50); }
+    .sidebar nav a.active { color: var(--brand); border-left-color: var(--brand); background: var(--green-50); font-weight: 600; }
+    .nav-group {
+      font-size: 11px; font-weight: 700;
+      color: #aaa; padding: 16px 20px 6px;
+      letter-spacing: 0.6px; text-transform: uppercase;
+    }
+
+    /* ── main ──────────────────────── */
+    .main { margin-left: 240px; padding: 40px 56px 80px; max-width: 1200px; }
+
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
+    h2 {
+      font-size: 20px; font-weight: 700;
+      margin-top: 56px; padding-top: 24px;
+      border-top: 1px solid var(--g-200);
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 16px; font-weight: 600; margin-top: 28px; }
+    h4 { font-size: 13px; font-weight: 600; margin-top: 18px; color: var(--g-700); }
+
+    p { margin-top: 10px; color: var(--g-600); }
+    ul, ol { margin-top: 8px; padding-left: 22px; }
+    li { margin-top: 4px; color: var(--g-600); }
+    li strong { color: var(--g-900); }
+
+    code {
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+      background: var(--g-100);
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      color: #c7254e;
+    }
+
+    /* ── doc header ─────────────────── */
+    .doc-header {
+      padding: 28px 36px;
+      background:
+        radial-gradient(50% 80% at 80% 10%, rgba(132, 204, 22, 0.55) 0%, transparent 60%),
+        radial-gradient(60% 80% at 10% 90%, rgba(20, 184, 166, 0.55) 0%, transparent 60%),
+        linear-gradient(135deg, var(--mint) 0%, var(--emerald) 50%, var(--forest) 100%);
+      border-radius: 16px;
+      color: white;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .doc-header::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.3 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      mix-blend-mode: overlay;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .doc-header > * { position: relative; z-index: 1; }
+    .doc-header h1 { color: white; font-size: 32px; letter-spacing: -0.04em; }
+    .doc-header .subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .doc-meta {
+      display: flex; gap: 20px; margin-top: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+    .doc-meta span { opacity: 0.85; }
+    .doc-meta strong { font-weight: 600; }
+
+    /* ── status pills ──────────────── */
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .pill.done    { background: var(--green-50); color: var(--green-700); }
+    .pill.doing   { background: var(--orange-50); color: var(--orange-700); }
+    .pill.todo    { background: var(--g-100); color: var(--g-500); }
+    .pill.blocked { background: var(--red-50); color: var(--red-700); }
+
+    /* ── progress dashboard ───────── */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .dash-cell {
+      padding: 18px 20px;
+      background: white;
+      border: 1px solid var(--g-200);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .dash-cell .stat {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--g-900);
+      font-variant-numeric: tabular-nums;
+    }
+    .dash-cell .stat small {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--g-500);
+      margin-left: 2px;
+    }
+    .dash-cell .label {
+      font-size: 11px;
+      color: var(--g-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 6px;
+    }
+    .dash-cell .bar {
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--mint), var(--emerald), var(--teal));
+      transform-origin: left;
+      transform: scaleX(var(--progress, 0));
+    }
+    @media (max-width: 720px) { .dash-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ── timeline ───────────────────── */
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+      margin-top: 20px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute; left: 11px; top: 8px; bottom: 8px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--green-700) 0%, var(--g-200) 30%);
+    }
+    .tl-item {
+      position: relative;
+      padding: 16px 0 16px 28px;
+    }
+    .tl-item::before {
+      content: '';
+      position: absolute;
+      left: -22px; top: 22px;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--g-200);
+      border: 3px solid white;
+      box-shadow: 0 0 0 2px var(--g-200);
+    }
+    .tl-item.done::before { background: var(--green-700); box-shadow: 0 0 0 2px var(--green-700); }
+    .tl-item.doing::before {
+      background: var(--orange-700);
+      box-shadow: 0 0 0 2px var(--orange-700), 0 0 0 6px rgba(180, 83, 9, 0.2);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 0 2px var(--orange-700), 0 0 0 6px rgba(180, 83, 9, 0.2); }
+      50% { box-shadow: 0 0 0 2px var(--orange-700), 0 0 0 10px rgba(180, 83, 9, 0); }
+    }
+
+    .tl-head {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap;
+    }
+    .tl-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--brand-700);
+      background: var(--green-50);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .tl-name { font-size: 16px; font-weight: 700; color: var(--g-900); letter-spacing: -0.01em; }
+    .tl-date { font-size: 12px; color: var(--g-500); font-family: 'JetBrains Mono', monospace; }
+    .tl-body { margin-top: 8px; }
+
+    /* ── milestone card ──────────────── */
+    .ms-detail {
+      margin-top: 16px;
+      padding: 16px 20px;
+      background: white;
+      border: 1px solid var(--g-200);
+      border-radius: 10px;
+    }
+    .ms-detail h4 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--g-500);
+    }
+    .ms-detail h4:not(:first-child) { margin-top: 16px; }
+
+    /* ── table ─────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    thead th {
+      text-align: left; font-weight: 600; font-size: 11px;
+      color: var(--g-500); border-bottom: 2px solid var(--g-200);
+      padding: 8px 12px;
+      background: var(--g-50);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    tbody td { padding: 9px 12px; border-bottom: 1px solid var(--g-100); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--g-50); }
+
+    /* ── code block ───────────────── */
+    .code-block {
+      background: var(--g-950);
+      color: #e4e4e7;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-top: 14px;
+      white-space: pre;
+    }
+    .code-block .c-cmd { color: #84cc16; }
+    .code-block .c-cmt { color: #71717a; font-style: italic; }
+    .code-block .c-str { color: #fbbf24; }
+    .code-block .c-key { color: #06b6d4; }
+    .code-block .c-acc { color: #ff2d8a; }
+
+    /* ── callout ────────────────────── */
+    .callout {
+      border-left: 3px solid;
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+    .callout-title { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+    .callout p { margin: 0; color: var(--g-700); }
+    .callout-info  { border-color: var(--brand); background: var(--green-50); }
+    .callout-info .callout-title { color: var(--brand-700); }
+    .callout-warn  { border-color: var(--amber); background: var(--orange-50); }
+    .callout-warn .callout-title { color: var(--orange-700); }
+    .callout-green { border-color: var(--lime); background: var(--green-50); }
+    .callout-green .callout-title { color: var(--green-700); }
+    .callout-spring { border-color: var(--teal); background: #f0fdfa; }
+    .callout-spring .callout-title { color: #0f766e; }
+
+    /* ── risk register ─────────────── */
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .risk-card {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: white;
+      border: 1px solid var(--g-200);
+    }
+    .risk-h { border-top: 3px solid #ef4444; }
+    .risk-m { border-top: 3px solid var(--amber); }
+    .risk-l { border-top: 3px solid var(--lime); }
+    .risk-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--g-500); }
+    .risk-card ul { margin-top: 6px; padding-left: 18px; }
+    .risk-card li { font-size: 12.5px; }
+    @media (max-width: 720px) { .risk-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">ATS<span class="dot">.</span> · Milestones</div>
+  <nav>
+    <div class="nav-group">总览</div>
+    <a href="#dashboard">仪表盘</a>
+    <a href="#timeline">时间线</a>
+    <a href="#handover">续接说明</a>
+
+    <div class="nav-group">里程碑详情</div>
+    <a href="#m0">M0 · 基建</a>
+    <a href="#m1">M1 · 认证</a>
+    <a href="#m2">M2 · 岗位 CRUD</a>
+    <a href="#m3">M3 · 状态机看板</a>
+    <a href="#m4">M4 · 辅助模块</a>
+    <a href="#m5">M5 · 打磨交付</a>
+
+    <div class="nav-group">运维</div>
+    <a href="#risks">风险登记</a>
+    <a href="#decisions">关键决策</a>
+    <a href="#changelog">变更日志</a>
+  </nav>
+</aside>
+
+<main class="main">
+
+  <!-- ════════════ HEADER ════════════ -->
+  <div class="doc-header">
+    <h1>ATS 里程碑进度追踪</h1>
+    <p class="subtitle">活文档 · 每完成一个里程碑就更新</p>
+    <div class="doc-meta">
+      <span><strong>项目：</strong>招聘管理系统 MVP</span>
+      <span><strong>当前阶段：</strong>Phase 3 · 编码实现</span>
+      <span><strong>当前里程碑：</strong>M1 即将启动</span>
+      <span><strong>最后更新：</strong>2026-05-22 13:50 (UTC+8)</span>
+    </div>
+  </div>
+
+  <div class="callout callout-spring">
+    <div class="callout-title">这份文档是给谁看的</div>
+    <p>
+      给<strong>未来的 AI agent</strong>（或新加入的开发者）看的。先读「续接说明」→「仪表盘」→ 找到当前正在做的里程碑卡片，
+      不需要从头翻全部历史。每个里程碑结束后，<strong>当前的 agent 必须更新此文档</strong>，
+      否则下一个 agent 会浪费时间重新摸索。
+    </p>
+  </div>
+
+  <!-- ════════════ DASHBOARD ════════════ -->
+  <h2 id="dashboard">1. 仪表盘</h2>
+
+  <div class="dash-grid">
+    <div class="dash-cell">
+      <div class="bar" style="--progress: 0.17"></div>
+      <div class="stat">1<small> / 6</small></div>
+      <div class="label">完成的里程碑</div>
+    </div>
+    <div class="dash-cell">
+      <div class="bar" style="--progress: 0.10"></div>
+      <div class="stat">~8.5<small>h</small></div>
+      <div class="label">已耗时 (估)</div>
+    </div>
+    <div class="dash-cell">
+      <div class="bar" style="--progress: 0.10"></div>
+      <div class="stat">85<small>h</small></div>
+      <div class="label">总预估工时</div>
+    </div>
+    <div class="dash-cell">
+      <div class="bar" style="--progress: 0.10"></div>
+      <div class="stat">D1<small> / 10</small></div>
+      <div class="label">冲刺日</div>
+    </div>
+  </div>
+
+  <h3>当前里程碑状态总览</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 70px;">ID</th>
+        <th>名称</th>
+        <th style="width: 110px;">状态</th>
+        <th style="width: 110px;">开始</th>
+        <th style="width: 110px;">完成</th>
+        <th>核心交付物</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>M0</code></td>
+        <td><strong>项目基建</strong></td>
+        <td><span class="pill done">done</span></td>
+        <td>2026-05-22</td>
+        <td>2026-05-22</td>
+        <td>前后端骨架 · dev compose · /health 联调</td>
+      </tr>
+      <tr>
+        <td><code>M1</code></td>
+        <td><strong>认证模块</strong></td>
+        <td><span class="pill todo">todo</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>JWT RS256 · register/login/refresh/logout/me</td>
+      </tr>
+      <tr>
+        <td><code>M2</code></td>
+        <td><strong>岗位 CRUD</strong></td>
+        <td><span class="pill todo">todo</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>状态机 · 全文搜索 · HR/候选人双页</td>
+      </tr>
+      <tr>
+        <td><code>M3</code></td>
+        <td><strong>状态机看板</strong> ⭐</td>
+        <td><span class="pill todo">todo</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>投递 · 看板拖拽 · 审计日志 · 单测</td>
+      </tr>
+      <tr>
+        <td><code>M4</code></td>
+        <td><strong>辅助模块</strong></td>
+        <td><span class="pill todo">todo</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>简历上传 · 面试评价 · 数据看板</td>
+      </tr>
+      <tr>
+        <td><code>M5</code></td>
+        <td><strong>打磨交付</strong></td>
+        <td><span class="pill todo">todo</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>UI 打磨 · 生产 compose · README · 演示</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════ TIMELINE ════════════ -->
+  <h2 id="timeline">2. 时间线</h2>
+
+  <div class="timeline">
+    <div class="tl-item done">
+      <div class="tl-head">
+        <span class="tl-id">M0</span>
+        <span class="tl-name">项目基建</span>
+        <span class="pill done">done</span>
+        <span class="tl-date">2026-05-22</span>
+      </div>
+      <p class="tl-body">monorepo 布局 · podman compose · 7 张表自动初始化 · Spring Boot + Vue 双骨架 · /health 联调通过</p>
+    </div>
+    <div class="tl-item doing">
+      <div class="tl-head">
+        <span class="tl-id">M1</span>
+        <span class="tl-name">认证模块</span>
+        <span class="pill doing">next</span>
+      </div>
+      <p class="tl-body">JWT RS256 + 5 个 auth 接口 + 前端登录态 + 路由守卫</p>
+    </div>
+  </div>
+
+  <!-- ════════════ HANDOVER ════════════ -->
+  <h2 id="handover">3. 续接说明（给下一个 agent）</h2>
+
+  <div class="callout callout-info">
+    <div class="callout-title">秒上手清单</div>
+    <p>
+      接到这个项目，按下面顺序做 3 件事就能开始：
+      ① 读 <code>.cursor/skills/ai-fullstack-dev/SKILL.md</code> 理解整体方法论；
+      ② 读本文的「仪表盘」找到当前里程碑；
+      ③ 跑下面的「环境就绪命令」验证 dev 链路是否健康。
+    </p>
+  </div>
+
+  <h3>3.1 文档优先级</h3>
+  <ol>
+    <li><strong>本文</strong>（<code>docs/project-milestones.html</code>）— 当前进度、续接说明、变更日志</li>
+    <li><code>.cursor/skills/ai-fullstack-dev/SKILL.md</code> — 方法论（每个 Phase 该做什么）</li>
+    <li><code>docs/project-dev-plan.html</code> — Phase 3 的总体编码计划（不再频繁更新）</li>
+    <li><code>docs/project-tech-design.html</code> — 架构 / 分层 / 编码规范</li>
+    <li><code>docs/project-schema.sql</code> — 数据库 DDL（单一来源，pg 容器自动加载）</li>
+    <li><code>docs/project-requirements.html</code> — 需求 / 用例</li>
+    <li><code>docs/project-selection-analysis.html</code> — 选题背景（一般不用看）</li>
+  </ol>
+
+  <h3>3.2 环境就绪命令</h3>
+
+  <div class="code-block"><span class="c-cmt"># 1. 自检环境（首次或换机器）</span>
+<span class="c-cmd">bun</span> run check-env
+
+<span class="c-cmt"># 2. 启动数据库 + 缓存（首次拉镜像约 15s）</span>
+<span class="c-cmd">bun</span> run dev:up
+
+<span class="c-cmt"># 3. 验证 7 张表已初始化</span>
+<span class="c-cmd">docker-compose</span> -f infra/docker-compose.dev.yml exec -T postgres <span class="c-key">\</span>
+  psql -U ats_user -d ats_db -c <span class="c-str">"\dt"</span>
+
+<span class="c-cmt"># 4. 启动后端（首次拉 Maven 依赖约 30s）</span>
+<span class="c-cmd">bun</span> run be:dev
+
+<span class="c-cmt"># 5. 启动前端</span>
+<span class="c-cmd">bun</span> run fe:dev
+
+<span class="c-cmt"># 6. 验收</span>
+<span class="c-cmd">curl</span> http://localhost:5173/api/v1/health
+<span class="c-cmt"># → {"code":0,"msg":"ok","data":{"db":"UP","redis":"UP"}}</span></div>
+
+  <h3>3.3 容器命令兼容性</h3>
+  <p>
+    项目作者用的是 <strong>Podman 5.x</strong> + <code>docker-compose</code> v5 binary。
+    npm scripts 里统一用 <code>docker-compose</code>（v1 写法），<strong>Docker / Podman 都能跑</strong>。
+    若你只装了 <code>docker compose</code> v2（带空格），把 <code>package.json</code> 里 <code>dev:*</code> 脚本的
+    <code>docker-compose</code> 改成 <code>docker compose</code> 即可。
+  </p>
+
+  <h3>3.4 容易踩的坑</h3>
+  <table>
+    <thead>
+      <tr><th style="width:30%">坑</th><th>原因 / 解</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>schema 改了，但容器里还是旧表</td>
+        <td>pg 的 <code>/docker-entrypoint-initdb.d</code> 只在<strong>首次启动空库</strong>时执行。改 schema 后必须 <code>bun run dev:reset</code>（删 volume 重来）</td>
+      </tr>
+      <tr>
+        <td>后端连不上 Postgres</td>
+        <td>检查 <code>ats-backend/.env</code> 是否已从 <code>.env.example</code> 复制；DB_HOST 应该是 <code>localhost</code>，端口 5432</td>
+      </tr>
+      <tr>
+        <td>Lombok 在 JDK 25 上 deprecation warning</td>
+        <td>已升到 1.18.42 缓解；如有更新到 1.18.46+ 可彻底消除</td>
+      </tr>
+      <tr>
+        <td>JWT 密钥未生成</td>
+        <td>M1 启动前跑 <code>pwsh -File scripts/new-jwt-keys.ps1</code>，按提示填入 <code>ats-backend/.env</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════ M0 DETAIL ════════════ -->
+  <h2 id="m0">4. M0 · 项目基建 <span class="pill done" style="vertical-align: middle">done</span></h2>
+
+  <div class="ms-detail">
+    <h4>关键交付物</h4>
+    <ul>
+      <li><code>infra/docker-compose.dev.yml</code> — pg + redis（无 version 字段，三家兼容）</li>
+      <li><code>infra/.env.example</code> + <code>infra/.env</code></li>
+      <li><code>ats-backend/</code> — Spring Boot 3.4.0 · JDK 21 target · GraalVM 25 runtime</li>
+      <li><code>ats-backend/src/main/java/com/ats/common/</code> — ApiResponse / ErrorCode / BizException / GlobalExceptionHandler</li>
+      <li><code>ats-backend/src/main/java/com/ats/controller/HealthController.java</code></li>
+      <li><code>ats-frontend/</code> — Vue 3.5 · Vite 6 · Naive UI 2.44 · Pinia · vue-router · vuedraggable · echarts</li>
+      <li><code>ats-frontend/src/styles/tokens.css</code> + <code>theme.ts</code> — 设计 tokens + Naive 主题覆盖（克制 + 张扬两套武器）</li>
+      <li><code>scripts/check-env.ps1</code> · <code>check-env.sh</code> · <code>new-jwt-keys.ps1</code></li>
+      <li>根目录 <code>package.json</code> 加 8 个 dev/be/fe scripts</li>
+    </ul>
+
+    <h4>关键技术决策</h4>
+    <ul>
+      <li><strong>Spring Boot 3.4.0</strong>（不上 4.0）— 文档丰富，MyBatis-Plus boot3-starter 明确支持</li>
+      <li><strong>JDK 21 target + GraalVM 25 runtime</strong> — 锁兼容性最大化</li>
+      <li><strong>schema 单一来源</strong> — compose 直接挂载 <code>docs/project-schema.sql</code> 到 pg init 目录，无副本漂移</li>
+      <li><strong>UI tokens-first</strong> — 颜色禁止 hardcode，全走 CSS variables；Naive UI 主题与 tokens 同步</li>
+    </ul>
+
+    <h4>验收记录</h4>
+    <ul>
+      <li>✅ <code>docker-compose ps</code> — pg + redis 都 Up（约 11s）</li>
+      <li>✅ <code>psql \dt</code> — 7 张表 + 5 个种子部门</li>
+      <li>✅ <code>redis-cli ping</code> — PONG</li>
+      <li>✅ 后端启动 1.77s，Tomcat 8080，context <code>/api/v1</code></li>
+      <li>✅ <code>GET /api/v1/health</code> — <code>{ code:0, db:UP, redis:UP }</code></li>
+      <li>✅ Vite proxy 透传 <code>/api/v1/*</code> → backend</li>
+      <li>✅ HomeView 张扬版 + HealthView 验收页 HMR 正常</li>
+    </ul>
+
+    <h4>遗留 / 后续</h4>
+    <ul>
+      <li>种子数据 admin (<code>admin@ats.local</code>) 密码 hash 是占位，M1 末用 BCryptPasswordEncoder 重置</li>
+      <li>Security 当前 <code>.permitAll()</code> 全开，M1 末替换为 JwtFilter + .authenticated()</li>
+      <li>HealthController 直接 <code>jdbc.queryForObject</code>，未来若加 Actuator 可统一改</li>
+    </ul>
+  </div>
+
+  <!-- ════════════ M1 - M5 PLACEHOLDERS ════════════ -->
+  <h2 id="m1">5. M1 · 认证模块 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <div class="ms-detail">
+    <h4>进入条件</h4>
+    <ul>
+      <li>M0 全部验收通过 ✓</li>
+      <li>JWT RS256 密钥对已用 <code>scripts/new-jwt-keys.ps1</code> 生成，且填入 <code>ats-backend/.env</code></li>
+    </ul>
+    <h4>关键设计点（待实施）</h4>
+    <ul>
+      <li>AccessToken 2h · RefreshToken 7d；RefreshToken 哈希入 Redis (key=<code>rt:{userId}:{tokenHash}</code>)</li>
+      <li>JwtAuthFilter 注入 SecurityContext；SecurityConfig 白名单 /auth/** + GET /jobs/**</li>
+      <li>注册默认角色 CANDIDATE；HR/ADMIN 需种子或专用接口</li>
+      <li>登出：吊销 refresh + 拉黑 access（access 用 jti 黑名单方案，TTL 取剩余有效期）</li>
+    </ul>
+    <h4>完成后必填</h4>
+    <p style="color: var(--g-500); font-style: italic">这里留给下次 agent：验收记录、踩坑、commit SHA。</p>
+  </div>
+
+  <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <div class="ms-detail">
+    <p style="color: var(--g-500)">M1 完成后补充详情。</p>
+  </div>
+
+  <h2 id="m3">7. M3 · 状态机看板 ⭐ <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <div class="ms-detail">
+    <p style="color: var(--g-500)">M2 完成后补充详情。整个项目的核心亮点，<strong>需要单测覆盖状态机的所有合法/非法流转</strong>。</p>
+  </div>
+
+  <h2 id="m4">8. M4 · 辅助模块 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <div class="ms-detail">
+    <p style="color: var(--g-500)">M3 完成后补充详情。</p>
+  </div>
+
+  <h2 id="m5">9. M5 · 打磨交付 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <div class="ms-detail">
+    <p style="color: var(--g-500)">M4 完成后补充详情。</p>
+  </div>
+
+  <!-- ════════════ RISKS ════════════ -->
+  <h2 id="risks">10. 风险登记台账</h2>
+
+  <p>遇到新风险随时加入，已闭环的不要删，标 <code>[已闭环]</code> 留档。</p>
+
+  <div class="risk-grid">
+    <div class="risk-card risk-h">
+      <div class="risk-title">高风险</div>
+      <ul>
+        <li><strong>状态机非法流转</strong>：M3 必须用 <code>Map&lt;Stage, Set&lt;Stage&gt;&gt;</code> + 终态保护 + 单测全覆盖</li>
+        <li><strong>Token refresh 死循环</strong>：M1 拦截器内 refresh 失败必须清状态跳 /login</li>
+        <li><strong>看板并发拖拽</strong>：后端基于 <code>from_stage</code> 校验，UI 失败回滚</li>
+        <li><strong>文件上传越权</strong>：M4 下载接口必须查 application 归属，禁止 nginx 直接静态暴露</li>
+      </ul>
+    </div>
+    <div class="risk-card risk-m">
+      <div class="risk-title">中风险</div>
+      <ul>
+        <li><strong>AI 字段名漂移</strong>：契约先行 + 后端自检清单第 1 项</li>
+        <li><strong>schema 改动后未 reset</strong>：dev:reset 前确认无重要数据</li>
+        <li><strong>Lombok / Spring Boot 与 JDK 25 兼容</strong>：1.18.42+ 已缓解，若有问题升 1.18.46</li>
+      </ul>
+    </div>
+    <div class="risk-card risk-l">
+      <div class="risk-title">低风险 / 已闭环</div>
+      <ul>
+        <li>[已闭环] Podman socket 连接 — M0 启动时机器已 ready</li>
+        <li>[已闭环] OpenSSL 不在 PATH — 已在 SKILL 中说明用 Git 自带</li>
+        <li>样式 / UI 细节 — M5 集中打磨</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ════════════ DECISIONS ════════════ -->
+  <h2 id="decisions">11. 关键决策记录（ADR-lite）</h2>
+
+  <table>
+    <thead>
+      <tr><th style="width:90px">日期</th><th style="width:180px">决策</th><th>说明 / 备选方案</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-05-22</td>
+        <td>Spring Boot 3.4.0（非 4.0）</td>
+        <td>4.0 GA 较新；MyBatis-Plus 的 boot3-starter 命名暗示尚未明确 boot4 支持；选 3.4 是稳定与生态平衡点</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>JDK 21 编译 target（GraalVM 25 运行）</td>
+        <td>用户实装是 GraalVM 25；锁 21 target 让二进制可在任何 21+ JVM 跑</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>容器命令统一 <code>docker-compose</code> v1 写法</td>
+        <td>用户用 Podman；v1 写法 + 通用 compose 语法可在 Docker/Podman/v1/v2 全跑</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>schema 单一来源 — 直接挂载 <code>docs/project-schema.sql</code></td>
+        <td>否则需在 <code>infra/postgres/init/</code> 维护副本，必然漂移</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>UI 风格从「克制 Linear 系」→「张扬 Stripe/Resend 系」</td>
+        <td>用户偏好；tokens 系统保留，新增 grad-aurora / glow / accent 等张扬武器；应用内列表/看板仍可走克制路线</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>ESLint 不再 lint 运维 yaml（<code>**/*.{yml,yaml}</code> 被 ignore）</td>
+        <td>antfu config 默认对 yaml 做 fix（双引号→单引号、去字符串引号），但运维 yaml 由 docker-compose / Spring 消费，<code>"yes"</code> 等 YAML 1.1 boolean 边界值需要保留引号；ESLint 与运维 yaml 解析器之间风险大于收益</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>品牌色从 indigo 改为 emerald（青绿成长系）</td>
+        <td>「招聘 = 育苗 = 成长」语义；accent palette 重新围绕"萌芽→茁壮→沉淀→收获"叙事：mint / emerald / teal / cyan / lime / amber / forest；这套配色未来可直接复用到招聘漏斗 stage 状态徽章上，颜色 → 阶段语义自洽</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>路由切换强制接入页面过渡动画（默认 fade-slide / 180ms）</td>
+        <td>避免页面"硬切"廉价感，是产品级体感差异点；约束：<code>mode="out-in"</code> + <code>key=route.fullPath</code> + 总时长 ≤ 300ms + reduce-motion 完全禁用。允许 <code>meta.transition</code> 覆盖（如 404 用 fade-scale 增弹跳，登录页用 fade 不带位移）。同标准沉淀进 SKILL 2.5.4，未来项目套用</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>转场曲线 / 时长重新调校 + 引入页面级专用 motion token</td>
+        <td>初版 180ms + expo-out 显跳；优化为 <strong>入场 280ms decel（iOS spring 曲线）+ 离场 200ms gentle ease</strong>；opacity 比 transform 略短（180 vs 280）避免拖尾；transform 用 translate3d 启用 GPU。新增 <code>--ease-page-in / --ease-page-out / --dur-page-in / --dur-page-out / --dur-fade</code> 五个 token，与微交互曲线（hover 用 expo-out）严格区分。SKILL 2.5.4 补「速度感工程学」附录（甜区表、反面教材对照表、判断标准）</td>
+      </tr>
+      <tr>
+        <td>2026-05-22</td>
+        <td>样式方案改用 UnoCSS（Attributify 第一公民）</td>
+        <td>原子化 CSS + dead code 自动 purge；attributify mode 让模板里 <code>bg="elevated" text="lg primary"</code> 自带语义分组，可读性远超长 class 串。<strong>核心决策</strong>：CSS custom properties（tokens.css）是单一真值来源，UnoCSS theme 通过 <code>var(--xxx)</code> 引用，禁止重复定义色值，Naive UI / 原生 CSS / UnoCSS 三方共享一套真值。<strong>无值原子必须用 <code>~</code> 占位</strong>（如 <code>flex="~"</code> <code>relative="~"</code>），否则 vue-tsc 会把它当成 boolean attribute 报错。SKILL 2.5.5 沉淀 attributify 落地规约 + 反模式 + 何时仍保留 scoped style 的指引</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════ CHANGELOG ════════════ -->
+  <h2 id="changelog">12. 变更日志</h2>
+
+  <table>
+    <thead>
+      <tr><th style="width:120px">时间</th><th style="width:80px">类型</th><th>变更</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2026-05-22 13:50</td>
+        <td><span class="pill doing">style</span></td>
+        <td>UnoCSS 写法收敛到三档：<strong>(1) valueless</strong>（<code>flex relative grid</code>）；<strong>(2) 单值无括号 → class with hyphen</strong>（<code>bg-app mt-8 hover:bg-active</code>，比 <code>bg="app"</code> 短 4 字符且更直观）；<strong>(3) 单值带括号 / 多值 → attributify</strong>（<code>max-w="[1200px]"</code> / <code>flex="~ items-center"</code>）。关键约束：<strong>带 <code>[</code> <code>]</code> 的 arbitrary value 必须用 attributify value 形式</strong>（<code>max-w="[1200px]"</code>），<strong>不能</strong>作为 attribute name（<code>max-w-[1200px]</code>）—— HTML 规范不允许 attribute name 含 <code>[</code> <code>]</code>，浏览器宽容但 vue-tsc / prettier 不可靠。但写在 <code>class="..."</code> 字符串里仍 OK（是 string value）。HomeView / HealthView / NotFoundView 三处统一；SKILL 2.5.5 重写决策树 + 反模式 #2 / #3 双补</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 13:25</td>
+        <td><span class="pill doing">style</span></td>
+        <td>统一 attributify 为 valueless 风格：实测 vue-tsc + UnoCSS attributify 完全支持 valueless attribute（如 <code>&lt;div flex relative grid&gt;</code>），<code>~</code> 占位仅在「prefix 自身 + 子值」混合写法时必要（如 <code>flex="~ items-center justify-between"</code>）。全项目 17 处单独 <code>xxx="~"</code> 改为 valueless；SKILL 2.5.5 落地规约表 + 反模式 #1 双更新</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:35</td>
+        <td><span class="pill doing">ui-fix</span></td>
+        <td>修复 UnoCSS 渐变陷阱：<code>text-gradient</code> / <code>bg-[var(--grad-spring)]</code> 默认被编译成 <code>background-color: var(--grad-xxx)</code>（不接受 gradient，静默失效，文字一片透明）；改用 <code>rules</code> 接管 <code>text-gradient*</code> / <code>bg-grad-*</code>，显式输出 <code>background-image</code>。SKILL 2.5.5 反模式 #5 + 自测方法已沉淀</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:26</td>
+        <td><span class="pill doing">stack</span></td>
+        <td>前端样式改用 <strong>UnoCSS</strong>，attributify mode 为第一公民：模板里 <code>bg="elevated" text="lg primary"</code> 替代长 class 串；token 桥接走 <code>var(--xxx)</code> 保证单一真值；HomeView / HealthView / NotFoundView 全部迁移；global.css 瘦身为 reset + 复杂 keyframes + 路由 transition；SKILL 2.5.5 沉淀 attributify 规约（含 <code>~</code> 占位反模式自测）</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:13</td>
+        <td><span class="pill doing">ui-fix</span></td>
+        <td>修复里程碑卡片 hover 延迟感：误把 <code>--ease-page-in</code>（decel 曲线）用到 hover 上，前段慢导致"指上去半天没反应"；改回 <code>--ease-out</code>（expo-out，前段快）。SKILL 2.5.4 补「⚠️ 曲线串轨反模式」警告 + 自测方法（防止以后再犯）</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:10</td>
+        <td><span class="pill doing">ui</span></td>
+        <td>转场动画速度感二次打磨：入场 280ms decel（iOS spring）+ 离场 200ms gentle ease + opacity/transform 错峰；引入 <code>--ease-page-in/out</code>、<code>--dur-page-in/out</code> 专用 token；HomeView 内 hover 动画从 <code>transition: all</code> 显式拆开属性，<code>translate3d</code> 启用 GPU；SKILL 2.5.4 加「速度感工程学」附录</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:05</td>
+        <td><span class="pill doing">ui</span></td>
+        <td>路由切换接入 fade-slide 默认过渡（App.vue + global.css），404 用 fade-scale；同步沉淀进 SKILL 2.5.4「页面过渡动画基线」，含 fade / fade-slide / fade-scale 三套预设 + reduce-motion 兜底</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 11:00</td>
+        <td><span class="pill doing">ui</span></td>
+        <td>品牌色 indigo → emerald（青绿成长系）：tokens / theme / favicon / HomeView Hero / milestones header 全部同步；新增 mint/emerald/teal/cyan/lime/amber/forest 七色 accent，构造"萌芽→茁壮→收获"色彩叙事</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 10:55</td>
+        <td><span class="pill doing">chore</span></td>
+        <td>加 <code>lint</code> / <code>lint:fix</code> scripts；root oxlintrc 改名 <code>.oxlintrc.json</code>；vite.config 显式 <code>import process</code>；ESLint ignore yaml；request.ts 加 <code>oxlint-disable</code> 注释豁免 axios interceptor callback 模式</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 10:30</td>
+        <td><span class="pill doing">doc</span></td>
+        <td>新增 <code>docs/project-milestones.html</code> 活文档（本文）</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 10:30</td>
+        <td><span class="pill doing">ui</span></td>
+        <td>UI 风格升级为「张扬」：tokens 扩 aurora/glow/accent + HomeView 重写</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 10:25</td>
+        <td><span class="pill done">feat</span></td>
+        <td>M0 完成 — 前后端骨架 + dev compose + /health 全链路联调通过</td>
+      </tr>
+      <tr>
+        <td>2026-05-22 09:55</td>
+        <td><span class="pill doing">doc</span></td>
+        <td>SKILL.md v0.0.5 — 新增 UI 设计基线 + Podman/compose 兼容矩阵</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 48px; font-size: 12px; color: #bbb; text-align: center;">
+    ATS · 里程碑追踪 · 活文档 · 每个里程碑结束必须更新
+  </p>
+
+</main>
+
+<script>
+  const links = document.querySelectorAll('.sidebar nav a');
+  const sections = [];
+  links.forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ el, a });
+  });
+  window.addEventListener('scroll', () => {
+    let cur = sections[0];
+    sections.forEach(s => {
+      if (window.scrollY + 100 >= s.el.offsetTop) cur = s;
+    });
+    links.forEach(a => a.classList.remove('active'));
+    if (cur) cur.a.classList.add('active');
+  }, { passive: true });
+</script>
+
+</body>
+</html>
