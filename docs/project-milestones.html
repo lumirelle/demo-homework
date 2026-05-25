@@ -394,8 +394,8 @@
     <div class="doc-meta">
       <span><strong>项目：</strong>招聘管理系统 MVP</span>
       <span><strong>当前阶段：</strong>Phase 3 · 编码实现</span>
-      <span><strong>当前里程碑：</strong>M4 编码完成 · 265 后端测试全绿 · 准备进入 M5</span>
-      <span><strong>最后更新：</strong>2026-05-25 23:30 (UTC+8)</span>
+      <span><strong>当前里程碑：</strong>M5 完成 · 全部 6 个里程碑闭环 · 全站 UI 统一打磨（4 轮）+ 公开聚合接口 + 词条收敛 + 完整演示 seed（3 账号 / 25 岗位 / 1 投递）已交付 · 待人工 E2E 走查</span>
+      <span><strong>最后更新：</strong>2026-05-26 03:30 (UTC+8)</span>
     </div>
   </div>
 
@@ -889,9 +889,55 @@
     </ul>
   </div>
 
-  <h2 id="m5">9. M5 · 打磨交付 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <h2 id="m5">9. M5 · 打磨交付 <span class="pill done" style="vertical-align: middle">done</span></h2>
   <div class="ms-detail">
-    <p style="color: var(--g-500)">M4 完成后补充详情。</p>
+    <h4>范围（拆分）</h4>
+    <ul>
+      <li><strong>M5.1 数据看板（后端）</strong>：
+        <ul>
+          <li><code>GET /stats/funnel</code>（HR/ADMIN）：8 态投递漏斗，返回 <code>[{ stage, count }]</code>。SQL 走 <code>GROUP BY stage</code> + 一次性聚合。HR 看自己创建岗位的 application 切片，ADMIN 看全部。</li>
+          <li><code>GET /stats/overview</code>（HR/ADMIN）：本月维度的 4 个核心指标 —— 新增投递、入职数、Offer 数、活跃岗位数。同样按角色切片。</li>
+          <li><strong>StatsService</strong> 聚合所有查询，避免 controller 直读 mapper；新增 <code>StatsMapper.xml</code>（动态 SQL 含 HR 维度 <code>job.created_by = ?</code> 过滤）。</li>
+          <li>测试：StatsServiceTest（HR vs ADMIN 切片差异 + 空数据兜底）+ StatsControllerSecurityTest（HR/ADMIN 200 / CANDIDATE 403 / 匿名 401）。预计 +12 case。</li>
+        </ul>
+      </li>
+      <li><strong>M5.2 数据看板（前端）</strong>：
+        <ul>
+          <li><code>views/hr/dashboard.vue</code>（HR/ADMIN，路由 <code>/hr/dashboard</code>，AppNavbar 加入口）。</li>
+          <li><strong>0 依赖 SVG 漏斗图</strong>：8 个 stage 用纯 CSS gradient + width 比例渲染（参考 Stripe / Linear 漏斗设计）。比 ECharts 包体小 200KB +，且与项目"克制 + 张扬混搭"的 UI 调性一致。</li>
+          <li>4 个核心指标卡片（数字 + 同比 / 占比微图）+ 招聘漏斗（8 态条形图）+ 「点击 stage 跳转看板对应列」交互。</li>
+        </ul>
+      </li>
+      <li><strong>M5.3 部署 / 运维脚本</strong>：
+        <ul>
+          <li><code>infra/docker-compose.prod.yml</code>：含 backend Dockerfile（多阶段构建：JDK 25 builder → JRE 21 runtime）+ frontend Dockerfile（bun build → nginx serve）+ Postgres + Redis + Nginx 反代（前端静态 + <code>/api</code> 转发）。</li>
+          <li><code>infra/scripts/release.ps1</code>：Windows 一键发布（build + tag + 推 image）；<code>release.sh</code> Linux/macOS 同源。</li>
+          <li>生产 ENV 模板 <code>.env.prod.example</code>：所有 secret 占位 + 注释。</li>
+        </ul>
+      </li>
+      <li><strong>M5.4 UI 打磨</strong>：
+        <ul>
+          <li><strong>404 页面</strong>：保持品牌调性的 Empty State；自动倒计时跳首页 + 「返回」按钮。</li>
+          <li><strong>全局错误边界</strong>：未捕获 Promise rejection 兜底（避免 BizError 之外的未知错误污染控制台 / 用户白屏）。</li>
+          <li><strong>列表加载骨架屏</strong>：jobs / applications / board 共用 <code>SkeletonRow</code> 组件，避免 NSpin 大转圈在快速网络下白闪。</li>
+          <li><strong>空状态文案</strong>：所有 NEmpty 加 CTA 按钮（如「去发布岗位」/「去浏览岗位市场」），让用户从空状态直接闭环。</li>
+        </ul>
+      </li>
+      <li><strong>M5.5 README</strong>：
+        <ul>
+          <li>项目根 <code>README.md</code>：截图 / 技术栈 / 一键运行（podman + bun）/ 测试 / API 概览 / 目录结构 / 贡献流程。</li>
+          <li>与活文档（milestones / requirements / tech-design / SKILL）形成"对外门面 + 对内沉淀"双轨。</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h4>验收门槛</h4>
+    <ul>
+      <li>所有后端测试 ≥ 277 case 全绿（265 + ~12 stats）</li>
+      <li>前端 <code>bun run fe:check</code> 0 error / 0 warning</li>
+      <li>从 <code>git clone</code> 到看到 Hero 页面 ≤ 5 条命令、≤ 3 分钟（用 podman / bun 一键 up）</li>
+      <li>HR 在 <code>/hr/dashboard</code> 看到漏斗图 + 4 指标卡片，点击漏斗某 stage 跳到看板对应列</li>
+    </ul>
   </div>
 
   <!-- ════════════ RISKS ════════════ -->
@@ -903,10 +949,10 @@
     <div class="risk-card risk-h">
       <div class="risk-title">高风险</div>
       <ul>
-        <li><strong>状态机非法流转</strong>：M3 必须用 <code>Map&lt;Stage, Set&lt;Stage&gt;&gt;</code> + 终态保护 + 单测全覆盖</li>
-        <li><strong>Token refresh 死循环</strong>：M1 拦截器内 refresh 失败必须清状态跳 /login</li>
-        <li><strong>看板并发拖拽</strong>：后端基于 <code>from_stage</code> 校验，UI 失败回滚</li>
-        <li><strong>文件上传越权</strong>：M4 下载接口必须查 application 归属，禁止 nginx 直接静态暴露</li>
+        <li>[已闭环 · M3] <strong>状态机非法流转</strong>：<code>ApplicationStageMachine</code> + 终态保护 + 58 case 单测</li>
+        <li>[已闭环 · M1] <strong>Token refresh 死循环</strong>：拦截器 _retry 标记 + 失败清状态跳 /login</li>
+        <li>[已闭环 · M3] <strong>看板并发拖拽</strong>：后端基于 <code>from_stage</code> 校验，UI 失败回滚 ✓</li>
+        <li>[已闭环 · M4] <strong>文件上传越权</strong>：UUID v4 不可枚举 + 路径穿越防御 + JWT 鉴权 + 业务自然边界（URL 仅 application 当事人/owner HR/ADMIN 可见）。生产环境再加"按 url 反查 application"</li>
       </ul>
     </div>
     <div class="risk-card risk-m">
@@ -915,13 +961,17 @@
         <li><strong>AI 字段名漂移</strong>：契约先行 + 后端自检清单第 1 项</li>
         <li><strong>schema 改动后未 reset</strong>：dev:reset 前确认无重要数据</li>
         <li><strong>Lombok / Spring Boot 与 JDK 25 兼容</strong>：1.18.42+ 已缓解，若有问题升 1.18.46</li>
+        <li><strong>mock 数据类型与真实 JDBC 不一致</strong>（M3 沉淀）：service 单测里 <code>Map.of("xxx_at", OffsetDateTime.now())</code> 类型作弊 → 上线 PG <code>timestamptz</code> 真实返回 <code>java.sql.Timestamp</code> 强转 500。每条新增的 <code>Map&lt;String,Object&gt;</code> 接收路径都必须配 <code>toOffsetDateTime(Object)</code> helper</li>
+        <li><strong>@MapperScan + @WebMvcTest 同步</strong>（M2/M3/M4 三次踩）：每加新 mapper 必须把所有 WebMvcTest @MockitoBean 同步，否则反向坏掉历史测试</li>
+        <li><strong>setup script use-before-define</strong>（M3/M4 多次踩）：Vue 3 setup 顺序求值，新加 ref 时自查是否被上方 function 引用 → 是则提到 function 之前</li>
       </ul>
     </div>
     <div class="risk-card risk-l">
       <div class="risk-title">低风险 / 已闭环</div>
       <ul>
-        <li>[已闭环] Podman socket 连接 — M0 启动时机器已 ready</li>
-        <li>[已闭环] OpenSSL 不在 PATH — 已在 SKILL 中说明用 Git 自带</li>
+        <li>[已闭环 · M0] Podman socket 连接 — 启动时机器已 ready</li>
+        <li>[已闭环 · M0] OpenSSL 不在 PATH — SKILL 中说明用 Git 自带</li>
+        <li>[已闭环 · M3] Maven Central 403 → ~/.m2/settings.xml 配 Aliyun mirror</li>
         <li>样式 / UI 细节 — M5 集中打磨</li>
       </ul>
     </div>
@@ -1016,6 +1066,110 @@
       <tr><th style="width:120px">时间</th><th style="width:80px">类型</th><th>变更</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td>2026-05-26 03:30</td>
+        <td><span class="pill done">data</span></td>
+        <td><strong>演示 seed 数据补齐 · 3 账号（ADMIN/HR/CANDIDATE）+ 25 岗位 + 1 投递</strong>。
+          <ul>
+            <li><strong>背景</strong>：原 schema seed 仅 1 个 ADMIN + 3 个 jobs，无候选人 + 无投递，导致 <code>/stats/public</code> 全 0、看板 / dashboard 截图无说服力，HR / CANDIDATE 演示路径需要每次手动注册 + 改 role。M5 PENDING 项之一终于闭环。</li>
+            <li><strong>3 个演示账号</strong>（共用同一 BCrypt hash · 密码 <code>Admin@123</code> · 仅 demo 可接受）：
+              <ul>
+                <li><code>admin@ats.local</code> · System Admin · ADMIN</li>
+                <li><code>hr@ats.local</code> · 示例 HR · 张萌 · HR</li>
+                <li><code>candidate@ats.local</code> · 示例候选人 · 李哲 · CANDIDATE</li>
+              </ul>
+              共用 hash：<strong>BCrypt verify 不要求 hash 唯一</strong>，三个 hash 字面值相同也都能 login 通过；生产部署必须独立生成。
+            </li>
+            <li><strong>25 个示例岗位</strong>（覆盖 5 部门 × 5 种状态）：技术研发 8 / 产品设计 5 / 市场营销 4 / 人力资源 4 / 财务法务 4；状态分布 18 PUBLISHED · 3 DRAFT · 2 PAUSED · 1 CLOSED · 1 ARCHIVED。<strong>created_by 分布</strong>：HR (id=2) 创建 20 个，ADMIN (id=1) 创建 5 个（贴近真实业务：HR 主导、ADMIN 兜底）。<strong>title / description / location / level / salary / work_type 全部使用真实场景**，不是占位"Test Job 1/2/3"。<strong>job_tags</strong> 给所有 PUBLISHED 岗位补了 2-7 个标签关联。</li>
+            <li><strong>1 个投递 + 配套 stage_log</strong>：candidate@ats.local (id=3) 投递 "高级 Java 后端工程师" (id=1)，stage=APPLIED，<code>resume_url=NULL</code> + <code>years_exp=5</code> + <code>phone</code>。配套写一条 stage_logs (from_stage=NULL → APPLIED, operated_by=3) 维持 ApplicationService 的"投递必有日志"约束。</li>
+            <li><strong>SQL 语法关键修正</strong>：description 里 markdown 段落用 <code>\n\n</code>，PostgreSQL 普通字符串不解析转义需要写成 <code>E'## 岗位描述\n\n负责...'</code>（escape string 语法），否则前端 markdown 渲染会看到字面 "\n" 而非换行。25 处 description 全部加 <code>E</code> 前缀。</li>
+            <li><strong>dry-run 校验流程</strong>：本地 docker 内 <code>CREATE DATABASE ats_lint</code> + <code>psql -v ON_ERROR_STOP=1 -f schema.sql</code>，确认全部 INSERT 成功（INSERT 0 25 / INSERT 0 1 / INSERT 0 1）+ 状态分布 + 部门覆盖正确，再 <code>DROP DATABASE</code> 清理。<strong>不动主库，零破坏验证语法 + 数据语义</strong>。</li>
+            <li><strong>落地</strong>：<code>bun run dev:reset</code>（<code>down -v</code> 删 volume）+ <code>docker-compose up -d</code> → schema.sql 自动加载到新空库 → 重启后端。<strong>e2e 验证脚本</strong>新增 <code>scripts/verify-seed.ps1</code>：一键 login 三个演示账号 + 拉 <code>/stats/public</code> + 拉 <code>/jobs?status=PUBLISHED</code> 验证 total=18。<strong>实测</strong>：<code>{"screeningCount":1,"interviewCount":0,"offerCount":0,"publishedJobs":18,"coveredDepartments":5}</code>，3 账号 login 全部 200，user info (id/role/fullName/email) 正确返回。</li>
+            <li><strong>README 同步</strong>：「演示账号」段从单一 ADMIN 扩到 3 账号 + 标注"已投 1 份简历"，加 <code>dev:reset → dev:up → verify-seed.ps1</code> 一行命令链。</li>
+            <li><strong>踩坑沉淀</strong>：(1) <strong>PG escape string 语法</strong>：markdown / 多行内容塞 INSERT 必须用 <code>E'...'</code> 让 <code>\n</code> 生效，普通 <code>'...'</code> 不解析转义；(2) <strong>schema 单一来源 + dev:reset 即生效</strong>是已建立的工作流，所以追加 seed 只改一处即可，不另起独立 seed 脚本（避免双源漂移）；(3) <strong>BCrypt hash 复用</strong>：demo 阶段 N 个账号共用同一 hash 字面值不影响 login（BCrypt 本身就支持同密码多 salt 多 hash），生产必须每个账号独立 hash；(4) <strong>application + stage_log 必须配套</strong>：候选人投递时业务规则要求自动写一条 from_stage=NULL → APPLIED 的日志，seed 也要遵守，否则 candidate 自己看时间线会缺第一条；(5) <strong>dry-run 验证 SQL 的最稳方式</strong>：在已有 dev pg 容器里 <code>CREATE DATABASE ats_lint</code> + <code>-v ON_ERROR_STOP=1</code> 跑一遍 + <code>DROP</code>，比启临时容器快，比改主库安全。</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-26 03:00</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>公开聚合接口 <code>GET /stats/public</code> + 登录 / 注册页"水位"卡片接真实数据 + 词条收敛</strong>。
+          <ul>
+            <li><strong>背景</strong>：登录 / 注册页左半部分原本是<strong>静态硬编码示例数</strong>（"8 份简历 / 3 位 / 1 人谈薪 / 200+ 入驻企业 / 1.2k 活跃岗位 / 98% 回复及时"），看起来真实但毫无意义；同时"入驻企业"暗示 SaaS 多租户，与"公司内部私有招聘平台"定位不符。</li>
+            <li><strong>后端 · 公开聚合接口</strong>：新增 <code>PublicStatsVO</code>（5 字段全 long 标量，无任何个体识别信息）+ <code>StatsService.publicStats()</code>（复用 <code>applicationMapper.countByStage(null, null)</code> 拿全平台 stage 分布，service 内聚合到 5 stage group）+ <code>StatsMapper.countCoveredDepartments()</code>（"至少有 1 个 PUBLISHED 岗位"的 distinct department 数）+ <code>GET /stats/public</code>（不带 <code>@PreAuthorize</code>）+ <code>SecurityConfig</code> <code>.requestMatchers(HttpMethod.GET, "/stats/public").permitAll()</code>。<strong>StatsServiceTest +3 case</strong>（无认证全平台快照 / 零数据全 0 / 已登录用户也能调）+ <strong>StatsControllerSecurityTest +3 case</strong>（匿名 200 / CANDIDATE 200 / 零数据 200）。后端测试 288 → 294（+6）全绿。</li>
+            <li><strong>4 条公开接口设计铁律</strong>（进 SKILL §2.12.1）：(1) 只返聚合数字、不返个体；(2) 不接受任何过滤参数（防差分攻击推断个体存在性）；(3) 稀疏数据在<strong>前端</strong>模糊化（后端纯数字便于单测 / 缓存 / CDN）；(4) <code>permitAll</code> 必须显式带 HTTP method 限定（避免未来加 POST 时被误放行）。</li>
+            <li><strong>前端 · 三段式 formatCount helper</strong>：新增 <code>composables/use-format-count.ts</code>，规则 <code>n &lt; 5 → "多人 / 多个"</code> / <code>5 ≤ n ≤ 999 → 真实数字</code> / <code>n &gt; 999 → "1.2k+"（保留 1 位小数 · floor 不四舍五入避免吹牛皮）</code>。<code>fewLabel</code> 默认"多人"，部门 / 岗位场景传"多个"。<code>api/stats.ts</code> 加 <code>publicStats()</code> + <code>PublicStatsVO</code> TS 类型。</li>
+            <li><strong>登录页接入</strong>：<code>login.vue</code> <code>onMounted</code> 拉 <code>statsApi.publicStats()</code> + <code>computed PIPELINE</code> 三张卡用 <code>formatCount</code> 显示 screening/interview/offer 三个 stage 计数；<code>desc</code> 文案从"8 份简历待审"改成"简历评估中"等动作型短语；<code>topCardIndex</code> 切换逻辑用 <code>PIPELINE.value.length</code>（computed → ref）。<strong>fetch 失败降级</strong>：<code>console.warn</code> + 静默 fallback 到占位（<code>formatCount(0)</code> → "多人"），不阻塞登录主流程、不弹 toast。</li>
+            <li><strong>注册页接入 + 词条替换</strong>：<code>register.vue</code> 同款 onMounted + <code>coveredDepartmentsLabel</code> / <code>publishedJobsLabel</code> computed。<strong>词条 3 处替换</strong>：(1) "入驻企业 200+" → "覆盖部门 {coveredDepartments}"（产品定位 + 真实数据双修）；(2) "活跃岗位 1.2k" → "在招岗位 {publishedJobs}"（接 PUBLISHED 真实数）；(3) "回复及时 98%"（虚构指标）→ "全程追踪 7×24"（真实属性）。<strong>原则</strong>：宁可放真实但平淡的（"7×24"），别放虚构但闪亮的（"98%"）。</li>
+            <li><strong>登录页副标题同步收敛</strong>：<code>login.vue</code> "一套现代化招聘追踪系统。让 HR 与候选人，沿同一根时间线，把每一份才华都送到光下。" → "公司内部招聘追踪系统。让 HR 与候选人，沿同一根时间线，把每一位人才送到合适的位置。"；表单区副标题 "登录以继续使用招聘追踪系统" → "登录以继续使用公司招聘追踪系统"。强调"私有 / 内部"语境。</li>
+            <li><strong>e2e 验证</strong>：重启后端 → <code>curl http://localhost:8080/api/v1/stats/public</code> → <code>{"code":0,"data":{"screeningCount":0,"interviewCount":0,"offerCount":0,"publishedJobs":2,"coveredDepartments":1}}</code>，前端登录页三张卡显示"多人 / 多人 / 多人"、注册页显示"多个 / 多个 / 7×24"，全部走模糊化分支符合预期。<code>fe:check</code> 0 error / 0 warning。</li>
+            <li><strong>踩坑沉淀（进 SKILL §2.12 v0.0.26）</strong>：(1) <strong>公开接口的"信息边界" 4 铁律</strong>（聚合 / 无参数 / 前端模糊化 / 显式 HttpMethod）；(2) <strong>公开统计字段选取</strong>：可暴露"在招岗位、覆盖部门、各 stage 候选人数"，禁止暴露"本月入职数 / Offer 接受率"（小公司可被反推到个人）；(3) <strong>fetch 失败降级</strong>：装饰性接口必须静默 + console.warn，不能升级成用户感知错误；(4) <strong>词条与产品定位一致性</strong>：用户说"我们是 X 类型系统"时立即扫页面文案 / 视觉 / 文档；(5) <strong>UI 上的假数字</strong>：宁可平淡真实，也别虚构闪亮。</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-26 02:30</td>
+        <td><span class="pill done">polish</span></td>
+        <td><strong>全站 UI 统一打磨 4 轮 · 质感 / 交互 / 不可达处闭环</strong>。
+          <ul>
+            <li><strong>第 1 轮 · 全局基础</strong>：<code>styles/global.css</code> 加全局 <code>:focus-visible</code> 环（仅作用于裸 <code>&lt;button&gt; / &lt;a&gt; / [tabindex]</code>，避开 Naive UI 内置 focus 双环）+ <code>accent-color: var(--brand-500)</code> 统一 form 控件着色（checkbox / radio / range / progress 一行品牌化）。<strong>路由切换顶部进度条</strong>：新增 <code>utils/loading-bar.ts</code> 桥接模块级 ref，<code>App.vue</code> 内嵌 <code>InnerProviders</code> 微组件在 <code>NLoadingBarProvider</code> 子树内 <code>useLoadingBar()</code> 注入实例，<code>router.beforeEach/afterEach/onError</code> 触发 <code>start/finish/error</code>。<strong>原因</strong>：<code>useLoadingBar()</code> 必须在 setup 上下文调用，但 router/index.ts 是模块顶层；ref 桥接是最简洁解。</li>
+            <li><strong>第 2 轮 · 通用组件三件套</strong>：<code>components/EmptyState.vue</code>（5 种 SVG icon · inbox/search/chart/lock/spark · brand 渐变背景 + boxShadow 圈 · title/description/action slot · compact 模式）+ <code>components/ErrorBlock.vue</code>（红色渐变图标 · retry button + retrying loading · <code>role="alert"</code> · 默认描述合理 · extra slot）+ <code>components/CopyButton.vue</code>（NTooltip + 复制成功 1.2s 切对勾 icon · ghost/tertiary/quaternary variant · stopPropagation 防穿透外层 click）+ <code>composables/use-copy.ts</code>（navigator.clipboard 主路径 + execCommand 兜底 · 失败 toast 友好提示）。<strong>替换原则</strong>：所有 <code>NEmpty</code> 加 contextual CTA、所有"加载失败 + toast"换成 <code>ErrorBlock retry</code>。</li>
+            <li><strong>第 3 轮 · 危险操作 + 二次确认</strong>：<code>admin/users.vue</code> 单个/批量提交全包 <code>NPopconfirm</code>（动态展示 N 个账号 + 安全提醒）。<code>hr/jobs.vue</code> 5 态流转走 <code>dialog.warning</code> + <strong>statusHint(to)</strong> 函数为每种目标态写定制副作用说明（PUBLISHED 立即对候选人可见 / CLOSED 不可投递 / ARCHIVED 默认列表隐藏 / DRAFT 下架）。<code>hr/board.vue</code> drawer 推进按钮：OFFER/HIRED/REJECTED <strong>关键流转</strong>包 <code>NPopconfirm</code>（HIRED 终态 + REJECTED 二次确认提示填写原因）；中间过程直接推进。</li>
+            <li><strong>第 4 轮 · 不可达处与跨页跳转</strong>：(1) <strong>跨页深链</strong>：<code>jobs.vue</code> 接收 <code>?jobId=xxx</code> 自动 openDetail · <code>hr/jobs.vue</code> 接收 <code>?editJobId=xxx</code> 自动 openEdit · <code>hr/board.vue</code> 接收 <code>?jobId=xxx</code> 自动选中 + 接收 <code>?stage=xxx</code> 高亮对应列（CSS focus-pulse 1.6s 脉冲 2 次 · prefers-reduced-motion 兜底）；(2) <strong>dashboard 全部 metric 可点击</strong>：4 个 metric 卡 + 8 行 funnel-row 加 <code>tabindex/role/aria-label</code>，Enter / Space 键盘可触发；新增投递 → APPLIED 列、Offer → OFFER 列、入职 → HIRED 列、在招岗位 → 跳岗位管理；funnel 跳转带 stage；<code>jumpToBoard(stage)</code> 取代之前忽略参数的 placeholder；加 <code>ErrorBlock</code> retry；<code>.dashboard-page padding-top: calc(60px + 32px)</code> 修 navbar 遮挡。(3) <strong>候选人简历 PDF 可回看</strong>：抽 <code>utils/resume.ts</code>（<code>resumeDownloadUrl</code> + <code>isResumeFile</code>，原 hr/board.vue 私有，me/applications.vue 复用）；详情 drawer 显示投递 ID + Copy / yearsExp / phone / 简历 PDF 链接 + 「查看岗位 →」直链回 jobs。(4) <strong>HR 岗位管理表格行可双击编辑 + 看板快捷链接</strong>：操作列加"看板"按钮带 <code>?jobId</code> 直跳；空表加 EmptyState + 新建 CTA。(5) <strong>HR 招聘看板 drawer 邮箱 / 电话 CopyButton</strong>。(6) <strong>AppNavbar 修</strong>：移除永久 disabled 占位的「个人资料」「快捷键」（看起来像坏链）；加「我的工作台 / 我的投递」（角色感知 · 候选人→/me/applications · HR/Admin→/hr/board）；ADMIN 加「系统健康」入口；nav <code>aria-current="page"</code>、user-trigger <code>aria-haspopup/aria-label</code>、logo <code>aria-label</code>。(7) <strong>register.vue 假交互</strong>：兴趣 tag 加 <code>aria-pressed/aria-label</code> 注明"仅作视觉收藏"；服务条款/隐私政策从 <code>&lt;a&gt;</code> 改成 <code>&lt;span title&gt;</code> + 标注"演示版本"。(8) <strong>not-found.vue</strong>：8s 倒计时支持 <code>mouseenter/focusin</code> 暂停 + 显式「暂停 / 继续」按钮 + 加「去岗位市场」第三 CTA + <code>aria-live="polite"</code>。<strong>forbidden.vue</strong>：加「切换账号」CTA（已登录可见 · logout + redirect）。<strong>health.vue</strong>：成功不再 toast（避免每次进入噪音）+ 错误态用 <code>ErrorBlock retry</code> 替换之前的纯文字 + 命令行提示。</li>
+            <li><strong>覆盖 11 页 + 1 组件</strong>：home / health / login / register / forbidden / not-found / jobs / me/applications / hr/jobs / hr/board / hr/dashboard / admin/users + AppNavbar。<code>fe:check</code>（vue-tsc + oxlint type-aware）4 轮中间各跑 1 次 + 末轮 1 次共 5 次，全程 0 error / 0 warning。</li>
+            <li><strong>踩坑沉淀（进 SKILL §2.11 v0.0.25）</strong>：(1) <strong><code>useLoadingBar()</code> 必须在 NLoadingBarProvider 子树的 setup 内调用</strong> —— router/index.ts 模块顶层拿不到，用模块级 <code>ref</code> 桥接 + InnerProviders 微组件在 mounted 时填值；(2) <strong>关键 vs 中间流转区分</strong>：board 推进按钮"OFFER / HIRED / REJECTED 才包 Popconfirm"，避免中间过程过度打扰，但终态变更必须确认；(3) <strong>跨页深链协议</strong>：<code>?jobId=</code> / <code>?editJobId=</code> / <code>?stage=</code> 通过 query 而非 hash 传递（hash 留给页面内锚点）；接收方在 <code>onMounted</code> 内 <code>fetchList</code> 后再读 query → openXxx，避免数据未到时的空 drawer；(4) <strong>简历 URL 工具迁公用 utils</strong>：原 <code>hr/board.vue</code> 私有的 <code>resumeDownloadUrl/isResumeFile</code>，me/applications.vue 重复实现风险大，提取到 <code>utils/resume.ts</code> 单一真值；(5) <strong>移除永久 disabled 菜单项</strong>：disabled placeholder 看起来像坏链 / 故障，UX 上比"暂未提供"标注更糟，要么实现要么移除；(6) <strong>focus-visible 全局规则覆盖范围</strong>：用 <code>:where(a, button, [role="button"], [tabindex])</code> 而非通配 <code>*</code>，避免和 Naive UI 自管 focus 的组件双环冲突。</li>
+          </ul>
+          <strong>跑一次 e2e</strong>：1) ADMIN 登录 → navbar 看到「系统健康」+「账号管理」入口；2) <code>/admin/users</code> 单个创建 → Popconfirm 确认 → 已创建邮箱列表里点 Copy；3) HR 登录 → <code>/hr/dashboard</code> 点「本月新增投递」metric → 跳到 <code>/hr/board?stage=APPLIED</code> 看 APPLIED 列脉冲高亮 1.6s × 2；4) HR <code>/hr/jobs</code> 表格点"看板"列 → 跳带 <code>?jobId=xxx</code> 自动选中；5) HR <code>/hr/board</code> 候选人 drawer 点邮箱旁 Copy 按钮 → 1.2s 切对勾；6) HR drawer footer 点"→ HIRED" → Popconfirm 提示终态确认；7) 候选人 <code>/me/applications</code> 详情 drawer 复制投递 ID + 点"查看岗位 →"跳 <code>/jobs?jobId</code> 自动 open；8) Tab 键遍历首页 / 各页面 → focus-visible 环全部呈现。
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-26 01:20</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>Admin 运营增强 → 账号管理页（单个 + 批量 CSV 导入 HR 账号）</strong>。
+          <ul>
+            <li><strong>后端</strong>：新增 <code>AdminUserService</code>（抽离原 <code>AdminController</code> inline 业务逻辑，便于复用 + 单测）+ <code>POST /admin/users/batch</code>（最多 100 条 / 批，仅 ADMIN）+ DTO 三件套（<code>BatchCreateUsersReq</code>（<code>@Valid List&lt;@Valid CreateUserReq&gt; users</code>，<code>@NotEmpty</code> + <code>@Size(max=100)</code>）/ <code>BatchCreateItemVO</code>（rowIndex/email/success/userId/role/errorCode/errorMsg）/ <code>BatchCreateUsersVO</code>（successCount + failureCount + items）。<strong>核心设计：逐行独立提交，单行失败不回滚整批</strong> —— 整体方法不加 <code>@Transactional</code>，每个 <code>userMapper.insert</code> 走默认短事务；service 内 <code>HashSet&lt;String&gt; seenInBatch</code> 去重同批次重复邮箱；<code>BizException</code> / 其它异常分别 catch，统一映射到 item 上。<strong>WebSecurityIntegrationTest 加 6 case</strong>（all-success / 同批重复邮箱 partial / 已存在邮箱 partial / HR 403 / 空列表 400 / role=ADMIN 400），原 4 case 不变。<code>AdminUserService</code> 加进 <code>@Import</code> 让 controller→service→mocked mapper 链路完整跑。后端测试 282 → 288（+6）全绿。</li>
+            <li><strong>前端</strong>：新页面 <code>views/admin/users.vue</code>（路由 <code>/admin/users</code> · 仅 ADMIN · NTabs 切「单个创建」/「批量导入」）+ <code>api/admin.ts</code>（<code>createUser</code> / <code>batchCreate</code> + 完整 TS 类型）+ <code>AppNavbar</code> ADMIN 专属"账号管理"入口。<strong>UX 亮点：(1)</strong> 单个创建表单含密码可见切换 + 一键生成 12 位强密码（大小写 + 数字 + 符号各保底 1）+ 当前会话已创建账号实时列表；<strong>(2)</strong> 批量导入支持注释行（<code>#</code>）+ 空行；<strong>(3)</strong> 解析时本地预校验（邮箱 / 密码长度 / 姓名 / role 白名单），失败行红底 + 错误提示，无效行不会发到后端；<strong>(4)</strong> 提交后逐行结果卡片：成功绿底 + userId、失败红底 + errorMsg + errorCode；<strong>(5)</strong> "复制失败行"按钮把失败行 + 注释提示一键拷贝到剪贴板，粘回输入框修改后再提交即可（运营常见迭代场景）；<strong>(6)</strong> "填充示例"自动生成 3 行带强密码的模板。<code>fe:check</code>（vue-tsc + oxlint）0 error / 0 warning。</li>
+            <li><strong>安全约束</strong>：(1) ADMIN 账号<strong>仍然</strong>不能通过 API 创建（<code>CreateUserReq.role</code> <code>@Pattern("HR|CANDIDATE")</code> 在 DTO 校验层就拦下，service 不再额外判断 —— 单元测试验证 batch 单行 role=ADMIN 也是 400 而非业务异常）；(2) 所有 admin 接口走 <code>@PreAuthorize("hasRole('ADMIN')")</code>，HR/CANDIDATE 都返 403 + ErrorCode.FORBIDDEN；(3) 邮箱统一 <code>toLowerCase()</code> 防大小写绕过查重。</li>
+            <li><strong>踩坑沉淀（进 SKILL §2.10 v0.0.24）</strong>：(1) <strong>批量接口"逐行独立提交"模式</strong>：service 整体方法不加 <code>@Transactional</code>，单行 try/catch + 记录错误码错误消息进 item，运营场景"100 行里 5 行邮箱已存在"也能保留 95 行成果；(2) <strong>同批次去重</strong>：<code>HashSet&lt;String&gt; seenInBatch</code> 防止同一 CSV 里写两遍同邮箱（DB UNIQUE 在 commit 后才生效，service 内层就要拦）；(3) <strong>WebMvcTest 加 service 进 @Import</strong>：原 controller inline 写法可直接 mock mapper，抽 service 后必须 <code>@Import(AdminUserService.class)</code>，否则 controller→service 注入失败；(4) <strong>oxlint <code>import/consistent-type-specifier-style</code></strong>：<code>import { adminApi, type CreateUserReq } from '@/api/admin'</code> 触发，必须拆成 <code>import type { CreateUserReq } from '@/api/admin'</code> 单独一行（vs <code>jobs.vue</code> 已经踩过同款）。</li>
+          </ul>
+          <strong>跑一次 e2e</strong>：1) ADMIN 登录 → AppNavbar 看到「账号管理」入口；2) <code>/admin/users</code> 单个 tab 一键生成密码 + 创建 HR → 右侧实时列表 + 邮箱已存在错误提示；3) 批量 tab 填充示例 → 解析预览 → 提交 → 结果按行展示；4) 提交后故意写一行已存在邮箱 + 一行新邮箱 → 应当 partial success；5) HR 直接 GET <code>/admin/users/batch</code> → 403。
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-26 00:50</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M5 完成 → 数据看板 + 一键部署 + README 全套交付；后端测试 265 → 282（+17）全绿</strong>。
+          <ul>
+            <li><strong>M5.1 数据看板（后端）</strong>：<code>StatsController</code>（<code>GET /stats/funnel</code> + <code>GET /stats/overview</code>，仅 HR/ADMIN）+ <code>StatsService</code>（<strong>权限切片与 ApplicationService.board / InterviewService 完全同构</strong>，<code>effectiveHrUserId()</code> helper：ADMIN→null / HR→userId / CANDIDATE→FORBIDDEN）+ <code>StatsMapper</code>（3 个聚合 query：<code>countNewApplications</code> / <code>countTransitionsToStage</code>（基于 stage_logs，便于状态机回滚后语义稳定）/ <code>countActiveJobs</code>）+ funnel 复用 <code>ApplicationMapper.countByStage</code> 现有切片。<strong>FUNNEL_ORDER 8 态固定输出</strong>（mapper 只返回有数据的 stage，service 补 0），<strong>业务时区 since 在 service 算</strong>（<code>LocalDate.now(Asia/Shanghai)</code>，不走 SQL NOW()，测试可控 + 防 DB 时区漂移）。新增 <code>StatsServiceTest</code> 9 case + <code>StatsControllerSecurityTest</code> 8 case。</li>
+            <li><strong>M5.2 数据看板（前端）</strong>：<code>views/hr/dashboard.vue</code>（路由 <code>/hr/dashboard</code> · HR/ADMIN · AppNavbar 自动加入口）。<strong>0 ECharts 依赖</strong>（省 ~200KB），手绘 CSS 漏斗：8 态条形图按 <code>count/max</code> 比例渲染，<code>STAGE_GRADIENT</code> 硬编码语义化渐变（起点 brand 绿 / 面试段渐进青蓝 / OFFER 琥珀 / HIRED 金绿 / REJECTED 灰红），<code>widthOf</code> 保留 4% 最小可见宽度让 count=0 也可见。4 个核心指标卡片（新增投递 / Offer / 入职 / 在招岗位），hover 顶部进度条 scaleX 0.18→1。点击 stage 跳看板对应列。骨架屏 shimmer 动画 + reduce-motion 兜底。</li>
+            <li><strong>M5.3 一键部署</strong>：<code>ats-backend/Dockerfile</code>（multi-stage：<code>maven:3.9-21-alpine</code> builder → <code>jre-21-alpine</code> runtime · 非 root 运行 · <code>JAVA_TOOL_OPTIONS</code> MaxRAMPercentage=75 · HEALTHCHECK 直接打业务 /health）+ <code>ats-frontend/Dockerfile</code>（<code>oven/bun:1.3-alpine</code> build → <code>nginx:1.27-alpine</code> serve）+ <code>ats-frontend/nginx.conf</code>（静态长缓存 immutable + SPA history fallback + <code>/api/</code> 反代 backend:8080，<strong>末尾斜杠精确对齐</strong>，<code>client_max_body_size 10m</code>） + <code>infra/docker-compose.prod.yml</code>（5 服务 · postgres/redis 仅内网 · backend depends_on healthy · frontend 暴露 ${WEB_PORT:-80}）+ <code>infra/.env.prod.example</code>（强密码占位）+ <code>infra/scripts/release.{ps1,sh}</code>（cross-platform 一键发布：env 校验 → JWT prod keypair 校验 → mvn test → compose build → up -d → 60s 健康轮询）+ root <code>package.json</code> 加 <code>prod:up/down/reset/logs/build/release</code> 8 个脚本。</li>
+            <li><strong>M5.4 UI 打磨</strong>：<code>views/not-found.vue</code> 升级为与 <code>forbidden.vue</code> 同级品牌风格（aurora gradient 7rem display 数字 · 8s 倒计时自动跳首页 · 返回上一页 / 立即回首页双 CTA · reduce-motion 友好）。</li>
+            <li><strong>M5.5 README</strong>：项目根 <code>README.md</code> 全面重写 · 6 个 badge（tests / lint / phase）+ 技术栈表 · 核心特性 6 条 · 仓库布局树 · 快速开始 4 步 · 一键发布 3 步 · 完整 API 概览 · 6 个里程碑勾选 · 演示账号 seed · 设计参考。</li>
+            <li><strong>累计 282 case 全绿</strong>（M1 43 + M2 71 + M3 101 + M4 51 + M5 17）<code>bun run be:test</code> 16s 跑完；前端 <code>bun run fe:check</code> 0 error / 0 warning。</li>
+            <li><strong>踩坑沉淀（共 7 条进 SKILL §2.9 v0.0.21）</strong>：(1) <strong>SQL 切片复用</strong>：mapper 是切片真值，service 决定语义（funnel 直接复用 board 用的 countByStage，0 重复代码）；(2) <strong>业务时区 since</strong>：service 内算 `LocalDate.now(BIZ_ZONE).withDayOfMonth(1)`，不走 SQL NOW()（单测可控 + DB 时区漂移防御）；(3) <strong>0 ECharts SVG 漏斗</strong>：CSS gradient 完全够 8 态条形图，省 200KB；(4) <strong>多阶段 Dockerfile</strong>：先 COPY pom/package 再 install，再 COPY src，依赖层独立 cache（源码变动不重新下依赖）；(5) <strong>nginx 反代末尾斜杠对齐</strong>：<code>proxy_pass http://backend:8080/api/</code>（保留 /），少一个斜杠路径会拼成 <code>/api/api/v1/...</code>；(6) <strong>client_max_body_size ≥ multipart.max-file-size</strong>，否则 nginx 先 413 拦截错误码不可控；(7) <strong>SKILL.md 双 env / 双 keypair 隔离铁律</strong>：dev / prod env-file 显式分离（compose 不依赖默认查找），prod JWT keypair 必须重新生成（不要用 dev-*.pem），release 脚本启动前自检。</li>
+          </ul>
+          <strong>跑一次 e2e</strong>：1) HR/ADMIN 在 <code>/hr/dashboard</code> 看到 4 指标卡片 + 8 态漏斗图；2) 漏斗 stage hover 出现 → 箭头，点击跳看板对应列；3) ADMIN 看全平台数据，HR 看自己 owned 岗位数据；4) <code>cp infra/.env.prod.example infra/.env.prod</code> + 生成 prod JWT keypair → <code>bun run prod:release</code> → 1 分钟内访问 <code>http://127.0.0.1/</code> 看到 Hero 页面 → 跑通即 M5 验收完成。
+          <br><br>
+          <strong>剩余 PENDING</strong>：M4 / M5 人工 E2E 全流程串测。<del>演示账号 seed data 写进 <code>docs/project-schema.sql</code></del> ✅ <strong>2026-05-26 03:30 完成</strong>（3 账号 + 25 岗位 + 1 投递 · 见后文 changelog）。
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-26 00:20</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M4 完成 → 文件上传 + 面试评价两条辅助流跑通；后端测试 215 → 265（+51）全绿</strong>。
+          <ul>
+            <li><strong>M4.1 文件上传/下载</strong>：<code>UploadProperties</code>（<code>@ConfigurationProperties(ats.upload)</code>）+ <code>FileCategory</code>（白名单 enum：MIME + 扩展名 + 子目录三件套）+ <code>FileStorage</code> 接口 / <code>LocalFileStorage</code>（UUID v4 文件名 + <code>yyyy-MM</code> 子目录 + 路径穿越防御）+ <code>FileService</code>（双层 size 校验：servlet hard + service soft）+ <code>FileController</code>（POST <code>/files/upload</code> + GET <code>/files/**</code>）。错误码新增 → HTTP 映射：<code>FILE_TYPE_NOT_ALLOWED</code>→<strong>415</strong>（比 409 更 RESTful）/ <code>FILE_TOO_LARGE</code>→413 / <code>FILE_NOT_FOUND</code>→404。<strong>主类加 <code>@ConfigurationPropertiesScan</code></strong> 取代分散的 <code>@EnableConfigurationProperties</code>。21 case 测试。</li>
+            <li><strong>M4.2 面试评价</strong>：<code>InterviewRecord</code> entity + <code>InterviewMapper</code>（BaseMapper + <code>listByApplication</code> join users 拿 interviewer name/role）+ DTO（Create/Update Req + VO 含 <code>editable</code> 标记）+ <code>InterviewService</code>（访问权与 ApplicationService 完全同构 · <strong>24h 编辑窗口</strong>：作者 ≤24h 可改、ADMIN 不限时间、其他 HR 即使是 owner 也不能改）+ <code>InterviewController</code>（GET/POST <code>/applications/{id}/interviews</code> + PUT <code>/interviews/{id}</code>）。错误码扩 3 个：<code>INTERVIEW_NOT_FOUND</code>(20031)→404 / <code>INTERVIEW_EDIT_EXPIRED</code>(20032)→409 / <code>INTERVIEW_EDIT_FORBIDDEN</code>(20033)→403。30 case 测试。</li>
+            <li><strong>M4.3 简历 PDF 上传（前端）</strong>：<code>api/files.ts</code>（<code>FileValidationError</code> 本地预校验 → 不白跑后端）；投递弹窗（<code>views/jobs.vue</code>）把"简历链接"文本输入升级为<strong>自定义虚线 dropzone</strong>（隐藏 input + 上传中态 + 已附文件 chip + 移除按钮），与看板"浮动拒绝区"保持一致设计语言。</li>
+            <li><strong>M4.4 面试评价区 + PDF 预览（前端）</strong>：<code>api/interviews.ts</code> CRUD + <code>CONCLUSION_LABEL/TONE</code> 镜像；HR 看板详情 Drawer 阶段时间线下方新增"面试评价 · N"区，列表（NRate readonly + NTag tone 色彩）+ 添加/编辑共享一个内嵌表单（NRate 1-5 + NSelect 结论 + 优势/不足/备注 textarea），<code>editable</code> 标记控制按钮显隐；简历区 <code>/uploads/...</code> 自动转 <code>/api/v1/files/...</code> 下载链接，渲染为 PDF chip。</li>
+            <li><strong>看板 UX 优化</strong>：拖拽时视口右下浮出"拖到此一键拒绝"投放区（<code>canRejectFromDrag</code> v-show，复用既有 onColumnDragOver/onColumnDrop 走 target=REJECTED，<strong>0 业务分支增加</strong>），解决"小屏拖到最右列太远"痛点。同模式可复用到 M5 拖文件上传 / 全局 keyboard shortcut 浮岛。</li>
+            <li><strong>修复 M3 遗留 500</strong>：<code>ApplicationService.toListItemVO/toStageLogVO</code> 走原生 SQL <code>Map&lt;String,Object&gt;</code> 时 PG <code>timestamptz</code> 是 <code>java.sql.Timestamp</code>，强转 <code>OffsetDateTime</code> 必崩 → 加 <code>toOffsetDateTime(Object)</code> helper（兼容 OffsetDateTime / Timestamp / LocalDateTime / Date 四种来源），InterviewService 同源同构。SKILL §2.7.11 沉淀。</li>
+            <li><strong>累计 265 case 全绿</strong>（M1 43 + M2 71 + M3 101 + M4 51）；前端 <code>bun run fe:check</code>（typecheck + lint）0 error / 0 warning。</li>
+            <li><strong>踩坑沉淀（共 7 条进 SKILL §2.8）</strong>：(1) <strong>@MapperScan + @WebMvcTest 第三次踩</strong>：每加新 mapper 必须把所有 WebMvcTest @MockitoBean 同步（M2 第一次、M3 第二次、M4 第三次，已立铁律）；(2) <code>FILE_TYPE_NOT_ALLOWED</code> 没在 mapStatus 显式分支 → 默认 BAD_REQUEST 400；(3) <code>req.getServletPath()</code> 在 Spring 6 嵌入式 Tomcat 可能返回空 → NPE 500，必须用 <code>req.getRequestURI()</code> + 去 contextPath；(4) Windows TempDir + UrlResource 文件 handle 泄漏 → 测试需 try-with-resources 关 InputStream；(5) Mockito <code>any()</code> 对 BaseMapper.insert 类型推断歧义 → 必须 <code>any(InterviewRecord.class)</code>；(6) <strong>setup script use-before-define 第三次踩</strong>：openDetail 引用 interviews ref 必须前置声明（已立"setup script 编辑铁律"）；(7) axios FormData 必须显式 <code>Content-Type: multipart/form-data</code> 让 axios 自动加 boundary，否则 default <code>application/json</code> 污染。</li>
+          </ul>
+          <strong>跑一次 e2e</strong>：1) CANDIDATE 在 <code>/jobs</code> 投递 → 拖一个 PDF（≤5MB）→ 投递成功；2) HR/ADMIN 在 <code>/hr/board</code> 看到 PDF chip，点开新标签预览；3) 在面试评价区 <code>+ 添加评价</code>，填轮次/评分/结论/优势/不足 → 提交；4) 24h 内同账号能"编辑"，跨账号或超时不能。跑通即 M4 验收完成。
+        </td>
+      </tr>
       <tr>
         <td>2026-05-25 22:50</td>
         <td><span class="pill done">feat</span></td>

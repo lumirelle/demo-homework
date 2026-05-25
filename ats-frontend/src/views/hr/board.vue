@@ -7,8 +7,8 @@ import {
   NButton,
   NDrawer,
   NDrawerContent,
-  NEmpty,
   NInput,
+  NPopconfirm,
   NRate,
   NSelect,
   NSpin,
@@ -18,6 +18,10 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import CopyButton from '@/components/CopyButton.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { isResumeFile, resumeDownloadUrl } from '@/utils/resume'
 import {
   applicationsApi,
   canTransition,
@@ -36,6 +40,21 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const message = useMessage()
+const route = useRoute()
+const router = useRouter()
+
+/** 从 dashboard 跳来时携带的 stage（用于高亮 / 滚动到对应列） */
+const focusStage = computed<ApplicationStage | null>(() => {
+  const s = route.query.stage
+  if (typeof s !== 'string') return null
+  // 简单白名单校验，避免 URL 注入非法 stage
+  const valid: ApplicationStage[] = ['APPLIED', 'SCREENING_PASS', 'PHONE_INTERVIEW', 'TECH_INTERVIEW', 'HR_INTERVIEW', 'OFFER', 'HIRED', 'REJECTED']
+  return valid.includes(s as ApplicationStage) ? s as ApplicationStage : null
+})
+
+function jumpToJobs() {
+  router.push({ path: '/hr/jobs' })
+}
 
 // ───────────────────────── 范围选择（哪一个岗位的看板） ─────────────────────────
 
@@ -342,19 +361,7 @@ async function submitInterview() {
   }
 }
 
-/** 把 /uploads/... 的相对 URL 转成可下载的 /api/v1/files/... */
-function resumeDownloadUrl(uploadsUrl: string) {
-  // 投递时存的是 /uploads/resumes/yyyy-MM/<uuid>.pdf；下载走 /files/...
-  if (uploadsUrl.startsWith('/uploads/')) {
-    const base = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-    return `${base}/files/${uploadsUrl.substring('/uploads/'.length)}`
-  }
-  return uploadsUrl
-}
-
-function isResumeFile(url: string | null | undefined) {
-  return !!url && url.startsWith('/uploads/')
-}
+// 简历 URL 工具迁移到 @/utils/resume，避免与 me/applications.vue 重复实现。
 
 async function transitionFromDrawer(target: ApplicationStage) {
   if (!detail.value) return
@@ -446,6 +453,16 @@ function colClass(col: BoardColumnVO) {
 
 onMounted(async () => {
   await loadMyJobs()
+  // 支持 /hr/board?jobId=xxx 跨页跳转：从 HR 岗位管理"看板"按钮带过来后自动选中
+  const jobIdParam = route.query.jobId
+  if (typeof jobIdParam === 'string' && /^\d+$/.test(jobIdParam)) {
+    const jid = Number(jobIdParam)
+    if (myJobs.value.some(j => j.id === jid)) {
+      selectedJobId.value = jid
+      // selectedJobId 的 watcher 会触发 fetchBoard
+      return
+    }
+  }
   await fetchBoard()
 })
 </script>
@@ -459,10 +476,10 @@ onMounted(async () => {
           <p kicker mb-2>
             Hiring Pipeline · 招聘看板
           </p>
-          <h1 m-0 text="3xl gray-900" font-black tracking="[-0.03em]" leading="tight">
+          <h1 m-0 text-3xl text-gray-900 font-black tracking="[-0.03em]" leading="tight">
             投递流转 · <span class="text-gradient">8 态状态机</span>
           </h1>
-          <p mt-2 text="sm secondary" leading="[1.6]">
+          <p mt-2 text-sm text-secondary leading="[1.6]">
             拖拽卡片到下一阶段即可推进 ·
             合法路径会高亮 · 拒绝需填写原因 · 终态（已入职 / 已拒绝）不可再变更
           </p>
@@ -470,7 +487,7 @@ onMounted(async () => {
 
         <div flex="~ items-end" gap-3>
           <div min-w="[260px]">
-            <label text="[10px] tertiary" font-bold uppercase tracking-widest mb-1 block>
+            <label text-[10px] text-tertiary font-bold uppercase tracking-widest mb-1 block>
               查看范围
             </label>
             <NSelect
@@ -482,10 +499,10 @@ onMounted(async () => {
             />
           </div>
           <div text-right>
-            <p text="[10px] tertiary" font-bold uppercase tracking-widest m="0 b-1">
+            <p text-[10px] text-tertiary font-bold uppercase tracking-widest m="0 b-1">
               投递总数
             </p>
-            <p m-0 text="2xl primary font-mono" font-bold>
+            <p m-0 text-2xl text-primary text-font-mono font-bold>
               {{ board?.totalApplications ?? 0 }}
             </p>
           </div>
@@ -496,16 +513,25 @@ onMounted(async () => {
     <!-- 看板 -->
     <section max-w="[1500px]" mx-auto p="b-8 x-6">
       <NSpin :show="loading">
-        <div v-if="!loading && (!board || board.totalApplications === 0)" py-16>
-          <NEmpty description="当前范围下还没有投递记录" />
-        </div>
+        <EmptyState
+          v-if="!loading && (!board || board.totalApplications === 0)"
+          icon="inbox"
+          title="当前范围下还没有投递记录"
+          :description="selectedJobId === ALL_JOBS_SENTINEL ? '发布岗位后，候选人投递的简历会出现在这里。' : '尝试切换到「所有岗位（汇总）」查看，或先去岗位管理发布更多岗位。'"
+        >
+          <template #action>
+            <NButton type="primary" @click="jumpToJobs">
+              去岗位管理
+            </NButton>
+          </template>
+        </EmptyState>
 
         <div v-else class="board-scroll">
           <div class="board-grid">
             <div
               v-for="col in board?.columns ?? []"
               :key="col.stage"
-              :class="colClass(col)"
+              :class="[colClass(col), focusStage === col.stage ? 'is-focus-target' : '']"
               :style="{ '--accent': STAGE_ACCENT[col.stage] }"
               @dragover="onColumnDragOver($event, col.stage)"
               @dragleave="onColumnDragLeave(col.stage)"
@@ -523,7 +549,7 @@ onMounted(async () => {
 
               <div class="board-col-body">
                 <div v-if="col.items.length === 0 && !loading" class="board-col-empty">
-                  <span text="[11px] tertiary">暂无</span>
+                  <span text-[11px] text-tertiary>暂无</span>
                 </div>
 
                 <article
@@ -543,14 +569,14 @@ onMounted(async () => {
                     <span class="font-semibold text-sm text-primary truncate">
                       {{ item.candidateName ?? '匿名' }}
                     </span>
-                    <span v-if="item.yearsExp != null" text="[10px] tertiary font-mono">
+                    <span v-if="item.yearsExp != null" text-[10px] text-tertiary text-font-mono>
                       {{ item.yearsExp }}y
                     </span>
                   </div>
-                  <p v-if="!effectiveJobId" m-0 text="xs secondary" class="truncate">
+                  <p v-if="!effectiveJobId" m-0 text-xs text-secondary class="truncate">
                     {{ item.jobTitle }}
                   </p>
-                  <p m="t-1.5 b-0" text="[10px] tertiary font-mono">
+                  <p m="t-1.5 b-0" text-[10px] text-tertiary text-font-mono>
                     {{ formatTime(item.updatedAt) }}
                   </p>
                 </article>
@@ -593,7 +619,7 @@ onMounted(async () => {
         :native-scrollbar="false"
         closable
       >
-        <p text="sm secondary" mb-4 leading="[1.65]">
+        <p text-sm text-secondary mb-4 leading="[1.65]">
           一旦拒绝，该投递将进入终态，<strong text-primary>不可再变更</strong>。请简述原因，候选人能在「我的投递」看到，体验会更好。
         </p>
         <NInput
@@ -632,27 +658,41 @@ onMounted(async () => {
                 <NTag :type="STAGE_TONE[detail.stage]" round :bordered="false">
                   {{ STAGE_LABEL[detail.stage] }}
                 </NTag>
-                <span text="xs tertiary">
+                <span text-xs text-tertiary>
                   投递于 {{ formatTime(detail.appliedAt) }}
                 </span>
                 <span class="op-40 text-xs">·</span>
-                <span text="xs tertiary">
+                <span text-xs text-tertiary>
                   最近更新 {{ formatTime(detail.updatedAt) }}
                 </span>
               </div>
 
-              <p m-0 text="lg primary" font-bold class="truncate">
+              <p m-0 text-lg text-primary font-bold class="truncate">
                 {{ detail.jobTitle }}
               </p>
 
-              <div mt-3 grid grid-cols-2 gap-3 p-3 rounded-md bg-(--bg-muted) text="xs secondary">
-                <div>
-                  <span text-tertiary>邮箱 ·</span>
-                  <span text-primary font-medium ml-1>{{ detail.candidateEmail ?? '—' }}</span>
+              <div mt-3 grid grid-cols-2 gap-3 p-3 rounded-md bg-muted text-xs text-secondary>
+                <div flex="~ items-center" gap-1 min-w-0>
+                  <span text-tertiary shrink-0>邮箱 ·</span>
+                  <span text-primary font-medium ml-1 class="truncate">{{ detail.candidateEmail ?? '—' }}</span>
+                  <CopyButton
+                    v-if="detail.candidateEmail"
+                    :text="detail.candidateEmail"
+                    hint="已复制邮箱"
+                    tooltip="复制邮箱"
+                    size="tiny"
+                  />
                 </div>
-                <div>
-                  <span text-tertiary>联系方式 ·</span>
-                  <span text-primary font-medium ml-1 font-mono>{{ detail.phone ?? '—' }}</span>
+                <div flex="~ items-center" gap-1 min-w-0>
+                  <span text-tertiary shrink-0>联系方式 ·</span>
+                  <span text-primary font-medium ml-1 font-mono class="truncate">{{ detail.phone ?? '—' }}</span>
+                  <CopyButton
+                    v-if="detail.phone"
+                    :text="detail.phone"
+                    hint="已复制电话"
+                    tooltip="复制电话"
+                    size="tiny"
+                  />
                 </div>
                 <div>
                   <span text-tertiary>工作年限 ·</span>
@@ -665,7 +705,7 @@ onMounted(async () => {
                     :href="resumeDownloadUrl(detail.resumeUrl)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 inline-flex items-center gap-1 text-(--brand-700) hover:underline font-medium"
+                    class="ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium"
                   >
                     <span class="resume-pill">PDF</span> 在新标签页打开
                   </a>
@@ -674,7 +714,7 @@ onMounted(async () => {
                     :href="detail.resumeUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 text-(--brand-700) hover:underline font-medium"
+                    class="ml-1 text-brand-700 hover:underline font-medium"
                   >
                     {{ detail.resumeUrl }}
                   </a>
@@ -683,14 +723,14 @@ onMounted(async () => {
 
               <p
                 v-if="detail.stage === 'REJECTED' && detail.rejectReason"
-                class="mt-3 p-3 rounded-md bg-(--danger-50) border border-(--danger-200) text-sm text-(--danger-700)"
+                class="mt-3 p-3 rounded-md bg-danger-50 border border-(--danger-500) text-sm text-danger-700"
               >
                 <strong>未通过原因：</strong>{{ detail.rejectReason }}
               </p>
             </div>
 
             <!-- 时间线 -->
-            <h3 text="[10px] tertiary uppercase" tracking-widest m="0 b-3" font-bold>
+            <h3 text-[10px] text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
               阶段时间线
             </h3>
             <NTimeline>
@@ -705,7 +745,7 @@ onMounted(async () => {
                   操作人：<span text-primary>{{ log.operatedByName }}</span>
                   <span v-if="log.operatedByRole" text-tertiary text-xs ml-1>· {{ log.operatedByRole }}</span>
                 </p>
-                <p v-if="log.note" m="t-1 b-0" text="sm secondary" leading="[1.65]">
+                <p v-if="log.note" m="t-1 b-0" text-sm text-secondary leading="[1.65]">
                   {{ log.note }}
                 </p>
               </NTimelineItem>
@@ -714,7 +754,7 @@ onMounted(async () => {
             <!-- ─────────── 面试评价（M4） ─────────── -->
             <div mt-8>
               <header flex="~ items-center justify-between" mb-3>
-                <h3 m-0 text="[10px] tertiary uppercase" tracking-widest font-bold>
+                <h3 m-0 text-[10px] text-tertiary text-uppercase tracking-widest font-bold>
                   面试评价 · {{ interviews.length }}
                 </h3>
                 <NButton
@@ -730,13 +770,13 @@ onMounted(async () => {
 
               <!-- 表单（添加 / 编辑共用） -->
               <div v-if="interviewFormVisible" class="iv-form">
-                <p text="xs tertiary" m="0 b-3" font-semibold uppercase tracking-wider>
+                <p text-xs text-tertiary m="0 b-3" font-semibold uppercase tracking-wider>
                   {{ editingInterview ? '编辑评价' : '添加新评价' }}
                   <span v-if="editingInterview" text-tertiary>· 24h 内可改</span>
                 </p>
                 <div flex flex-col gap-3>
                   <div>
-                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       面试轮次
                     </label>
                     <NInput
@@ -747,13 +787,13 @@ onMounted(async () => {
                   </div>
                   <div flex="~ items-center wrap" gap-4>
                     <div>
-                      <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                         评分
                       </label>
                       <NRate v-model:value="interviewForm.rating" :count="5" />
                     </div>
                     <div flex-1 min-w="[180px]">
-                      <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                         结论
                       </label>
                       <NSelect
@@ -763,7 +803,7 @@ onMounted(async () => {
                     </div>
                   </div>
                   <div>
-                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       优势
                     </label>
                     <NInput
@@ -776,7 +816,7 @@ onMounted(async () => {
                     />
                   </div>
                   <div>
-                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       不足
                     </label>
                     <NInput
@@ -789,7 +829,7 @@ onMounted(async () => {
                     />
                   </div>
                   <div>
-                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       备注（可选）
                     </label>
                     <NInput
@@ -817,7 +857,7 @@ onMounted(async () => {
 
               <!-- 列表 -->
               <div v-if="interviews.length === 0 && !interviewFormVisible" class="iv-empty">
-                <span text="xs tertiary">暂无面试评价</span>
+                <span text-xs text-tertiary>暂无面试评价</span>
               </div>
               <div v-else flex flex-col gap-3>
                 <article
@@ -854,16 +894,16 @@ onMounted(async () => {
                       </NButton>
                     </div>
                   </header>
-                  <p v-if="iv.strengths" m="0 b-1" text="sm secondary" leading="[1.6]">
+                  <p v-if="iv.strengths" m="0 b-1" text-sm text-secondary leading="[1.6]">
                     <strong text-primary>优势 ·</strong> {{ iv.strengths }}
                   </p>
-                  <p v-if="iv.weaknesses" m="0 b-1" text="sm secondary" leading="[1.6]">
+                  <p v-if="iv.weaknesses" m="0 b-1" text-sm text-secondary leading="[1.6]">
                     <strong text-primary>不足 ·</strong> {{ iv.weaknesses }}
                   </p>
-                  <p v-if="iv.notes" m="0 b-1" text="sm secondary" leading="[1.6]">
+                  <p v-if="iv.notes" m="0 b-1" text-sm text-secondary leading="[1.6]">
                     <strong text-primary>备注 ·</strong> {{ iv.notes }}
                   </p>
-                  <footer flex="~ items-center justify-between wrap" gap-2 mt-2 text="[11px] tertiary">
+                  <footer flex="~ items-center justify-between wrap" gap-2 mt-2 text-[11px] text-tertiary>
                     <span>
                       面试官 · <span text-primary font-medium>{{ iv.interviewerName ?? '—' }}</span>
                       <span v-if="iv.interviewerRole" ml-1>· {{ iv.interviewerRole }}</span>
@@ -879,24 +919,49 @@ onMounted(async () => {
         <!-- 操作栏：动态推进按钮 -->
         <template #footer>
           <div flex="~ items-center justify-between wrap" gap-2 w-full>
-            <span v-if="detail && isTerminal(detail.stage)" text="xs tertiary">
+            <span v-if="detail && isTerminal(detail.stage)" text-xs text-tertiary>
               已是终态，无法继续推进
             </span>
-            <span v-else-if="detail" text="xs tertiary">
+            <span v-else-if="detail" text-xs text-tertiary>
               下一步：
             </span>
 
             <div flex="~ items-center wrap" gap-2>
               <template v-if="detail && detail.allowedTransitions">
-                <NButton
+                <template
                   v-for="next in detail.allowedTransitions"
                   :key="next"
-                  size="small"
-                  :type="next === 'REJECTED' ? 'error' : (next === 'OFFER' || next === 'HIRED' ? 'primary' : 'default')"
-                  @click="transitionFromDrawer(next)"
                 >
-                  → {{ STAGE_LABEL[next] }}
-                </NButton>
+                  <!-- 关键流转（OFFER / HIRED / REJECTED）走二次确认；中间过程直接推进 -->
+                  <NPopconfirm
+                    v-if="next === 'OFFER' || next === 'HIRED' || next === 'REJECTED'"
+                    :positive-text="`确认 ${STAGE_LABEL[next]}`"
+                    negative-text="取消"
+                    :positive-button-props="{ type: next === 'REJECTED' ? 'error' : 'primary' }"
+                    @positive-click="transitionFromDrawer(next)"
+                  >
+                    <template #trigger>
+                      <NButton
+                        size="small"
+                        :type="next === 'REJECTED' ? 'error' : 'primary'"
+                      >
+                        → {{ STAGE_LABEL[next] }}
+                      </NButton>
+                    </template>
+                    即将把 <strong>{{ detail.candidateName }}</strong> 流转到
+                    <strong>{{ STAGE_LABEL[next] }}</strong>。
+                    <span v-if="next === 'HIRED'">入职后该投递进入终态，不可再变更。</span>
+                    <span v-else-if="next === 'REJECTED'">下一步会要求填写拒绝原因。</span>
+                  </NPopconfirm>
+                  <NButton
+                    v-else
+                    size="small"
+                    type="default"
+                    @click="transitionFromDrawer(next)"
+                  >
+                    → {{ STAGE_LABEL[next] }}
+                  </NButton>
+                </template>
               </template>
             </div>
           </div>
@@ -946,6 +1011,22 @@ onMounted(async () => {
 .board-col.is-allowed {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 8px 22px -10px var(--accent);
+}
+
+/* 从 dashboard 跳来时携带 ?stage= 高亮对应列：使用 brand 色描边脉冲 */
+.board-col.is-focus-target {
+  border-color: var(--brand-500);
+  box-shadow:
+    0 0 0 2px rgba(16, 185, 129, 0.18),
+    0 8px 24px -10px var(--brand-500);
+  animation: focus-pulse 1.6s var(--ease-out) 2;
+}
+@keyframes focus-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18), 0 8px 24px -10px var(--brand-500); }
+  50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.10), 0 12px 30px -8px var(--brand-500); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-col.is-focus-target { animation: none; }
 }
 
 /* 拖拽中：非法目标列变暗 */

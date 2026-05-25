@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { FormInst, FormRules } from 'naive-ui'
+import type { PublicStatsVO } from '@/api/stats'
 import { NForm, NFormItem, NInput } from 'naive-ui'
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BizError } from '@/api/request'
+import { statsApi } from '@/api/stats'
+import { formatCount } from '@/composables/use-format-count'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -46,21 +49,60 @@ async function handleSubmit() {
   }
 }
 
-const PIPELINE = [
-  { stage: '初步筛选', desc: '8 份简历待审', count: '8', bg: 'rgba(251,191,36,.10)', accent: '#fbbf24' },
-  { stage: '技术面试', desc: '3 位候选人', count: '3', bg: 'rgba(16,185,129,.10)', accent: '#34d399' },
-  { stage: 'Offer 阶段', desc: '1 人谈薪中', count: '1', bg: 'rgba(6,182,212,.10)', accent: '#22d3ee' },
-]
+/**
+ * 公开聚合统计 —— 登录页左侧 "招聘流水线" 三张卡片。
+ * 未登录可访问；< 5 模糊化为"多人"，> 999 显示 "1.x k+"，避免数据稀疏时暴露具体个位数。
+ *
+ * 设计取舍：拉取失败时降级为静态 placeholder（"多人"/0），不阻塞登录页渲染。
+ */
+const publicStats = ref<PublicStatsVO | null>(null)
+
+onMounted(async () => {
+  try {
+    publicStats.value = await statsApi.publicStats()
+  }
+  catch (e) {
+    // 公开接口不应 fail 整个页面 —— 静默兜底，登录页主流程不受影响
+    console.warn('[login] publicStats fetch failed, falling back to placeholders', e)
+  }
+})
+
+const PIPELINE = computed(() => {
+  const s = publicStats.value
+  return [
+    {
+      stage: '初步筛选',
+      desc: '简历评估中',
+      count: formatCount(s?.screeningCount ?? 0),
+      bg: 'rgba(251,191,36,.10)',
+      accent: '#fbbf24',
+    },
+    {
+      stage: '面试阶段',
+      desc: '候选人推进中',
+      count: formatCount(s?.interviewCount ?? 0),
+      bg: 'rgba(16,185,129,.10)',
+      accent: '#34d399',
+    },
+    {
+      stage: 'Offer 阶段',
+      desc: 'Offer 沟通中',
+      count: formatCount(s?.offerCount ?? 0),
+      bg: 'rgba(6,182,212,.10)',
+      accent: '#22d3ee',
+    },
+  ]
+})
 
 /** 卡片堆叠顶部索引；点击下层卡片洗到顶部 */
 const topCardIndex = ref(0)
 function getStackPos(realIndex: number) {
-  return (realIndex - topCardIndex.value + PIPELINE.length) % PIPELINE.length
+  return (realIndex - topCardIndex.value + PIPELINE.value.length) % PIPELINE.value.length
 }
 function bringCardToTop(realIndex: number) {
   if (realIndex === topCardIndex.value) {
     // 点击顶部卡片 → 自动轮播下一张
-    topCardIndex.value = (topCardIndex.value + 1) % PIPELINE.length
+    topCardIndex.value = (topCardIndex.value + 1) % PIPELINE.value.length
   }
   else {
     topCardIndex.value = realIndex
@@ -114,8 +156,8 @@ function bringCardToTop(realIndex: number) {
         </h1>
 
         <p class="mt-8 max-w-[380px] text-sm leading-relaxed text-white/45">
-          一套现代化招聘追踪系统。让 HR 与候选人，<br>
-          沿同一根时间线，把每一份才华都送到光下。
+          公司内部招聘追踪系统。让 HR 与候选人，<br>
+          沿同一根时间线，把每一位人才送到合适的位置。
         </p>
 
         <!-- 浮动招聘卡片堆叠（点击下层洗到顶部，点顶层切下一张） -->
@@ -154,7 +196,7 @@ function bringCardToTop(realIndex: number) {
     </div>
 
     <!-- ══ 右：表单面板 ════════════════════════════════════== -->
-    <div class="flex flex-1 flex-col items-center justify-center bg-(--bg-app) px-6 py-12">
+    <div class="flex flex-1 flex-col items-center justify-center bg-app px-6 py-12">
       <div class="w-full max-w-[400px]">
         <!-- top bar: mobile logo + 返回首页 -->
         <div class="mb-10 flex items-center justify-between">
@@ -184,7 +226,7 @@ function bringCardToTop(realIndex: number) {
             <span class="text-2xl">👋</span>
           </h2>
           <p class="text-sm text-tertiary">
-            登录以继续使用招聘追踪系统
+            登录以继续使用公司招聘追踪系统
           </p>
         </div>
 
@@ -280,9 +322,9 @@ function bringCardToTop(realIndex: number) {
 
         <!-- divider -->
         <div class="my-6 flex items-center gap-3">
-          <div class="h-px flex-1 bg-(--border)" />
+          <div class="h-px flex-1 bg-(--border-default)" />
           <span class="text-[11px] uppercase tracking-widest text-tertiary">还没有账号？</span>
-          <div class="h-px flex-1 bg-(--border)" />
+          <div class="h-px flex-1 bg-(--border-default)" />
         </div>
 
         <router-link to="/register" class="btn-secondary group">
@@ -300,7 +342,7 @@ function bringCardToTop(realIndex: number) {
             </svg>
             JWT + HttpOnly Cookie
           </span>
-          <span class="h-3 w-px bg-(--border)" />
+          <span class="h-3 w-px bg-(--border-default)" />
           <span>密码 BCrypt 加密</span>
         </div>
       </div>

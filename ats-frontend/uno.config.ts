@@ -260,7 +260,7 @@ export default defineConfig({
     'eyebrow': 'flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.25em]',
 
     // ─ Surface（玻璃质感容器）─
-    'surface-glass': 'border border-default bg-(--bg-app)/70 backdrop-blur-xl backdrop-saturate-180',
+    'surface-glass': 'border border-default bg-app/70 backdrop-blur-xl backdrop-saturate-180',
     'surface-glass-dark': 'border border-white/8 bg-white/4 backdrop-blur-md',
     'surface-elevated': 'bg-elevated border border-subtle rounded-xl shadow-sm',
 
@@ -277,7 +277,7 @@ export default defineConfig({
       'flex items-center justify-center gap-1.5 w-full px-[18px] py-3 text-sm font-semibold rounded-xl no-underline '
       + 'text-secondary bg-elevated border border-default '
       + 'transition-all duration-260 ease-out '
-      + 'hover:(text-(--brand-700) border-(--brand-300) bg-[rgba(16,185,129,.04)] -translate-y-px)',
+      + 'hover:(text-brand-700 border-brand-300 bg-[rgba(16,185,129,.04)] -translate-y-px)',
     'btn-cta':
       'relative inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white rounded-[10px] overflow-hidden no-underline '
       + 'bg-[linear-gradient(135deg,#10b981_0%,#059669_60%,#14b8a6_100%)] '
@@ -319,7 +319,7 @@ export default defineConfig({
       + 'bg-[rgba(16,185,129,.12)] text-sm',
     'demo-fill':
       'flex-shrink-0 px-2.5 py-1 text-[11px] font-semibold rounded-md cursor-pointer '
-      + 'text-(--brand-700) bg-[rgba(16,185,129,.12)] border border-[rgba(16,185,129,.25)] '
+      + 'text-brand-700 bg-[rgba(16,185,129,.12)] border border-[rgba(16,185,129,.25)] '
       + 'transition-all duration-150 ease-out hover:(bg-[rgba(16,185,129,.18)] border-[rgba(16,185,129,.4)])',
 
     // ─ Navbar ─

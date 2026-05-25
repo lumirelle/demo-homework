@@ -24,7 +24,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { applicationsApi } from '@/api/applications'
 import { filesApi, FileValidationError, UPLOAD_LIMITS } from '@/api/files'
 import {
@@ -40,6 +40,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 
 // ────────────────────────── 过滤状态 ──────────────────────────
@@ -351,9 +352,15 @@ watch(
   { deep: true },
 )
 
-onMounted(() => {
+onMounted(async () => {
   loadTags()
-  fetchList()
+  await fetchList()
+  // 支持 /jobs?jobId=xxx 直链 / 跨页跳转 ——
+  // 例如从「我的投递」点"查看岗位"过来时自动打开 drawer
+  const jobIdParam = route.query.jobId
+  if (typeof jobIdParam === 'string' && /^\d+$/.test(jobIdParam)) {
+    openDetail(Number(jobIdParam))
+  }
 })
 
 // 字数统计：filter chip 上的"已选 N"
@@ -376,10 +383,10 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
       <p kicker mb-3>
         Job Market · 岗位市场
       </p>
-      <h1 m-0 text="[clamp(36px,5vw,60px)] gray-900" font-black tracking="[-0.04em]" leading="[1.05]">
+      <h1 m-0 text-[clamp(36px,5vw,60px)] text-gray-900 font-black tracking="[-0.04em]" leading="[1.05]">
         遇见<span class="text-gradient">下一份机会</span>
       </h1>
-      <p mt-3 text="lg secondary" max-w="[640px]" leading="[1.6]">
+      <p mt-3 text-lg text-secondary max-w="[640px]" leading="[1.6]">
         共 <span text-primary font-semibold>{{ total }}</span> 个公开岗位 ·
         覆盖技术研发、产品设计、HR Tech 等领域 · 支持全文搜索 + 标签精筛
       </p>
@@ -401,7 +408,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           transition="[border-color,box-shadow]"
           duration-260
           ease-out
-          focus-within:(border-(--brand-300) shadow-glow-mint)
+          focus-within:(border-brand-300 shadow-glow-mint)
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="op-60 flex-shrink-0">
             <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" />
@@ -435,8 +442,8 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             :key="opt.value"
             type="button"
             :class="filter.workType.includes(opt.value)
-              ? 'bg-(--brand-500) text-white border-(--brand-500) shadow-glow-mint'
-              : 'bg-elevated text-secondary border-subtle hover:(border-(--brand-300) text-primary)'"
+              ? 'bg-brand-500 text-white border-brand-500 shadow-glow-mint'
+              : 'bg-elevated text-secondary border-subtle hover:(border-brand-300 text-primary)'"
             class="px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out"
             @click="filter.workType.includes(opt.value)
               ? filter.workType = filter.workType.filter(v => v !== opt.value)
@@ -453,8 +460,8 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             :key="opt.value"
             type="button"
             :class="filter.level.includes(opt.value)
-              ? 'bg-(--accent-teal) text-white border-(--accent-teal) shadow-glow-teal'
-              : 'bg-elevated text-secondary border-subtle hover:(border-(--accent-teal)/40 text-primary)'"
+              ? 'bg-accent-teal text-white border-accent-teal shadow-glow-teal'
+              : 'bg-elevated text-secondary border-subtle hover:(border-accent-teal/40 text-primary)'"
             class="px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out"
             @click="filter.level.includes(opt.value)
               ? filter.level = filter.level.filter(v => v !== opt.value)
@@ -469,15 +476,15 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           type="button"
           class="px-3 py-1.5 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out flex items-center gap-1.5"
           :class="tagPanelOpen || tagSelectedCount > 0
-            ? 'bg-(--accent-emerald)/10 text-(--brand-700) border-(--brand-300)'
-            : 'bg-elevated text-secondary border-subtle hover:(border-(--brand-300) text-primary)'"
+            ? 'bg-accent-emerald/10 text-brand-700 border-brand-300'
+            : 'bg-elevated text-secondary border-subtle hover:(border-brand-300 text-primary)'"
           @click="tagPanelOpen = !tagPanelOpen"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
             <path d="M3 7 H21 M6 12 H18 M9 17 H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
           标签
-          <span v-if="tagSelectedCount" class="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-(--brand-500) text-white text-[10px] font-bold">
+          <span v-if="tagSelectedCount" class="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-brand-500 text-white text-[10px] font-bold">
             {{ tagSelectedCount }}
           </span>
         </button>
@@ -486,7 +493,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
         <button
           v-if="hasActiveFilter"
           type="button"
-          class="text-xs text-tertiary hover:text-(--danger-700) transition-colors cursor-pointer bg-transparent border-none px-2 py-1"
+          class="text-xs text-tertiary hover:text-danger-700 transition-colors cursor-pointer bg-transparent border-none px-2 py-1"
           @click="clearFilters"
         >
           清空筛选
@@ -507,8 +514,8 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                   :key="t.id"
                   type="button"
                   :class="filter.tagSlugs.includes(t.slug)
-                    ? 'bg-(--brand-500) text-white border-(--brand-500)'
-                    : 'bg-app text-secondary border-subtle hover:(border-(--brand-300) text-primary bg-elevated)'"
+                    ? 'bg-brand-500 text-white border-brand-500'
+                    : 'bg-app text-secondary border-subtle hover:(border-brand-300 text-primary bg-elevated)'"
                   class="px-2.5 py-1 text-xs rounded-md border cursor-pointer transition-all duration-260 ease-out"
                   @click="toggleTag(t.slug)"
                 >
@@ -580,7 +587,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             />
 
             <header flex="~ items-start justify-between" gap-3 mb-3>
-              <h3 m-0 font-bold text="lg primary" leading="tight" class="line-clamp-2 flex-1">
+              <h3 m-0 font-bold text-lg text-primary leading="tight" class="line-clamp-2 flex-1">
                 {{ item.title }}
               </h3>
               <NTag
@@ -596,7 +603,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             </header>
 
             <!-- 元信息 -->
-            <div flex="~ items-center wrap" gap-2 mb-3 text="xs secondary">
+            <div flex="~ items-center wrap" gap-2 mb-3 text-xs text-secondary>
               <span flex="~ items-center" gap-1>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <rect x="4" y="6" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.6" />
@@ -612,7 +619,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                 {{ LEVEL_LABEL[item.level] }}
               </span>
               <span class="op-40">·</span>
-              <span class="font-mono font-semibold text-(--brand-700)">
+              <span class="font-mono font-semibold text-brand-700">
                 {{ item.salaryRange }}
               </span>
             </div>
@@ -637,7 +644,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             </div>
 
             <!-- 底部 footer -->
-            <div flex="~ items-center justify-between" text="xs tertiary">
+            <div flex="~ items-center justify-between" text-xs text-tertiary>
               <span class="truncate">
                 {{ item.departmentName ?? '未设部门' }}<template v-if="item.location"> · {{ item.location }}</template>
               </span>
@@ -683,11 +690,11 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                 <NTag :type="STATUS_TAG_TYPE[detail.status]" size="small" round :bordered="false">
                   {{ STATUS_LABEL[detail.status] }}
                 </NTag>
-                <span text="xs tertiary">
+                <span text-xs text-tertiary>
                   发布于 {{ formatPublishedAt(detail.publishedAt) }}
                 </span>
                 <span class="op-40 text-xs">·</span>
-                <span text="xs tertiary font-mono">
+                <span text-xs text-tertiary text-font-mono>
                   {{ detail.viewCount }} 浏览
                 </span>
               </div>
@@ -695,24 +702,24 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               <!-- 关键属性 -->
               <div grid grid-cols-2 gap-3 mb-4>
                 <div>
-                  <p text="[10px] tertiary uppercase tracking-widest" m="0 b-1" font-semibold>
+                  <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
                     薪资范围
                   </p>
-                  <p m-0 text="2xl font-mono primary" font-bold>
+                  <p m-0 text-2xl text-font-mono text-primary font-bold>
                     {{ detail.salaryRange }}
                   </p>
                 </div>
                 <div>
-                  <p text="[10px] tertiary uppercase tracking-widest" m="0 b-1" font-semibold>
+                  <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
                     招聘人数
                   </p>
-                  <p m-0 text="2xl primary" font-bold>
-                    {{ detail.headcount }} <span text="sm tertiary">人</span>
+                  <p m-0 text-2xl text-primary font-bold>
+                    {{ detail.headcount }} <span text-sm text-tertiary>人</span>
                   </p>
                 </div>
               </div>
 
-              <div grid grid-cols-3 gap-3 p-3 rounded-md bg-(--bg-muted) text="xs secondary">
+              <div grid grid-cols-3 gap-3 p-3 rounded-md bg-muted text-xs text-secondary>
                 <div>
                   <span text-tertiary>工作类型 ·</span>
                   <span text-primary font-medium ml-1>{{ WORK_TYPE_LABEL[detail.workType] }}</span>
@@ -738,7 +745,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 
             <!-- 标签 -->
             <div v-if="detail.tags.length" mb-6>
-              <p text="[10px] tertiary uppercase tracking-widest" m="0 b-2" font-semibold>
+              <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-2" font-semibold>
                 技能 / 领域
               </p>
               <div flex="~ wrap" gap-2>
@@ -759,7 +766,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 
             <!-- 描述（Markdown 渲染） -->
             <div mb-8>
-              <p text="[10px] tertiary uppercase tracking-widest" m="0 b-3" font-semibold>
+              <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-3" font-semibold>
                 岗位描述
               </p>
               <div
@@ -777,9 +784,9 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
         <!-- 底部 CTA -->
         <template #footer>
           <div flex="~ items-center justify-between" w-full>
-            <div text="xs tertiary">
+            <div text-xs text-tertiary>
               <template v-if="detail?.status === 'PUBLISHED'">
-                <span class="inline-block w-2 h-2 rounded-full bg-(--success-500) mr-1.5 animate-pulse-ring" />
+                <span class="inline-block w-2 h-2 rounded-full bg-success-500 mr-1.5 animate-pulse-ring" />
                 正在招聘
               </template>
               <template v-else-if="detail?.status === 'PAUSED'">
@@ -794,13 +801,13 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               <NButton @click="drawerVisible = false">
                 关闭
               </NButton>
-              <!-- HR/Admin 看到「管理岗位」直达后台编辑 -->
+              <!-- HR/Admin 看到「管理岗位」直达后台编辑该岗位 -->
               <NButton
                 v-if="(auth.isHr || auth.isAdmin) && detail"
                 type="default"
-                @click="router.push('/hr/jobs')"
+                @click="router.push({ path: '/hr/jobs', query: { editJobId: String(detail.id) } })"
               >
-                到管理台 →
+                到管理台编辑 →
               </NButton>
               <!-- 候选人/未登录 看到「立即投递」 -->
               <NButton
@@ -825,12 +832,12 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
       :bordered="false"
     >
       <div flex="~ col" gap-4>
-        <p text="sm secondary" m-0 leading="[1.65]">
+        <p text-sm text-secondary m-0 leading="[1.65]">
           填写简历信息后我们会把投递发送给该岗位 HR。HR 之后通过看板推进面试阶段，你可以在「我的投递」页面追踪进度。
         </p>
 
         <div>
-          <label text="xs tertiary" font-medium mb-1.5 block uppercase tracking-wider>
+          <label text-xs text-tertiary font-medium mb-1.5 block uppercase tracking-wider>
             工作年限
           </label>
           <NInputNumber
@@ -842,13 +849,13 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           />
         </div>
         <div>
-          <label text="xs tertiary" font-medium mb-1.5 block uppercase tracking-wider>
+          <label text-xs text-tertiary font-medium mb-1.5 block uppercase tracking-wider>
             联系方式（可选）
           </label>
           <NInput v-model:value="applyForm.phone" placeholder="HR 联系你的电话 / 微信" />
         </div>
         <div>
-          <label text="xs tertiary" font-medium mb-1.5 block uppercase tracking-wider>
+          <label text-xs text-tertiary font-medium mb-1.5 block uppercase tracking-wider>
             简历 PDF（可选 · ≤5MB）
           </label>
           <!-- 隐藏 input，自定义按钮触发，便于完全控制 UI 与 axios 上传链 -->
@@ -860,13 +867,13 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             @change="onResumeChange"
           >
           <div v-if="!resumeFile" class="resume-uploader" :class="{ 'is-loading': uploadingResume }" @click="pickResume">
-            <div text="2xl" class="resume-uploader-icon">
+            <div text-2xl class="resume-uploader-icon">
               ↑
             </div>
-            <p m="0 b-1" text="sm primary" font-semibold>
+            <p m="0 b-1" text-sm text-primary font-semibold>
               {{ uploadingResume ? '上传中…' : '点击选择 PDF 文件' }}
             </p>
-            <p m="0" text="xs tertiary">
+            <p m="0" text-xs text-tertiary>
               仅 PDF · 最大 5MB · 不上传也能投递，HR 会主动联系
             </p>
           </div>
@@ -875,10 +882,10 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               PDF
             </div>
             <div flex-1 min-w-0>
-              <p m="0" text="sm primary" font-semibold class="truncate">
+              <p m="0" text-sm text-primary font-semibold class="truncate">
                 {{ resumeFile.name }}
               </p>
-              <p m="t-0.5 b-0" text="[11px] tertiary font-mono">
+              <p m="t-0.5 b-0" text-[11px] text-tertiary text-font-mono>
                 {{ formatFileSize(resumeFile.size) }} · 已上传
               </p>
             </div>

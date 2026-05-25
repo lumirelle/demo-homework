@@ -9,7 +9,6 @@ import {
   NButton,
   NDrawer,
   NDrawerContent,
-  NEmpty,
   NSkeleton,
   NSpin,
   NTag,
@@ -25,6 +24,10 @@ import {
   STAGE_ORDER,
 } from '@/api/applications'
 import { BizError } from '@/api/request'
+import CopyButton from '@/components/CopyButton.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import ErrorBlock from '@/components/ErrorBlock.vue'
+import { isResumeFile, resumeDownloadUrl } from '@/utils/resume'
 
 const router = useRouter()
 const message = useMessage()
@@ -34,14 +37,18 @@ const message = useMessage()
 const loading = ref(false)
 const items = ref<ApplicationListItemVO[]>([])
 
+const errMsg = ref<string | null>(null)
+
 async function fetchList() {
   loading.value = true
+  errMsg.value = null
   try {
     items.value = await applicationsApi.listMine()
   }
   catch (e) {
+    const err = e as { response?: { data?: { msg?: string } }, message?: string }
+    errMsg.value = err.response?.data?.msg ?? err.message ?? '加载投递记录失败'
     if (e instanceof BizError) message.error(e.message)
-    else throw e
   }
   finally {
     loading.value = false
@@ -140,10 +147,10 @@ onMounted(() => {
       <p kicker mb-3>
         My Applications · 我的投递
       </p>
-      <h1 m-0 text="[clamp(28px,4vw,44px)] gray-900" font-black tracking="[-0.03em]" leading="[1.1]">
+      <h1 m-0 text-[clamp(28px,4vw,44px)] text-gray-900 font-black tracking="[-0.03em]" leading="[1.1]">
         追踪你的<span class="text-gradient">每一次面试旅程</span>
       </h1>
-      <p mt-3 text="base secondary" max-w="[640px]" leading="[1.65]">
+      <p mt-3 text-base text-secondary max-w="[640px]" leading="[1.65]">
         共 <span text-primary font-semibold>{{ items.length }}</span> 个投递 ·
         进行中 <span text-primary font-semibold>{{ grouped.active.length }}</span> ·
         已完成 <span text-primary font-semibold>{{ grouped.closed.length }}</span>
@@ -152,16 +159,27 @@ onMounted(() => {
 
     <section max-w="[1100px]" mx-auto p="b-12 x-6">
       <NSpin :show="loading">
+        <!-- 错误 -->
+        <ErrorBlock
+          v-if="errMsg && !loading"
+          :description="errMsg"
+          :retrying="loading"
+          @retry="fetchList"
+        />
+
         <!-- 空 -->
-        <div v-if="!loading && items.length === 0" py-16>
-          <NEmpty description="还没有投递记录，先去看看公开岗位吧">
-            <template #extra>
-              <NButton type="primary" @click="router.push('/jobs')">
-                去岗位市场 →
-              </NButton>
-            </template>
-          </NEmpty>
-        </div>
+        <EmptyState
+          v-else-if="!loading && items.length === 0"
+          icon="inbox"
+          title="还没有投递记录"
+          description="去岗位市场逛逛吧 —— 你投递的每一份简历都会在这里有迹可循。"
+        >
+          <template #action>
+            <NButton type="primary" @click="router.push('/jobs')">
+              去岗位市场 →
+            </NButton>
+          </template>
+        </EmptyState>
 
         <!-- 骨架 -->
         <div v-else-if="loading && items.length === 0" flex="~ col" gap-3>
@@ -174,7 +192,7 @@ onMounted(() => {
         <!-- 进行中 -->
         <template v-else>
           <div v-if="grouped.active.length" mb-8>
-            <h2 text="sm tertiary uppercase" tracking-widest m="0 b-3" font-bold>
+            <h2 text-sm text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
               · 进行中
             </h2>
             <div flex="~ col" gap-3>
@@ -189,10 +207,10 @@ onMounted(() => {
               >
                 <div flex="~ items-start justify-between" gap-3 mb-2>
                   <div flex-1 min-w-0>
-                    <h3 m-0 font-bold text="lg primary" leading="tight" class="truncate">
+                    <h3 m-0 font-bold text-lg text-primary leading="tight" class="truncate">
                       {{ item.jobTitle }}
                     </h3>
-                    <p m="t-1 b-0" text="xs tertiary">
+                    <p m="t-1 b-0" text-xs text-tertiary>
                       {{ formatTime(item.appliedAt) }}投递 · 最近更新 {{ formatTime(item.updatedAt) }}
                     </p>
                   </div>
@@ -210,7 +228,7 @@ onMounted(() => {
           </div>
 
           <div v-if="grouped.closed.length">
-            <h2 text="sm tertiary uppercase" tracking-widest m="0 b-3" font-bold>
+            <h2 text-sm text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
               · 已完成
             </h2>
             <div flex="~ col" gap-3>
@@ -225,10 +243,10 @@ onMounted(() => {
               >
                 <div flex="~ items-start justify-between" gap-3>
                   <div flex-1 min-w-0>
-                    <h3 m-0 font-bold text="lg primary" leading="tight" class="truncate" :class="{ 'op-70': item.stage === 'REJECTED' }">
+                    <h3 m-0 font-bold text-lg text-primary leading="tight" class="truncate" :class="{ 'op-70': item.stage === 'REJECTED' }">
                       {{ item.jobTitle }}
                     </h3>
-                    <p m="t-1 b-0" text="xs tertiary">
+                    <p m="t-1 b-0" text-xs text-tertiary>
                       {{ formatTime(item.appliedAt) }}投递 · 结果于 {{ formatTime(item.updatedAt) }}
                     </p>
                   </div>
@@ -253,21 +271,66 @@ onMounted(() => {
         <NSpin :show="detailLoading">
           <template v-if="detail">
             <div mb-6>
-              <NTag :type="STAGE_TONE[detail.stage]" round :bordered="false">
-                {{ STAGE_LABEL[detail.stage] }}
-              </NTag>
-              <p m="t-3 b-0" text="sm secondary" leading="[1.65]">
+              <div flex="~ items-center wrap" gap-2 mb-2>
+                <NTag :type="STAGE_TONE[detail.stage]" round :bordered="false">
+                  {{ STAGE_LABEL[detail.stage] }}
+                </NTag>
+                <span text-xs text-tertiary font-mono>
+                  · 投递 ID #{{ detail.id }}
+                </span>
+                <CopyButton
+                  :text="String(detail.id)"
+                  hint="已复制投递 ID"
+                  tooltip="复制投递 ID（联系 HR 时可引用）"
+                  size="tiny"
+                />
+              </div>
+              <p m="t-1 b-0" text-sm text-secondary leading="[1.65]">
                 投递时间：{{ formatTime(detail.appliedAt) }} · 最近更新：{{ formatTime(detail.updatedAt) }}
               </p>
+
+              <!-- 投递时填的简历 / 联系方式（候选人自己回看）-->
+              <div mt-3 grid grid-cols-2 gap-3 p-3 rounded-md bg-muted text-xs text-secondary>
+                <div>
+                  <span text-tertiary>工作年限 ·</span>
+                  <span text-primary font-medium ml-1>{{ detail.yearsExp ?? '—' }} 年</span>
+                </div>
+                <div>
+                  <span text-tertiary>联系方式 ·</span>
+                  <span text-primary font-medium ml-1 font-mono>{{ detail.phone ?? '—' }}</span>
+                </div>
+                <div v-if="detail.resumeUrl" col-span-2 class="truncate">
+                  <span text-tertiary>简历 ·</span>
+                  <a
+                    v-if="isResumeFile(detail.resumeUrl)"
+                    :href="resumeDownloadUrl(detail.resumeUrl)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium"
+                  >
+                    <span class="resume-pill">PDF</span> 在新标签页打开
+                  </a>
+                  <a
+                    v-else
+                    :href="detail.resumeUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ml-1 text-brand-700 hover:underline font-medium"
+                  >
+                    {{ detail.resumeUrl }}
+                  </a>
+                </div>
+              </div>
+
               <p
                 v-if="detail.stage === 'REJECTED' && detail.rejectReason"
-                class="mt-3 p-3 rounded-md bg-(--danger-50) border border-(--danger-200) text-sm text-(--danger-700)"
+                class="mt-3 p-3 rounded-md bg-danger-50 border border-(--danger-500) text-sm text-danger-700"
               >
                 <strong>未通过原因：</strong>{{ detail.rejectReason }}
               </p>
             </div>
 
-            <h3 text="sm tertiary uppercase" tracking-widest m="0 b-3" font-bold>
+            <h3 text-sm text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
               阶段时间线
             </h3>
             <NTimeline>
@@ -284,7 +347,7 @@ onMounted(() => {
                     操作人：<span text-primary>{{ log.operatedByName }}</span>
                     <span v-if="log.operatedByRole" text-tertiary text-xs ml-1>· {{ log.operatedByRole }}</span>
                   </p>
-                  <p v-if="log.note" m="t-1 b-0" text="sm secondary" leading="[1.65]">
+                  <p v-if="log.note" m="t-1 b-0" text-sm text-secondary leading="[1.65]">
                     {{ log.note }}
                   </p>
                 </template>
@@ -292,6 +355,20 @@ onMounted(() => {
             </NTimeline>
           </template>
         </NSpin>
+        <template v-if="detail" #footer>
+          <div flex="~ items-center justify-end" gap-2 w-full>
+            <NButton @click="drawerVisible = false">
+              关闭
+            </NButton>
+            <NButton
+              type="primary"
+              tertiary
+              @click="router.push({ path: '/jobs', query: { jobId: String(detail.jobId) } })"
+            >
+              查看岗位 →
+            </NButton>
+          </div>
+        </template>
       </NDrawerContent>
     </NDrawer>
   </main>
@@ -338,5 +415,18 @@ onMounted(() => {
   .app-progress-fill {
     transition: none !important;
   }
+}
+
+/* 简历 PDF 标签 —— 与 hr/board.vue 风格一致 */
+.resume-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  background: var(--brand-100);
+  color: var(--brand-800);
+  text-transform: uppercase;
 }
 </style>

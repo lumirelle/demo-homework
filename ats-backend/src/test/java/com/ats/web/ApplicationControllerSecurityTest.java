@@ -86,6 +86,7 @@ class ApplicationControllerSecurityTest {
     @MockitoBean ApplicationMapper applicationMapper;
     @MockitoBean StageLogMapper stageLogMapper;
     @MockitoBean InterviewMapper interviewMapper;
+    @MockitoBean com.ats.repository.StatsMapper statsMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private static final String APPLY_BODY = """

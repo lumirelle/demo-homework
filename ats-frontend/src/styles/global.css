@@ -24,6 +24,15 @@ html {
   height: 100%;
   /* 始终为滚动条预留宽度，防止过渡动画期间滚动条出现/消失引起布局抖动 */
   scrollbar-gutter: stable;
+  /* 锚点滚动留出 fixed navbar (60px) 的偏移，避免目标元素被遮挡。
+     同时作用于浏览器原生 <a href="#xxx"> 跳转和 vue-router scrollBehavior */
+  scroll-padding-top: 76px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body,
@@ -43,6 +52,19 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv11', 'ss01', 'ss03';
   text-rendering: optimizeLegibility;
+  /* 表单控件（checkbox / radio / range / progress）统一品牌色，比强写自定义 CSS 简洁 */
+  accent-color: var(--brand-500);
+}
+
+/* ────────────────────────────────────────
+ * 全局键盘焦点环 —— Naive UI 组件内部已自管 focus，
+ * 这里只覆盖裸 <button> / <a> / [tabindex] 元素，避免 Naive UI 双环。
+ * 用 :focus-visible 而非 :focus 保证鼠标点击不出现"刺眼蓝框"。
+ * ──────────────────────────────────────── */
+:where(a, button, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* tabular numbers for data-heavy UI */

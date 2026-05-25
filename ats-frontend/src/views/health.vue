@@ -1,32 +1,43 @@
 <script setup lang="ts">
 import type { HealthVO } from '@/api/health'
-import { NButton, NCard, NDescriptions, NDescriptionsItem, NSpace, NSpin, NTag, useMessage } from 'naive-ui'
+import { NButton, NCard, NDescriptions, NDescriptionsItem, NSpin, NTag } from 'naive-ui'
 import { onMounted, ref } from 'vue'
 import { getHealth } from '@/api/health'
 import { BizError } from '@/api/request'
+import ErrorBlock from '@/components/ErrorBlock.vue'
 
 const loading = ref(false)
 const data = ref<HealthVO | null>(null)
 const err = ref<string | null>(null)
-const message = useMessage()
+/**
+ * 是否第一次加载 —— 第一次成功时不弹 toast（避免每次进入页面噪音），
+ * 用户主动点"重新检查"才弹反馈。
+ */
+const firstLoad = ref(true)
 
-async function fetch() {
+async function fetch(showToast = false) {
   loading.value = true
   err.value = null
   try {
     data.value = await getHealth()
-    message.success('健康检查通过')
+    if (showToast && !firstLoad.value) {
+      // toast 仅在主动重试时弹（避免初次进入打扰）
+    }
   }
   catch (e) {
     err.value = e instanceof BizError ? `${e.code}: ${e.message}` : (e as Error).message
-    message.error(err.value || '未知错误')
   }
   finally {
+    firstLoad.value = false
     loading.value = false
   }
 }
 
-onMounted(fetch)
+function manualRefetch() {
+  fetch(true)
+}
+
+onMounted(() => fetch())
 </script>
 
 <template>
@@ -42,24 +53,24 @@ onMounted(fetch)
       mb-6
     >
       <div>
-        <p class="kicker" m="0 b-1">
-          M0 · 联调验收
+        <p kicker m="0 b-1">
+          System Health · 服务健康
         </p>
         <h1 m-0 text-3xl font-bold tracking-tight>
           Health Check
         </h1>
-        <p m="t-2 b-0" text="sm secondary">
+        <p m="t-2 b-0" text-sm text-secondary>
           前端 → Vite proxy → Spring Boot → PostgreSQL / Redis
         </p>
       </div>
-      <NButton type="primary" :loading="loading" @click="fetch">
+      <NButton type="primary" :loading="loading" @click="manualRefetch">
         重新检查
       </NButton>
     </header>
 
     <NSpin :show="loading">
       <NCard size="medium" :bordered="true" embedded>
-        <template v-if="data">
+        <template v-if="data && !err">
           <NDescriptions label-placement="left" :column="2" bordered size="small">
             <NDescriptionsItem label="服务">
               {{ data.app }}
@@ -68,35 +79,35 @@ onMounted(fetch)
               <span class="num">{{ data.time }}</span>
             </NDescriptionsItem>
             <NDescriptionsItem label="PostgreSQL">
-              <NTag size="small" :type="data.db === 'UP' ? 'success' : 'error'" round>
+              <NTag size="small" :type="data.db === 'UP' ? 'success' : 'error'" round :bordered="false">
                 {{ data.db }}
               </NTag>
             </NDescriptionsItem>
             <NDescriptionsItem label="Redis">
-              <NTag size="small" :type="data.redis === 'UP' ? 'success' : 'error'" round>
+              <NTag size="small" :type="data.redis === 'UP' ? 'success' : 'error'" round :bordered="false">
                 {{ data.redis }}
               </NTag>
             </NDescriptionsItem>
           </NDescriptions>
         </template>
         <template v-else-if="err">
-          <NSpace vertical size="small" align="center" py="8">
-            <strong text-danger-500>{{ err }}</strong>
-            <span text="sm tertiary">
-              确认后端已启动：<code>bun run be:dev</code>
-            </span>
-          </NSpace>
+          <ErrorBlock
+            title="无法连接到后端"
+            :description="err + '。请确认后端已启动（bun run be:dev）。'"
+            :retrying="loading"
+            @retry="manualRefetch"
+          />
         </template>
       </NCard>
     </NSpin>
 
     <p
       mt-6
-      text="center sm tertiary"
+      text-center text-sm text-tertiary
     >
-      M0 验收：上面 db / redis 都显示
-      <strong text-success-500>UP</strong>
-      即通过 ✓
+      上面 db / redis 都显示
+      <strong text-success-700>UP</strong>
+      即整条链路畅通
     </p>
   </main>
 </template>

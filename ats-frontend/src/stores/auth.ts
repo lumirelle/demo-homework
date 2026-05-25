@@ -8,6 +8,8 @@ export type UserRole = 'ADMIN' | 'HR' | 'CANDIDATE'
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
   const user = ref<MeVO | null>(null)
+  /** 应用启动后是否已经尝试过 silent refresh —— 避免每次路由跳转都重复调 /auth/refresh */
+  let initializePromise: Promise<void> | null = null
 
   const isLoggedIn = computed(() => !!accessToken.value)
   const role = computed<UserRole | null>(() => user.value?.role ?? null)
@@ -53,10 +55,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /** 初始化时尝试恢复登录态（页面刷新后调用） */
-  async function initialize() {
+  /**
+   * 应用启动 / 页面刷新后调用一次：用 httpOnly cookie 中的 refresh token 兑换 access token。
+   * - 全局只跑一次：用 `initializePromise` 缓存正在进行 / 已完成的调用，多次并发调用安全
+   * - 已登录则直接返回（避免不必要的网络请求）
+   */
+  async function initialize(): Promise<void> {
     if (isLoggedIn.value) return
-    await silentRefresh()
+    if (initializePromise) return initializePromise
+    initializePromise = (async () => {
+      await silentRefresh()
+    })()
+    return initializePromise
   }
 
   return {

@@ -64,6 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         JwtAuthenticationFilter.class,
         JwtAuthEntryPoint.class,
         GlobalExceptionHandler.class,
+        com.ats.auth.AdminUserService.class,
 })
 @ActiveProfiles("test")
 @DisplayName("Web Security · 端到端过滤器链 / 角色守卫 / CSRF")
@@ -87,6 +88,7 @@ class WebSecurityIntegrationTest {
     @MockitoBean com.ats.repository.ApplicationMapper applicationMapper;
     @MockitoBean com.ats.repository.StageLogMapper stageLogMapper;
     @MockitoBean com.ats.repository.InterviewMapper interviewMapper;
+    @MockitoBean com.ats.repository.StatsMapper statsMapper;
 
     // ════════════════════════════════════════════════════════════
     //                    401 · JWT 过滤器链
@@ -207,6 +209,135 @@ class WebSecurityIntegrationTest {
                     """;
 
             mvc.perform(jsonPost("/admin/users", body)
+                            .header("Authorization", "Bearer admin-token"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_FAILED.getCode()));
+        }
+
+        // ── 批量创建 /admin/users/batch ──────────────────────────
+
+        @Test
+        @DisplayName("ADMIN 批量创建 · 全部成功 → 200，逐行明细 + counts")
+        void adminBatchCreate_allSuccess() throws Exception {
+            mockClaims("admin-token", 1L, "admin@b.com", "ADMIN");
+            when(userMapper.selectCount(any())).thenReturn(0L);
+            when(passwordEncoder.encode(any())).thenReturn("BCRYPT");
+
+            String body = """
+                    {"users":[
+                        {"email":"hr1@b.com","password":"password!","fullName":"HR-1","role":"HR"},
+                        {"email":"hr2@b.com","password":"password!","fullName":"HR-2","role":"HR"}
+                    ]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
+                            .header("Authorization", "Bearer admin-token"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(0))
+                    .andExpect(jsonPath("$.data.successCount").value(2))
+                    .andExpect(jsonPath("$.data.failureCount").value(0))
+                    .andExpect(jsonPath("$.data.items[0].success").value(true))
+                    .andExpect(jsonPath("$.data.items[0].email").value("hr1@b.com"))
+                    .andExpect(jsonPath("$.data.items[1].success").value(true));
+
+            verify(userMapper, org.mockito.Mockito.times(2)).insert(any(User.class));
+        }
+
+        @Test
+        @DisplayName("ADMIN 批量创建 · 同批次内重复邮箱 → 第二条 EMAIL_ALREADY_EXISTS，整批不回滚")
+        void adminBatchCreate_duplicateInBatch_partialSuccess() throws Exception {
+            mockClaims("admin-token", 1L, "admin@b.com", "ADMIN");
+            when(userMapper.selectCount(any())).thenReturn(0L);
+            when(passwordEncoder.encode(any())).thenReturn("BCRYPT");
+
+            String body = """
+                    {"users":[
+                        {"email":"dup@b.com","password":"password!","fullName":"X","role":"HR"},
+                        {"email":"DUP@b.com","password":"password!","fullName":"Y","role":"HR"}
+                    ]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
+                            .header("Authorization", "Bearer admin-token"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.successCount").value(1))
+                    .andExpect(jsonPath("$.data.failureCount").value(1))
+                    .andExpect(jsonPath("$.data.items[0].success").value(true))
+                    .andExpect(jsonPath("$.data.items[1].success").value(false))
+                    .andExpect(jsonPath("$.data.items[1].errorCode")
+                            .value(ErrorCode.EMAIL_ALREADY_EXISTS.getCode()));
+        }
+
+        @Test
+        @DisplayName("ADMIN 批量创建 · 邮箱已存在 → 该行失败但其余成功")
+        void adminBatchCreate_existingEmail_partialFailure() throws Exception {
+            mockClaims("admin-token", 1L, "admin@b.com", "ADMIN");
+            // 第一条 selectCount=1（已存在），第二条 selectCount=0（可创建）
+            when(userMapper.selectCount(any())).thenReturn(1L, 0L);
+            when(passwordEncoder.encode(any())).thenReturn("BCRYPT");
+
+            String body = """
+                    {"users":[
+                        {"email":"old@b.com","password":"password!","fullName":"Old","role":"HR"},
+                        {"email":"new@b.com","password":"password!","fullName":"New","role":"HR"}
+                    ]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
+                            .header("Authorization", "Bearer admin-token"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.successCount").value(1))
+                    .andExpect(jsonPath("$.data.failureCount").value(1))
+                    .andExpect(jsonPath("$.data.items[0].success").value(false))
+                    .andExpect(jsonPath("$.data.items[0].errorCode")
+                            .value(ErrorCode.EMAIL_ALREADY_EXISTS.getCode()))
+                    .andExpect(jsonPath("$.data.items[1].success").value(true));
+        }
+
+        @Test
+        @DisplayName("HR token 调 /admin/users/batch → 403")
+        void hrCannotBatchCreate() throws Exception {
+            mockClaims("hr-token", 2L, "hr@b.com", "HR");
+
+            String body = """
+                    {"users":[{"email":"x@b.com","password":"password!","fullName":"X","role":"HR"}]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
+                            .header("Authorization", "Bearer hr-token"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
+
+            verify(userMapper, never()).insert(any(User.class));
+        }
+
+        @Test
+        @DisplayName("ADMIN 批量创建 · 空列表 → 400 VALIDATION_FAILED")
+        void adminBatchCreate_emptyList_returns400() throws Exception {
+            mockClaims("admin-token", 1L, "admin@b.com", "ADMIN");
+
+            String body = """
+                    {"users":[]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
+                            .header("Authorization", "Bearer admin-token"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_FAILED.getCode()));
+        }
+
+        @Test
+        @DisplayName("ADMIN 批量创建 · 单行 role=ADMIN → 400 VALIDATION_FAILED（@Valid 级联校验）")
+        void adminBatchCreate_roleAdmin_validation400() throws Exception {
+            mockClaims("admin-token", 1L, "admin@b.com", "ADMIN");
+
+            String body = """
+                    {"users":[
+                        {"email":"x@b.com","password":"password!","fullName":"X","role":"ADMIN"}
+                    ]}
+                    """;
+
+            mvc.perform(jsonPost("/admin/users/batch", body)
                             .header("Authorization", "Bearer admin-token"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_FAILED.getCode()));

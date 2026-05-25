@@ -60,6 +60,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/register", "/auth/login", "/auth/refresh", "/auth/logout").permitAll()
                         // 候选人可未登录浏览岗位 + 标签
                         .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*", "/tags").permitAll()
+                        // 登录 / 注册页"水位"展示用的聚合统计（仅 GET，仅返回不可识别个体的聚合数字）
+                        .requestMatchers(HttpMethod.GET, "/stats/public").permitAll()
                         // 其他全部需要登录
                         .anyRequest().authenticated()
                 )

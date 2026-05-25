@@ -36,7 +36,7 @@ const navLinks = computed(() => {
     { to: '/home', label: '首页', icon: 'M3 12 L12 4 L21 12 M5 10 V20 H19 V10' },
     { to: '/jobs', label: '岗位市场', icon: 'M4 8 H20 V20 H4 Z M9 8 V5 a2 2 0 0 1 2-2 h2 a2 2 0 0 1 2 2 V8' },
   ]
-  // HR / Admin：岗位管理台 + 招聘看板
+  // HR / Admin：岗位管理台 + 招聘看板 + 数据看板
   if (auth.isHr || auth.isAdmin) {
     links.push({
       to: '/hr/jobs',
@@ -47,6 +47,24 @@ const navLinks = computed(() => {
       to: '/hr/board',
       label: '招聘看板',
       icon: 'M5 5 H9 V19 H5 Z M11 5 H15 V14 H11 Z M17 5 H19 V11 H17 Z',
+    })
+    links.push({
+      to: '/hr/dashboard',
+      label: '数据看板',
+      icon: 'M4 19 V5 M4 19 H20 M8 15 V11 M12 15 V8 M16 15 V13',
+    })
+  }
+  // ADMIN 专属：账号管理 + 系统健康
+  if (auth.isAdmin) {
+    links.push({
+      to: '/admin/users',
+      label: '账号管理',
+      icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21a8 8 0 0 1 16 0 M19 8 V14 M16 11 H22',
+    })
+    links.push({
+      to: '/health',
+      label: '系统健康',
+      icon: 'M3 12 H7 L9 5 L13 19 L15 12 H21',
     })
   }
   // CANDIDATE：我的投递
@@ -68,6 +86,10 @@ function renderIcon(svg: string) {
   })
 }
 
+/**
+ * 用户菜单 —— 移除「个人资料 / 快捷键」永久 disabled 占位项（看起来像坏链）。
+ * 等到对应功能上线再加回来。
+ */
 const menuOptions = computed(() => [
   {
     key: 'header',
@@ -78,16 +100,9 @@ const menuOptions = computed(() => [
     ]),
   },
   {
-    label: '个人资料',
-    key: 'me',
-    disabled: true,
-    icon: renderIcon('M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21a8 8 0 0 1 16 0'),
-  },
-  {
-    label: '快捷键',
-    key: 'shortcut',
-    disabled: true,
-    icon: renderIcon('M4 6 H20 V18 H4 Z M7 10 H7.01 M11 10 H11.01 M15 10 H15.01 M7 14 H17'),
+    label: auth.isCandidate ? '我的投递' : '我的工作台',
+    key: 'me-shortcut',
+    icon: renderIcon('M5 4 H15 L19 8 V20 H5 Z M14 4 V8 H19 M8 12 H16 M8 16 H13'),
   },
   { type: 'divider', key: 'd1' },
   {
@@ -101,6 +116,11 @@ async function handleSelect(key: string) {
   if (key === 'logout') {
     await auth.logout()
     router.replace('/login')
+    return
+  }
+  if (key === 'me-shortcut') {
+    // 候选人 → 我的投递；HR/Admin → 招聘看板（最常进入的工作台）
+    router.push(auth.isCandidate ? '/me/applications' : '/hr/board')
   }
 }
 
@@ -118,7 +138,7 @@ function isActive(path: string) {
 
     <div class="relative flex h-full items-center justify-between px-6">
       <!-- ── Logo ───────────────────────────────── -->
-      <router-link to="/home" class="group/logo flex items-center gap-2.5 no-underline">
+      <router-link to="/home" class="group/logo flex items-center gap-2.5 no-underline" aria-label="ATS · 返回首页">
         <span class="logo-mark group-hover/logo:(rotate-[-8deg] scale-106 shadow-[0_0_24px_rgba(16,185,129,.6),inset_0_1px_0_rgba(255,255,255,.3)])">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
@@ -132,17 +152,21 @@ function isActive(path: string) {
       </router-link>
 
       <!-- ── Center nav ─────────────────────────── -->
-      <nav class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-(--bg-elevated)/40 p-1 backdrop-blur-sm">
+      <nav
+        aria-label="主导航"
+        class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-elevated/40 p-1 backdrop-blur-sm"
+      >
         <router-link
           v-for="item in navLinks"
           :key="item.to"
           :to="item.to"
+          :aria-current="isActive(item.to) ? 'page' : undefined"
           class="relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium no-underline transition-all"
           :class="isActive(item.to)
             ? 'text-primary bg-elevated shadow-[0_1px_2px_rgba(0,0,0,.05),inset_0_0_0_1px_var(--border)]'
             : 'text-tertiary hover:(text-secondary bg-hover)'"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path :d="item.icon" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           {{ item.label }}
@@ -159,8 +183,13 @@ function isActive(path: string) {
             :show-arrow="true"
             @select="handleSelect"
           >
-            <button class="user-trigger group/user">
-              <span class="avatar" :style="`background:${avatarBg}`">{{ initial }}</span>
+            <button
+              type="button"
+              class="user-trigger group/user"
+              aria-haspopup="menu"
+              :aria-label="`账户菜单 · ${auth.user?.fullName ?? ''}（${ROLE_LABEL[auth.role ?? ''] ?? ''}）`"
+            >
+              <span class="avatar" :style="`background:${avatarBg}`" aria-hidden="true">{{ initial }}</span>
               <div class="hidden flex-col items-start leading-none sm:flex">
                 <span class="text-[13px] font-semibold text-primary">{{ auth.user?.fullName }}</span>
                 <span class="mt-0.5 inline-flex items-center gap-1">

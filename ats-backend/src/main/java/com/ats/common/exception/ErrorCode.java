@@ -51,6 +51,7 @@ public enum ErrorCode {
 
     VALIDATION_FAILED(40001, "请求参数校验失败"),
     BAD_REQUEST(40002, "请求格式错误"),
+    NOT_FOUND(40004, "请求的资源/接口不存在"),
 
     INTERNAL_ERROR(50000, "服务器内部错误");
 

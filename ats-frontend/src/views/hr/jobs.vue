@@ -28,6 +28,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   jobsApi,
   LEVEL_LABEL,
@@ -37,11 +38,14 @@ import {
   WORK_TYPE_LABEL,
 } from '@/api/jobs'
 import { BizError } from '@/api/request'
+import EmptyState from '@/components/EmptyState.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const message = useMessage()
 const dialog = useDialog()
+const router = useRouter()
+const route = useRoute()
 
 // ────────────────────────── filter / pagination 状态 ──────────────────────────
 
@@ -258,11 +262,16 @@ const columns: DataTableColumns<JobListItemVO> = [
   {
     title: '操作',
     key: 'actions',
-    width: 200,
+    width: 240,
     fixed: 'right',
     render: row => h(NSpace, { size: 'small' }, {
       default: () => [
         h(NButton, { size: 'tiny', secondary: true, onClick: () => openEdit(row.id) }, { default: () => '编辑' }),
+        h(NButton, {
+          size: 'tiny',
+          tertiary: true,
+          onClick: () => router.push({ path: '/hr/board', query: { jobId: row.id } }),
+        }, { default: () => '看板' }),
         h(StatusTransitionButton, {
           row,
           onTransition: (to: JobStatus) => transitionJob(row, to),
@@ -282,16 +291,42 @@ const columns: DataTableColumns<JobListItemVO> = [
 
 // ────────────────────────── 状态推进 / 删除 ──────────────────────────
 
+/**
+ * 状态流转 hint：根据目标态给出影响说明，让 HR 在确认前知道副作用。
+ * - PUBLISHED：对候选人立即可见
+ * - CLOSED / ARCHIVED：终态，影响候选人投递路径
+ * - PAUSED：可恢复，相对温和
+ */
+function statusHint(to: JobStatus): string {
+  switch (to) {
+    case 'PUBLISHED': return '发布后该岗位将立即对候选人可见，并出现在岗位市场列表中。'
+    case 'PAUSED': return '暂停后岗位会从市场列表隐藏，但已有投递不受影响。'
+    case 'CLOSED': return '关闭后岗位进入收尾阶段，候选人无法继续投递；可再次发布。'
+    case 'ARCHIVED': return '归档后岗位将从默认列表移除，仅"含已归档"开关下可见。'
+    case 'DRAFT': return '回退到草稿后岗位将从市场下架，可继续编辑。'
+    default: return ''
+  }
+}
+
 async function transitionJob(row: JobListItemVO, to: JobStatus) {
-  try {
-    await jobsApi.transition(row.id, to)
-    message.success(`已将「${row.title}」流转到 ${STATUS_LABEL[to]}`)
-    fetchList()
-  }
-  catch (e) {
-    if (e instanceof BizError) message.error(e.message)
-    else throw e
-  }
+  // 关键流转加 dialog 确认 —— 所有状态变更都涉及候选人侧可见性，统一二次确认更稳
+  dialog.warning({
+    title: `确认流转到「${STATUS_LABEL[to]}」`,
+    content: `${row.title}\n\n${statusHint(to)}`,
+    positiveText: `确认 ${STATUS_LABEL[to]}`,
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await jobsApi.transition(row.id, to)
+        message.success(`已将「${row.title}」流转到 ${STATUS_LABEL[to]}`)
+        fetchList()
+      }
+      catch (e) {
+        if (e instanceof BizError) message.error(e.message)
+        else throw e
+      }
+    },
+  })
 }
 
 function confirmDelete(row: JobListItemVO) {
@@ -430,9 +465,15 @@ watch(
   { deep: true },
 )
 
-onMounted(() => {
+onMounted(async () => {
   loadTags()
-  fetchList()
+  await fetchList()
+  // 支持 /hr/jobs?editJobId=xxx 跨页跳转 ——
+  // 例如从「岗位市场」HR 视角点"到管理台编辑"过来时自动 open edit drawer
+  const editId = route.query.editJobId
+  if (typeof editId === 'string' && /^\d+$/.test(editId)) {
+    openEdit(Number(editId))
+  }
 })
 </script>
 
@@ -449,12 +490,12 @@ onMounted(() => {
             rounded-full
             bg-elevated
             border="~ subtle"
-            text="xs secondary"
+            text-xs text-secondary
             font="medium mono"
           >
-            M2 · 岗位管理
+            Jobs Management · 岗位管理
           </p>
-          <h1 m-0 text="[36px] gray-900" font="display black" tracking="[-0.03em]" leading="[1.05]">
+          <h1 m-0 text-[36px] text-gray-900 font="display black" tracking="[-0.03em]" leading="[1.05]">
             岗位<span class="text-gradient">管理台</span>
           </h1>
           <p mt-2 text-secondary>
@@ -543,7 +584,21 @@ onMounted(() => {
 
     <!-- ──────────────── 数据表格 ──────────────── -->
     <section max-w="[1400px]" mx-auto p="y-4 x-6">
-      <div rounded-xl overflow-hidden bg-elevated border="~ subtle" shadow-sm>
+      <!-- 空表格 + 无筛选条件：给"新建岗位"引导 -->
+      <EmptyState
+        v-if="!loading && items.length === 0 && !filter.keyword && filter.status.length === 0 && filter.workType.length === 0 && filter.level.length === 0"
+        icon="inbox"
+        title="还没有任何岗位"
+        description="发布第一个岗位，候选人就能在岗位市场看到它。"
+      >
+        <template #action>
+          <NButton type="primary" size="medium" @click="openCreate">
+            + 新建岗位
+          </NButton>
+        </template>
+      </EmptyState>
+
+      <div v-else rounded-xl overflow-hidden bg-elevated border="~ subtle" shadow-sm>
         <NDataTable
           :columns="columns"
           :data="items"
@@ -553,7 +608,12 @@ onMounted(() => {
           :single-line="false"
           striped
           size="medium"
-          :scroll-x="1300"
+          :scroll-x="1340"
+          :row-props="(row) => ({
+            style: 'cursor: pointer',
+            onDblclick: () => openEdit(row.id),
+            title: '双击编辑',
+          })"
           :pagination="{
             page,
             pageSize,

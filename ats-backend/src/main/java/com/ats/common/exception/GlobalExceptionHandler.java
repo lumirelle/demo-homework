@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -64,6 +65,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUpload(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(ApiResponse.fail(ErrorCode.FILE_TOO_LARGE.getCode(), ErrorCode.FILE_TOO_LARGE.getMsg()));
+    }
+
+    /**
+     * 路径不存在时 Spring 会 fall through 到静态资源 handler，再抛 NoResourceFoundException。
+     * 默认会被 catch-all 兜底成 500，对前端体感很差（明明是 404 却报"服务器内部错误"）。
+     * 单独 map 到 404 + 业务码 NOT_FOUND，让前端能正常处理。
+     *
+     * 同时也防止"后端进程未热加载新 Controller"这种事故被误诊为 500。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException ex) {
+        log.warn("[404] {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail(ErrorCode.NOT_FOUND.getCode(), "接口不存在: " + ex.getResourcePath()));
     }
 
     @ExceptionHandler(Exception.class)

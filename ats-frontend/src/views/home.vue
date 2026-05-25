@@ -4,24 +4,60 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHealth } from '@/api/health'
 import { BizError } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const auth = useAuthStore()
 
-// 六个里程碑：颜色按"萌芽→茁壮→沉淀→流动→收获→入职"叙事递进
-const milestones = [
-  { id: 'M0', name: '基建', desc: 'Skeleton + dev compose + /health', status: 'done', accent: 'mint' },
-  { id: 'M1', name: '认证', desc: 'JWT RS256 · 5 端点 · 43 单测全绿', status: 'done', accent: 'emerald' },
-  { id: 'M2', name: '岗位', desc: 'CRUD + 状态机 + 全文搜索', status: 'doing', accent: 'teal' },
-  { id: 'M3', name: '看板', desc: '投递 + 拖拽流转 + 审计日志', status: 'todo', accent: 'cyan' },
-  { id: 'M4', name: '辅助', desc: '简历 · 面试 · Dashboard', status: 'todo', accent: 'amber' },
-  { id: 'M5', name: '交付', desc: 'UI 打磨 + 生产 compose', status: 'todo', accent: 'lime' },
+/**
+ * 6 大产品/工程亮点 · 取代原"里程碑"卡片，按"萌芽→茁壮→沉淀→流动→收获→入职"
+ * 同源 accent palette，让候选人/招聘方一眼读出系统能力。
+ */
+const features = [
+  {
+    id: '01',
+    name: '8 态招聘状态机',
+    desc: '从「已投递」到「已入职」全流程拖拽流转 · 终态保护 + 失败回滚 · 0 第三方拖拽库',
+    accent: 'mint',
+  },
+  {
+    id: '02',
+    name: 'HR 招聘看板',
+    desc: 'HTML5 native DnD · 合法目标列高亮 + 非法变暗 · 浮动「拒绝」投放区小屏可达',
+    accent: 'emerald',
+  },
+  {
+    id: '03',
+    name: '数据看板',
+    desc: '本月 4 指标 + 8 态招聘漏斗 · 0 ECharts 依赖手绘 SVG · 点击 stage 直跳看板对应列',
+    accent: 'teal',
+  },
+  {
+    id: '04',
+    name: 'PDF 简历 + 面试评价',
+    desc: '自定义 dropzone 上传 · UUID v4 + 路径穿越防御 · 24h 编辑窗（ADMIN 不限）',
+    accent: 'cyan',
+  },
+  {
+    id: '05',
+    name: 'JWT RS256 + RBAC',
+    desc: 'Access 短寿命（15 min）+ Refresh HttpOnly cookie · ADMIN / HR / CANDIDATE 三角色',
+    accent: 'amber',
+  },
+  {
+    id: '06',
+    name: '一键部署',
+    desc: 'docker-compose.prod.yml + 多阶段 Dockerfile · pwsh / bash 跨平台 release 脚本',
+    accent: 'lime',
+  },
 ] as const
 
+/** 成果数字（替代原"预估工时"那种 todo 类指标，转向"已交付"叙事） */
 const stats = [
-  { value: '7', unit: '张表', label: 'PostgreSQL schema' },
-  { value: '85', unit: 'h', label: '预估工时' },
-  { value: '6', unit: 'M', label: '里程碑' },
-  { value: '10', unit: 'd', label: '冲刺天数' },
+  { value: '6', unit: 'M', label: '里程碑全交付' },
+  { value: '282', unit: '', label: '后端测试全绿' },
+  { value: '8', unit: '态', label: '状态机覆盖' },
+  { value: '3', unit: 'd', label: '冲刺完成' },
 ]
 
 const health = ref<HealthVO | null>(null)
@@ -44,13 +80,11 @@ const dotClass = computed(() => ({
   pending: 'bg-gray-400',
 }[healthState.value]))
 
-function statusTagClass(status: 'done' | 'doing' | 'todo') {
-  return {
-    done: 'bg-success-50 text-success-700',
-    doing: 'bg-warning-50 text-warning-700',
-    todo: 'bg-gray-100 text-tertiary',
-  }[status]
-}
+const primaryCta = computed(() => {
+  if (!auth.isLoggedIn) return { label: '浏览岗位市场', target: '/jobs' }
+  if (auth.isCandidate) return { label: '我的投递', target: '/me/applications' }
+  return { label: '进入数据看板', target: '/hr/dashboard' }
+})
 
 async function ping() {
   try {
@@ -123,9 +157,9 @@ onUnmounted(() => io?.disconnect())
         <nav flex gap-5 text-sm font-medium max-sm:hidden>
           <a
             v-for="(item, idx) in [
-              { label: '里程碑', href: '#milestones' },
-              { label: 'Health', href: '/health' },
-              { label: 'GitHub ↗', href: 'https://github.com', target: '_blank' },
+              { label: '产品特性', href: '#features' },
+              { label: '岗位市场', href: '/jobs' },
+              { label: 'GitHub ↗', href: 'https://github.com/lumirelle/demo-homework', target: '_blank' },
             ]"
             :key="idx"
             :href="item.href"
@@ -142,8 +176,10 @@ onUnmounted(() => io?.disconnect())
           </a>
         </nav>
 
-        <!-- status-chip（状态化 class 用 computed 动态绑定，零 scoped CSS） -->
-        <div
+        <!-- status-chip · 点击进 /health 详情页 -->
+        <router-link
+          to="/health"
+          class="group text-xs text-secondary no-underline transition-[color,border-color,transform,box-shadow] hover:(-translate-y-[1px] shadow-md border-default) focus-visible:(outline-none ring-2 ring-brand-300 ring-offset-2)"
           absolute
           top="1/2"
           translate-y="-1/2"
@@ -155,14 +191,16 @@ onUnmounted(() => io?.disconnect())
           bg-elevated
           border="~ subtle"
           shadow-sm
-          text="xs secondary"
           font-medium
-          transition-colors duration-base
+          duration-base
+          ease-out
+          :title="`查看完整健康检查 · ${healthLabel}`"
           :class="chipClass"
         >
           <span w-2 h-2 rounded-full :class="dotClass" />
           <span>{{ healthLabel }}</span>
-        </div>
+          <span class="text-tertiary opacity-60 transition-transform duration-base ease-out group-hover:translate-x-[2px]" aria-hidden="true">→</span>
+        </router-link>
       </header>
 
       <!-- hero body -->
@@ -174,22 +212,9 @@ onUnmounted(() => io?.disconnect())
         p="t-[8vh] b-[4vh] x-3"
         text-center
       >
-        <p
-          inline-block
-          p="y-[6px] x-[14px]"
-          mb-6
-          rounded-full
-          bg-elevated
-          border="~ subtle"
-          text="xs secondary"
-          font="medium mono"
-        >
-          v0.2 · Phase 3 · M0 · M1 done ✓
-        </p>
-
         <h1
+          class="text-display-lg text-gray-900"
           m-0
-          text="display-lg gray-900"
           font-black
           tracking="[-0.05em]"
           leading="[0.95]"
@@ -201,25 +226,27 @@ onUnmounted(() => io?.disconnect())
         </h1>
 
         <p
+          class="text-lg text-secondary"
           m="t-6 x-auto"
-          max-w="[560px]"
-          text="lg secondary"
+          max-w="[600px]"
           leading="[1.6]"
         >
-          一条流水线把候选人从投递追到入职。<br><br>
-          Spring Boot 3 · Vue 3.5 · PostgreSQL · Redis · 在 10 天内跑完整个 MVP。
+          一条流水线把候选人从投递追到入职 —— <br>
+          <strong text-primary>状态机看板</strong>
+          + <strong text-primary>数据漏斗</strong>
+          + <strong text-primary>PDF 简历</strong> + <strong text-primary>面试评价</strong>。
+          <br><br>
+          Spring Boot 3 · Vue 3.5 · PostgreSQL · Redis · 3 天 AI 辅助开发跑完 MVP。
         </p>
 
         <!-- CTA -->
         <div inline-flex gap-3 mt-8>
-          <!-- btn-bold · 张扬按钮（before 渐变层 + group-hover 联动 arrow） -->
           <button
-            class="group transition-[transform,box-shadow] hover:-translate-y-[2px]"
+            class="group transition-[transform,box-shadow] hover:-translate-y-[2px] text-md text-white"
             relative
             inline-flex items-center
             gap="[10px]"
             p="y-[14px] x-7"
-            text="md white"
             font="sans semibold"
             rounded-full
             border-none
@@ -230,9 +257,9 @@ onUnmounted(() => io?.disconnect())
             ease-out
             before="absolute inset-0 rounded-[inherit] bg-grad-spring opacity-0 transition-opacity duration-base ease-out content-empty"
             hover="shadow-glow-brand before:opacity-100"
-            @click="router.push('/health')"
+            @click="router.push(primaryCta.target)"
           >
-            <span relative z-1>Launch Pipeline</span>
+            <span relative z-1>{{ primaryCta.label }}</span>
             <span
               relative
               z-1
@@ -242,12 +269,12 @@ onUnmounted(() => io?.disconnect())
             >→</span>
           </button>
 
-          <!-- btn-ghost -->
           <a
             class="transition-[color,background-color,border-color,transform] hover:-translate-y-[2px]"
             inline-flex items-center
             p="y-[14px] x-6"
-            text="md primary"
+            text-md 
+            text-primary
             font-medium
             rounded-full
             bg-transparent
@@ -255,9 +282,9 @@ onUnmounted(() => io?.disconnect())
             duration-fast
             ease-out
             hover="bg-hover border-gray-400"
-            href="#milestones"
+            href="#features"
           >
-            See the plan
+            See the features
           </a>
         </div>
 
@@ -266,17 +293,17 @@ onUnmounted(() => io?.disconnect())
           list-none
           p="0 t-6"
           m="t-12 x-auto"
-          max-w="[720px]"
+          max-w="[760px]"
           grid="~ cols-4"
           gap-2
           border="t subtle"
           max-sm="grid-cols-2 gap-4"
         >
           <li v-for="s in stats" :key="s.label" text-center>
-            <span class="num" block text="[36px] primary" font-bold tracking="[-0.03em]">
-              {{ s.value }}<small ml="[2px]" text="[14px] tertiary" font-medium>{{ s.unit }}</small>
+            <span class="num text-[36px] text-primary" block font-bold tracking="[-0.03em]">
+              {{ s.value }}<small class="text-[14px] text-tertiary" ml="[2px]" font-medium>{{ s.unit }}</small>
             </span>
-            <span block mt-1 text="xs tertiary uppercase" tracking="[0.5px]">
+            <span class="text-xs text-tertiary uppercase" block mt-1 tracking="[0.5px]">
               {{ s.label }}
             </span>
           </li>
@@ -284,33 +311,31 @@ onUnmounted(() => io?.disconnect())
       </div>
     </section>
 
-    <!-- ════════════ MILESTONES ════════════ -->
-    <section id="milestones" max-w="[1200px]" mx-auto p="y-16 x-6">
+    <!-- ════════════ FEATURES ════════════ -->
+    <section id="features" max-w="[1200px]" mx-auto p="y-16 x-6">
       <div class="reveal" text-center mb-12>
         <p kicker mb-3>
-          The roadmap
+          Capabilities
         </p>
         <h2
+          class="text-[clamp(32px,5vw,56px)]"
           m-0
           font-bold
           tracking="[-0.03em]"
           leading="[1.05]"
-          text="[clamp(32px,5vw,56px)]"
         >
-          从 M0 到 M5 ·
-          <span class="text-gradient">六块拼图</span>
+          每一块都
+          <span class="text-gradient">能跑、能演示</span>
         </h2>
-        <p m="t-4 x-auto" max-w="[540px]" text-secondary>
-          每个里程碑都能跑、能演示一个完整场景；Mn 未通过验收禁止进入 Mn+1。
+        <p m="t-4 x-auto" max-w="[560px]" text-secondary>
+          MVP 不是切片，是闭环。从候选人投递到 HR 入职决策，所有动作均有审计记录与权限边界。
         </p>
       </div>
 
-      <div grid gap-4 grid-cols="[repeat(auto-fill,minmax(260px,1fr))]">
-        <!-- ms-card · accent 通过 :style 注入 var(--accent-color)，
-             ::before 顶部进度条 + group-hover 联动 arrow 全部原子化 -->
+      <div grid gap-4 grid-cols="[repeat(auto-fill,minmax(280px,1fr))]">
         <article
-          v-for="(m, i) in milestones"
-          :key="m.id"
+          v-for="(f, i) in features"
+          :key="f.id"
           class="reveal group transition-[transform,border-color,box-shadow]
                  hover:-translate-y-[4px]
                  before:transition-transform before:duration-260 before:ease-out"
@@ -318,7 +343,7 @@ onUnmounted(() => io?.disconnect())
           p-6
           rounded-lg
           overflow-hidden
-          cursor-pointer
+          cursor-default
           bg-elevated
           border="~ subtle"
           shadow-sm
@@ -329,50 +354,91 @@ onUnmounted(() => io?.disconnect())
           hover="border-transparent shadow-lg before:scale-x-100"
           :style="{
             'transitionDelay': `${i * 60}ms`,
-            '--accent-color': `var(--accent-${m.accent})`,
+            '--accent-color': `var(--accent-${f.accent})`,
           }"
         >
           <div flex="~ items-center justify-between" mb-4>
             <span
+              class="text-[20px]"
               font="mono bold"
-              text="[24px]"
               tracking="[-0.02em]"
               :style="{ color: 'var(--accent-color)' }"
-            >{{ m.id }}</span>
-            <span
-              text="[10px] uppercase"
-              font-semibold
-              tracking="[0.6px]"
-              p="y-[3px] x-2"
-              rounded-full
-              :class="statusTagClass(m.status)"
-            >{{ m.status }}</span>
+            >{{ f.id }}</span>
           </div>
-          <h3 m="0 b-2" font-bold text="[22px]" tracking="[-0.02em]">
-            {{ m.name }}
+          <h3 class="text-[20px]" m="0 b-2" font-bold tracking="[-0.02em]">
+            {{ f.name }}
           </h3>
-          <p m-0 text="sm secondary" leading="[1.5]">
-            {{ m.desc }}
+          <p class="text-sm text-secondary" m-0 leading="[1.55]">
+            {{ f.desc }}
           </p>
-          <span
-            class="transition-[opacity,transform] -translate-x-[6px]"
-            absolute
-            bottom-4
-            right-4
-            text="[20px]"
-            inline-block
-            op-0
-            duration-base
-            ease-out
-            group-hover="op-100 translate-x-0"
-            :style="{ color: 'var(--accent-color)' }"
-          >→</span>
         </article>
+      </div>
+
+      <!-- secondary CTA · 让用户读完特性后能直接入口 -->
+      <div class="reveal" text-center mt-12>
+        <p class="text-sm text-tertiary" mb-4>
+          想直接体验？三个角色任你切换：
+        </p>
+        <div inline-flex gap-3 flex-wrap justify-center>
+          <router-link
+            to="/jobs"
+            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            inline-flex items-center
+            gap-2
+            p="y-[10px] x-5"
+            font-medium
+            rounded-full
+            bg-elevated
+            border="~ subtle"
+            no-underline
+            duration-fast
+            ease-out
+            hover="bg-hover border-gray-400"
+          >
+            <span>候选人 · 投递岗位</span>
+            <span text-tertiary>→</span>
+          </router-link>
+          <router-link
+            to="/hr/board"
+            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            inline-flex items-center
+            gap-2
+            p="y-[10px] x-5"
+            font-medium
+            rounded-full
+            bg-elevated
+            border="~ subtle"
+            no-underline
+            duration-fast
+            ease-out
+            hover="bg-hover border-gray-400"
+          >
+            <span>HR · 招聘看板</span>
+            <span text-tertiary>→</span>
+          </router-link>
+          <router-link
+            to="/hr/dashboard"
+            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            inline-flex items-center
+            gap-2
+            p="y-[10px] x-5"            font-medium
+            rounded-full
+            bg-elevated
+            border="~ subtle"
+            no-underline
+            duration-fast
+            ease-out
+            hover="bg-hover border-gray-400"
+          >
+            <span>ADMIN · 数据看板</span>
+            <span text-tertiary>→</span>
+          </router-link>
+        </div>
       </div>
     </section>
 
     <!-- ════════════ FOOTER ════════════ -->
-    <footer class="reveal" p="y-8 x-6" text="center sm tertiary" border="t subtle">
+    <footer class="reveal text-center text-sm text-tertiary" p="y-8 x-6" border="t subtle">
       <p>
         <span class="text-gradient">ATS · 招聘管理系统</span>
         · 2026 · Built with Claude in Cursor

@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.20.20260525
+metadata: v0.0.26.20260526
 ---
 
 # AI 全栈开发工作流
@@ -212,7 +212,7 @@ src/
 #### 2.5.5 样式工具：UnoCSS · Attributify 第一公民（强制）
 
 **所有前端项目使用 UnoCSS 作为原子化 CSS 引擎**，且优先用 **attributify mode** 而不是 class 串。理由：
-1. 模板里 attribute 自带分组语义（`bg="elevated"` / `text="lg primary"` 一眼看出语义类型），可读性远超长 class 串
+1. 模板里 attribute 自带分组语义（`bg="elevated"` / `border="~ subtle"` 一眼看出语义类型），可读性远超长 class 串
 2. 同 prefix 自动合并 → 字符总量比 class 风格少 30-50%
 3. 与 Vue/React 模板的 prop 写法同构，AI 生成更稳定
 
@@ -276,7 +276,7 @@ theme: {
 | **单值 + CSS 变量** ✨ | `<div bg-(--brand-500) text-(--text-primary) shadow-(--shadow-lg)>` | UnoCSS **圆括号简写**：`prop-(--var)` ≡ `prop-[var(--var)]`，比方括号 + `var()` 短 7 字符。HTML attribute name **允许** `(` `)`（与 `[` `]` 不同）|
 | **单值 variant** | `<div hover:bg-active group-hover:translate-x-1 max-sm:hidden focus:ring-2>` | **当 class 用**，单值时连字符 + 冒号比 `hover="bg-active"` 更短更直观 |
 | **多值（同 prefix，含 prefix 本身）** | `flex="~ items-center justify-between wrap"` | `~` 表示 prefix 本身作为 class（`display:flex`）；**此处 `~` 不能省**——去掉就只剩 `align-items` `justify-content` `flex-wrap`，没有 `display:flex` |
-| **多值（同 prefix，不含 prefix 本身）** | `border="t subtle"` ／ `text="xs secondary uppercase"` | 不写 `~`，只组合子 class |
+| **多值（同 prefix，不含 prefix 本身）** | `border="t subtle"` ／ `bg="elevated hover:active"` | 不写 `~`，只组合子 class。**注意：prefix 必须不与 HTML 原生 / Vue 组件 prop 冲突**（见反模式 #9） |
 | **多值简写连写** | `p="y-3 x-4"` → `py-3 px-4` ／ `m="t-6 x-auto"` → `mt-6 mx-auto` | 维度复合写在一个属性里 |
 | **多值 variant** | `hover="text-primary after:right-0"` ／ `before="absolute inset-0 content-empty"` | variant 包多个 utility 才用 attributify；单值 variant 走 class with hyphen |
 | **shortcut / 状态化** | `text-gradient ms-card status-done reveal` | shortcut 等命名尽量保持语义化命名，避免和元素 / 组件的属性冲突 |
@@ -296,8 +296,28 @@ theme: {
 4. **可以用 attributify 是使用 class**—— 规范不统一，diff 难读，规约混乱
 5. **shortcut / 复杂状态 class 拆成 atomic**（如把 `text-gradient` 拆成 5 个属性）—— 失去 shortcut 的语义聚合价值
 6. **在 UnoCSS theme 里重新写一遍颜色值**（如 `brand: { 500: '#10b981' }`）—— 破坏"token 单一真值"，Naive UI 和 UnoCSS 会渐行渐远
-7. **CSS 变量还用方括号 + `var()` 长写**（如 `bg-[var(--brand-500)]` / `text="[var(--text-primary)]"` / `class="shadow-[var(--shadow-lg)]"`）—— UnoCSS 早已支持**圆括号简写** `bg-(--brand-500)`，等价但短 7 字符且可直接当 attribute name（圆括号在 HTML 中合法）。template / class 字符串内统一走简写
-8. **用 `bg-[var(--grad-xxx)]` ／ `bg-(--grad-xxx)` ／ shortcut 拼出渐变**—— UnoCSS 把 `bg-[...]` 和 `bg-(--xxx)` 都默认推断为 `background-color`，**`background-color` 不接受 `linear-gradient(...)`，渐变会静默失效**（不报错，但页面上就是一片透明 / 默认色）
+7. **CSS 变量长链没逐级降级到最短形态** —— 三档优先级，从短到长**强制递进**：
+   1. ✅ **theme 已注册 → 直接用 token name**：`bg-brand-500` / `text-primary` / `bg-app` / `border-subtle` / `shadow-lg` / `duration-base` / `ease-out`。一次配置，处处复用，最短最语义化
+   2. ✅ **theme 未注册 → 圆括号简写**：`bg-(--my-custom-var)` / `text-(--accent-color)`。圆括号 HTML 合法，可直接当 attribute name
+   3. ⚠️ **绝不使用方括号 + `var()` 长写**：`bg-[var(--brand-500)]` —— 比简写多 7 字符没收益，且 attributify name 含方括号会触发 prettier / vue-tsc 兼容问题
+   - **检查脚本**：
+     ```pwsh
+     # 找仍在用 (--xxx) 但 token 已在 theme 注册的写法（应升级到 hyphen）
+     rg '\b(bg|text|border|shadow|rounded|font|duration|ease)-\(--[\w-]+\)' src/
+     # 找方括号 + var() 长写（应降级到圆括号）
+     rg '\[var\(--[\w-]+\)\]' src/
+     ```
+   - **每加新 token 先入 theme**：tokens.css 加变量时同步在 `uno.config.ts` 的 `theme.colors / backgroundColor / textColor / borderColor / fontSize / boxShadow / transitionTimingFunction / transitionDuration` 注册，否则全项目只能 fallback 到圆括号写法，违背"单一真值"
+8. **`text="lg primary"` / `name="..."` / `for="..."` / `title="..."` / `role="..."` 这些 attribute name 用作 attributify prefix**——这些是 **HTML 原生属性 / WAI-ARIA 属性 / Vue 组件 prop**，attributify 模式下属性还会保留在 DOM 上，会被浏览器或组件错误解析：
+   - `text` —— SVG `<text>` 元素 / Naive UI `NButton text` (boolean prop) / NEllipsis 等都吃 `text` prop，传字符串触发警告甚至渲染异常
+   - `name` —— form 元素的 form data 字段名；`<input name="lg primary">` 提交时真会发出去
+   - `for` —— `<label for="...">` 关联 input id；DOM 上挂 `for="text-lg"` 会破坏 a11y
+   - `title` —— 全局 tooltip 属性，浏览器会真的浮出 "lg primary" 文字
+   - `role` —— ARIA role，screen reader 会按 role="lg primary" 解读，无障碍语义崩坏
+   - `type` / `value` / `placeholder` / `id` —— 同理，所有 HTML 标准 attribute name 都不能借用
+   - **规约**：所有跟 HTML / ARIA / 第三方组件 prop 重名的 attribute name **禁止**当 attributify prefix。**改用 valueless attributify**（`text-lg text-primary` 拆开写，每个完整 utility 名作为独立 attribute name），或者写进 `class="..."`
+   - **批量自查脚本**：`rg 'text="' src/` / `rg 'name="(?!&quot;)'` —— PR 前跑一遍，0 命中再合
+9. **用 `bg-[var(--grad-xxx)]` ／ `bg-(--grad-xxx)` ／ shortcut 拼出渐变**—— UnoCSS 把 `bg-[...]` 和 `bg-(--xxx)` 都默认推断为 `background-color`，**`background-color` 不接受 `linear-gradient(...)`，渐变会静默失效**（不报错，但页面上就是一片透明 / 默认色）
    - **必须用 `rules` 接管**，显式输出 `background-image`：
      ```ts
      rules: [
@@ -1479,4 +1499,631 @@ const interviews = ref([])
 ```
 
 > ⚠️ Vue setup 的 `<script setup>` 是**顺序求值**的（不是 hoisting），所以 ref 必须早于使用它的 function。每次新加 ref 时**自查一遍**：是否被某个上面的 function 引用？是 → 提到 function 之前。
+
+## 2.9 数据看板 + 部署交付规约（M5 沉淀）
+
+### 2.9.1 SQL 切片复用：service 单一来源 + mapper 多视角
+
+**痛点**：M5.1 数据看板的 funnel 与 M3 看板共用 `applications + jobs` 数据切片（jobId 选填、hrUserId 选填，ADMIN 看全部）。
+
+**规约**：
+
+- **mapper 是切片真值**：`ApplicationMapper.countByStage(jobId, hrUserId)` 同时服务 board 列计数 + funnel；新写 mapper 时**先想"这个切片其他模块要不要复用"**
+- **service 调用方决定语义**：StatsService 把 ADMIN→`null` / HR→`userId` / CANDIDATE→直接 `BizException(FORBIDDEN)` 这套权限逻辑独立成 `effectiveHrUserId()` helper（与 ApplicationService.board / InterviewService 完全同构）
+- **8 态固定顺序补 0**：mapper 只返回有数据的 stage 行，service 必须按 `STAGE_ORDER` 8 态固定输出，缺失补 0。前端约定：永远收 8 行，不需判空
+
+```java
+private static final List<ApplicationStage> FUNNEL_ORDER = List.of(
+    APPLIED, SCREENING_PASS, PHONE_INTERVIEW, TECH_INTERVIEW,
+    HR_INTERVIEW, OFFER, HIRED, REJECTED
+);
+
+Map<ApplicationStage, Long> counts = new HashMap<>();
+for (Map<String, Object> row : rows) {
+    counts.put(ApplicationStage.valueOf((String) row.get("stage")),
+               ((Number) row.get("cnt")).longValue());
+}
+List<FunnelItemVO> items = FUNNEL_ORDER.stream()
+    .map(s -> FunnelItemVO.builder().stage(s).count(counts.getOrDefault(s, 0L)).build())
+    .toList();
+```
+
+### 2.9.2 业务时区在 service 算 since，不用 SQL `NOW()`
+
+**痛点**：本月起点用 `WHERE applied_at >= date_trunc('month', NOW())` 看似简洁，实际：
+
+1. **测试不可控**：单测时无法注入"假的本月起点"，必须依赖真实当前时间
+2. **DB 时区漂移**：postgres 容器 TZ 与业务时区可能不同（特别多人多机部署时）
+
+**规约**：service 内用 `LocalDate.now(BIZ_ZONE).withDayOfMonth(1).atStartOfDay(BIZ_ZONE).toOffsetDateTime()` 计算 `since`，作为参数传给 mapper。`BIZ_ZONE` 与 `application.yml` 的 `jackson.time-zone` 对齐（本项目 `Asia/Shanghai`）。
+
+```java
+static final ZoneId BIZ_ZONE = ZoneId.of("Asia/Shanghai");
+
+static OffsetDateTime monthStart() {
+    return LocalDate.now(BIZ_ZONE).withDayOfMonth(1)
+            .atStartOfDay(BIZ_ZONE).toOffsetDateTime();
+}
+```
+
+### 2.9.3 0 第三方依赖 SVG / CSS 漏斗图（vs ECharts）
+
+**为什么不用 ECharts**：
+
+- 包体 ~200KB+ 仅为画 1 个 8 态条形图
+- 与项目"克制 + 张扬混搭"的定制 UI 调性不一致（ECharts 默认风格强烈）
+- 数据简单（8 行 stage × count），CSS 完全够用
+
+**纯 CSS 实现**：
+
+```vue
+<li v-for="item in funnel.items" :key="item.stage" class="funnel-row">
+  <span class="row-label">{{ STAGE_LABEL[item.stage] }}</span>
+  <div class="row-bar-wrap">
+    <span class="row-bar" :style="{
+      width: `${widthOf(item.count, funnel.max)}%`,
+      background: STAGE_GRADIENT[item.stage],
+    }" />
+    <span class="row-count">{{ item.count }}</span>
+  </div>
+</li>
+```
+
+```ts
+function widthOf(count: number, max: number) {
+  if (max === 0) return 0
+  // 最小可见宽度 4%，避免 count=0 完全消失
+  return Math.max(count === 0 ? 0 : 4, (count / max) * 100)
+}
+```
+
+**关键技巧**：
+
+- `STAGE_GRADIENT` 把 stage → 渐变色硬编码（语义化：起点 brand 绿 / 面试段渐进青蓝 / OFFER 琥珀 / HIRED 金绿 / REJECTED 灰红）
+- 后端返回 `max` 字段（同时算 `total`），前端不重新计算
+- 最小宽度 4% 让 count=0 stage 也能看到一条灰色细线（透明度 0.45），用户能识别"这一态尚无候选人"
+- `transition: width 0.6s` cubic-bezier 让数据加载完后条形从 0 → 目标宽度有动画感
+
+### 2.9.4 多阶段 Dockerfile 模式
+
+**后端 Dockerfile（builder + runtime 两段）**：
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+WORKDIR /build
+COPY pom.xml .
+RUN mvn -B -q -DskipTests dependency:go-offline   # ← 先抓依赖，pom 不变就 cache
+COPY src ./src
+RUN mvn -B -q -DskipTests package && cp target/*.jar /build/app.jar
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S ats && adduser -S ats -G ats \
+    && mkdir -p /app/uploads /app/jwt && chown -R ats:ats /app
+USER ats                                          # ← 非 root 运行
+COPY --from=builder /build/app.jar app.jar
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/./urandom"
+HEALTHCHECK CMD wget -qO- http://127.0.0.1:8080/api/v1/health > /dev/null || exit 1
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+**前端 Dockerfile（bun build → nginx serve）**：
+
+```dockerfile
+FROM oven/bun:1.3-alpine AS builder
+WORKDIR /build
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY . .
+ENV VITE_API_BASE_URL=/api/v1                      # ← 与 nginx 反代路径对齐
+RUN bun run build
+
+FROM nginx:1.27-alpine
+WORKDIR /usr/share/nginx/html
+RUN rm -rf ./*
+COPY --from=builder /build/dist ./
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+```
+
+**关键点**：
+
+- 先 `COPY pom.xml / package.json` + 跑依赖下载，再 `COPY src/` —— 这一步把 dependency 层独立 cache，源码变动不重新下依赖
+- 后端用 jre-alpine（不是 jdk）省 ~150MB
+- 非 root 用户 + 显式 `mkdir uploads jwt && chown` —— 容器逃逸受限 + volume 挂载点权限正确
+- `JAVA_TOOL_OPTIONS` 而非 `JAVA_OPTS`：JVM 直接读，不需启动脚本转发
+- HEALTHCHECK 直接打业务 endpoint，不要单独 actuator（少一个 endpoint = 少一个攻击面）
+
+### 2.9.5 nginx 反代 SPA + API 双轨
+
+```nginx
+# 静态资源长缓存（vite 产物已 hash）
+location ~* \.(?:css|js|woff2?|ttf|svg|png|jpe?g|webp|ico)$ {
+    expires 30d;
+    add_header Cache-Control "public, max-age=2592000, immutable";
+    try_files $uri =404;
+}
+
+# SPA 路由：所有非 API 命中回退 index.html
+location / {
+    try_files $uri $uri/ /index.html;
+    add_header Cache-Control "no-cache, must-revalidate";
+}
+
+# API 反代到 backend service
+location /api/ {
+    proxy_pass         http://backend:8080/api/;       # ← 注意末尾斜杠对齐
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_read_timeout 30s;
+    client_max_body_size 10m;                          # ← 给 multipart 留 buffer
+}
+```
+
+**踩坑**：
+
+- `proxy_pass http://backend:8080/api/` 必须保留末尾 `/`，否则 nginx 不替换前缀，`/api/v1/jobs` 会拼到 `/api/api/v1/jobs`
+- `client_max_body_size` 要 ≥ 后端 `spring.servlet.multipart.max-file-size`，否则 nginx 先 413 拦截，错误码不可控
+- 静态资源 `immutable` cache 必须配 vite 的 hash 文件名（默认就是）
+- index.html 显式 `no-cache` —— 否则发版后用户浏览器拿到旧 index 引用旧 hash 的 chunk，404
+
+### 2.9.6 一键发布脚本（cross-platform pwsh + bash）
+
+**两套脚本同源同义**：
+
+- `infra/scripts/release.ps1`（Windows · PowerShell 7+）
+- `infra/scripts/release.sh`（Linux / macOS · bash）
+
+**统一流程**（5 步）：
+
+1. **校验 `.env.prod` 存在** → 不存在直接报错给出 `cp .env.prod.example .env.prod` 提示
+2. **校验 prod JWT keypair** → 防止 dev key 误带到 prod；不存在给出 `openssl genrsa` 命令
+3. **跑后端测试**（可 `--skip-tests` 跳过）
+4. **构建 image**（可 `--skip-build` 跳过，复用已有）
+5. **`up -d` + 健康轮询 60s**：循环 `curl /api/v1/health` 直到 `code: 0`，超时给 `bun run prod:logs` 引导
+
+**关键点**：
+
+- 脚本失败必须有可操作的修复提示（"找不到 X → 运行 cp Y" / "缺少 keypair → 运行 openssl Z"）
+- 不要只 `up -d` 就退出 —— 健康轮询能在 1 分钟内告诉你"backend 启动失败 / DB 没就绪 / nginx 配错"，比 logs 翻屏快 10 倍
+- pwsh 和 bash 各有 grep 习惯：pwsh 用 `Where-Object { $_ -match '^WEB_PORT=' }`，bash 用 `grep -E '^WEB_PORT=' | cut -d= -f2`，**输出格式必须一致**（同样的 ━ / ✓ / ✗ 符号），否则两套用户体验割裂
+
+### 2.9.7 dev / prod env 隔离铁律
+
+- **dev env**：`infra/.env`（被 git 忽略 / 例外是 `.env.example`）
+- **prod env**：`infra/.env.prod`（被 git 忽略 / 例外是 `.env.prod.example`）
+- compose 命令显式 `--env-file infra/.env.prod` 而非依赖默认查找，避免在测试环境跑混
+- env 模板里所有 secret 字段写 `***GENERATE_STRONG_PASSWORD_AT_LEAST_32_CHARS***` 占位，发布脚本里跑一次"是否仍是占位"检测（暂未实现，未来加）
+
+**JWT keypair 同样隔离**：
+
+- `infra/jwt/dev-private.pem` / `dev-public.pem` —— 仓库内有，开发用
+- `infra/jwt/prod-private.pem` / `prod-public.pem` —— 仓库不提交，生产部署前手动生成
+- compose env 默认值 `${JWT_PRIVATE_KEY_FILE:-prod-private.pem}` —— prod 不需要在 .env.prod 里再覆盖一次
+
+---
+
+## 2.10 批量管理接口 + 运营增强规约（Admin 账号管理沉淀）
+
+> 上下文：M5 完结后，运营反馈"admin 通过 SQL 直接 INSERT 创建 HR 太原始"——产品上需要带表单 / CSV 导入的运营页。
+> 关键约束：(1) 部分失败不能整批回滚，否则 100 条里 5 条邮箱重复就要全员重做；(2) 必须能让运营快速 iterate 失败行；(3) 鉴权 / 权限提升攻击面要堵死。
+
+### 2.10.1 批量接口"逐行独立提交"模式（vs 整批事务）
+
+**反模式**：service 方法加 `@Transactional`，循环里某行抛 BizException → JPA / MyBatis-Plus 触发 rollback → 已成功插入的几十行全没了。
+
+**正确模式**：
+
+```java
+// service 整体方法 NOT @Transactional —— 每个 mapper.insert 走默认短事务
+public BatchCreateUsersVO batchCreate(BatchCreateUsersReq req) {
+    List<BatchCreateItemVO> items = new ArrayList<>(req.getUsers().size());
+    Set<String> seenInBatch = new HashSet<>();   // 同批次去重
+    int ok = 0, fail = 0;
+
+    for (int i = 0; i < req.getUsers().size(); i++) {
+        var item = req.getUsers().get(i);
+        String email = item.getEmail().toLowerCase();
+        try {
+            // 1) 同批次去重（DB UNIQUE 在 commit 后才生效，service 内层就要拦）
+            if (!seenInBatch.add(email)) {
+                throw new BizException(ErrorCode.EMAIL_ALREADY_EXISTS, "同批次重复：" + email);
+            }
+            // 2) DB 查重（已存在的旧账号）
+            if (mapper.selectCount(byEmail(email)) > 0) {
+                throw BizException.of(ErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+            // 3) 插入
+            User u = persist(...);
+            items.add(BatchCreateItemVO.builder()
+                .rowIndex(i).email(email).success(true).userId(u.getId()).build());
+            ok++;
+        }
+        catch (BizException e) {
+            items.add(BatchCreateItemVO.builder()
+                .rowIndex(i).email(email).success(false)
+                .errorCode(e.getErrorCode().getCode())
+                .errorMsg(e.getMessage())
+                .build());
+            fail++;
+        }
+        catch (Exception e) {
+            // 兜底：未知异常也不能让整批挂
+            log.warn("[BATCH] row {} unexpected: {}", i, e.toString());
+            items.add(BatchCreateItemVO.builder()
+                .rowIndex(i).email(email).success(false)
+                .errorCode(ErrorCode.INTERNAL_ERROR.getCode())
+                .errorMsg("服务异常：" + e.getMessage())
+                .build());
+            fail++;
+        }
+    }
+    return BatchCreateUsersVO.builder().successCount(ok).failureCount(fail).items(items).build();
+}
+```
+
+**关键点**：
+
+1. **integer rowIndex** 跟着请求列表索引走 —— 前端不需要 join，直接按 index 高亮"第几行失败"
+2. **errorCode + errorMsg 双字段**：errorCode 给程序判断（前端可统一处理 EMAIL_ALREADY_EXISTS），errorMsg 给运营人员看
+3. **HashSet 同批次去重**：DB UNIQUE 约束只在事务 commit 时校验，service 里循环 selectCount 也只能查到已 commit 的；同批次第二行写同邮箱必须显式拦
+4. **DTO 限单批数量**：`@Size(max = 100)` 在 DTO 上挡住"贴 1 万行 CSV 把 service 跑死"的攻击 / 误操作；超出请前端分批
+5. **响应包格式**：`{ successCount, failureCount, items[] }` —— counts 给运营立即数字反馈，items 给逐行明细，前端直接摆两个卡片
+
+**适用场景**：批量导入 / 批量审核 / 批量状态机迁移 —— 凡是"业务上单行成败彼此独立"的批量操作都套这个模式。
+
+### 2.10.2 防权限提升：DTO 校验层就拦下危险 role
+
+**反模式**：service / controller 里 `if ("ADMIN".equals(req.getRole())) throw ...` —— 业务异常 500 风格、单测要 mock SecurityContext 太重。
+
+**正确做法**：在 DTO 上贴 Bean Validation `@Pattern`：
+
+```java
+@NotBlank
+@Pattern(regexp = "HR|CANDIDATE", message = "role 只能是 HR 或 CANDIDATE")
+private String role;
+```
+
+`@Valid` 触发 → Spring 直接 `MethodArgumentNotValidException` → GlobalExceptionHandler 映射 400 / `ErrorCode.VALIDATION_FAILED` —— service 层根本拿不到非法值，单测断言 status 400 即可。
+
+**批量场景级联校验**：
+
+```java
+public class BatchCreateUsersReq {
+    @NotEmpty
+    @Size(max = 100)
+    @Valid                             // 关键：触发 List 元素的校验
+    private List<CreateUserReq> users;
+}
+```
+
+—— 单行 role=ADMIN 也走 400，跟单条创建行为一致。
+
+### 2.10.3 运营页 UX 五件套（CSV 批量导入）
+
+适用于"管理员把 Excel/CSV 数据塞进系统"的所有页面，复用度极高：
+
+| 件 | 设计点 | 价值 |
+|---|---|---|
+| **(1) 大文本框 + 注释支持** | placeholder 给完整示例，解析时跳过 `#` 开头行和空行 | 运营从飞书表格直接复制粘贴，不用清洗 |
+| **(2) 本地预校验**（解析按钮） | 按行解析 + Bean Validation 同步规则（邮箱格式 / 长度 / 枚举），失败行红底 + 错误提示，无效行**不发到后端** | 减少无效请求 + 让运营立即看到错在哪 |
+| **(3) 提交按钮带 count**（"提交批量创建（{{validRows.length}} 条）"） | 文案带数字 | 防止"我以为有 50 行，结果只有 47 行" |
+| **(4) 结果卡片：成功绿底 + 失败红底** | 失败行带 errorCode + errorMsg，rowIndex 标"row N" | 运营一眼定位问题 |
+| **(5) "复制失败行"按钮** | 把失败行 + 错误注释（`# 同批次重复` 等）拷贝到剪贴板 | 关键！运营粘回输入框改完直接重提，闭环 |
+
+**辅助件**：
+
+- "**填充示例**"按钮自动塞 3 行模板（含强密码生成）—— 第一次进页面的人立刻就能 demo
+- "**一键生成强密码**"工具：`abcdefghijklmnopqrstuvwxyz` + `ABCDEFGHIJKLMNOPQRSTUVWXYZ` + `23456789`（去掉 0/1 防混淆）+ `!@#$%^&*` 各保底 1 个字符 + 余数随机，最后 `sort(() => random)` 打乱
+
+```ts
+function genPassword(len = 12): string {
+  const lowers = 'abcdefghijklmnopqrstuvwxyz'
+  const uppers = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const digits = '23456789'        // 去掉 0/1 防混淆
+  const symbols = '!@#$%^&*'
+  const all = lowers + uppers + digits + symbols
+  const a = (s: string) => s[Math.floor(Math.random() * s.length)]
+  const required = [a(lowers), a(uppers), a(digits), a(symbols)]
+  const rest = Array.from({ length: len - required.length }, () => a(all))
+  return [...required, ...rest].sort(() => Math.random() - 0.5).join('')
+}
+```
+
+### 2.10.4 WebMvcTest 加 service 进 `@Import` 的反模式 → 正模式
+
+**踩坑**：原 `AdminController.createUser` inline 写业务逻辑（直接 mapper.insert），WebMvcTest 用 `@MockitoBean UserMapper` 跑得通。抽 service 后 controller→service 注入失败，因为 `@WebMvcTest` 默认只扫描 controller。
+
+**修复**：把 service 显式加进 `@Import`：
+
+```java
+@WebMvcTest(controllers = {AuthController.class, AdminController.class})
+@Import({
+    SecurityConfig.class,
+    JwtAuthenticationFilter.class,
+    JwtAuthEntryPoint.class,
+    GlobalExceptionHandler.class,
+    com.ats.auth.AdminUserService.class,    // ← 关键
+})
+```
+
+这样 controller→service→mocked mapper 完整链路跑：`@MockitoBean UserMapper` 还是有效，`verify(userMapper).insert(...)` 断言不变，service 层错误码 / 同批次去重等业务路径全部覆盖。
+
+**判定规则**：WebMvcTest 涉及"controller 直接依赖的 service 类"必须显式 `@Import`，但不涉及"service 间接依赖的 mapper"（mapper 走 `@MockitoBean`）。
+
+### 2.10.5 oxlint `import/consistent-type-specifier-style` 反模式
+
+**踩过 2 次**（jobs.vue + admin/users.vue）：
+
+```ts
+// ❌ inline 类型 specifier
+import { adminApi, type CreateUserReq, type BatchCreateResult } from '@/api/admin'
+```
+
+→ oxlint 报 `consistent-type-specifier-style`。
+
+```ts
+// ✅ 顶层 type-only import
+import type { BatchCreateItem, BatchCreateResult, CreateUserReq } from '@/api/admin'
+import { adminApi } from '@/api/admin'
+```
+
+**规约**：vue / ts 文件里**禁止 inline `type` specifier**，类型 import 永远独立一行写在所有 value import 之前。
+
+---
+
+## 2.11 全站 UI 统一打磨规约（v0.0.25 · 4 轮交付经验）
+
+> 触发场景："统一打磨所有页面 UI / 让其更有质感 / 没有不可达处"这种宽泛 polish 任务。
+
+### 2.11.1 4 轮交付方法
+
+宽泛 UI 打磨任务**不要一口气改 20 个文件**，而是按"全局 → 通用组件 → 危险确认 → 不可达处"分轮，每轮跑一次 fe:check：
+
+| 轮次 | 内容 | 风险 |
+| --- | --- | --- |
+| **第 1 轮 · 全局基础** | global.css 加 `:focus-visible` 环 / `accent-color` / 可选 selection 色；NLoadingBar 接路由钩子 | 极低 · 全站受益、零侵入 |
+| **第 2 轮 · 通用组件** | EmptyState / ErrorBlock / CopyButton / useCopy composable | 低 · 仅新增文件 |
+| **第 3 轮 · 危险确认** | 删除 / 状态流转 / 批量提交 NPopconfirm 或 dialog.warning | 中 · 改动每个 mutation 入口 |
+| **第 4 轮 · 不可达处** | 跨页深链 query 协议 / 一键复制 / 错误状态 retry / a11y aria-current | 中 · 跨多文件，但每处独立 |
+
+**优势**：每轮 fe:check 通过后才进下轮，出错可以快速定位是哪一轮引入。
+
+### 2.11.2 NLoadingBar 与 router 桥接（关键工程问题）
+
+**问题**：`useLoadingBar()` 必须在 `NLoadingBarProvider` 子树的 setup 上下文调用，但 `router/index.ts` 是模块顶层 —— 直接 import 拿不到实例。
+
+**解法**：模块级 ref 桥接 + InnerProviders 微组件。
+
+```ts
+// utils/loading-bar.ts
+import type { LoadingBarApi } from 'naive-ui'
+import { ref } from 'vue'
+export const loadingBarRef = ref<LoadingBarApi | null>(null)
+```
+
+```vue
+<!-- App.vue · 在 NLoadingBarProvider 子树内拿实例填到 ref -->
+<script setup>
+const InnerProviders = defineComponent({
+  setup(_, { slots }) {
+    const loadingBar = useLoadingBar()
+    onMounted(() => { loadingBarRef.value = loadingBar })
+    return () => slots.default?.()
+  },
+})
+</script>
+<NLoadingBarProvider>
+  ...
+  <InnerProviders>
+    <RouterView ... />
+  </InnerProviders>
+</NLoadingBarProvider>
+```
+
+```ts
+// router/index.ts
+router.beforeEach(() => loadingBarRef.value?.start())
+router.afterEach(() => loadingBarRef.value?.finish())
+router.onError(() => loadingBarRef.value?.error())
+```
+
+**反模式**：用全局变量 `globalThis` / setup 外手动 `useLoadingBar()` 都会报"not in provider context"。
+
+### 2.11.3 跨页深链协议（query vs hash）
+
+**协议**：`?paramName=value` 通过 query 而非 hash 传递（hash 留给页面内锚点）。
+
+| 跳转 | URL | 接收方处理 |
+| --- | --- | --- |
+| 候选人投递记录 → 岗位详情 | `/jobs?jobId=42` | jobs.vue mounted 后读取 query，自动 openDetail |
+| HR 岗位市场 → 后台编辑 | `/hr/jobs?editJobId=42` | hr/jobs.vue mounted 后读取 query，自动 openEdit |
+| HR 岗位管理 → 招聘看板 | `/hr/board?jobId=42` | board.vue mounted 后读取 query，自动选中 jobOption |
+| Dashboard → Board 高亮列 | `/hr/board?stage=APPLIED` | board.vue 通过 computed focusStage 渲染 `.is-focus-target` |
+
+**接收方时序**：必须在 `await fetchList()` / `await loadOptions()` 之后再读 query，否则数据未到时 openDetail 会拿不到内容。
+
+```ts
+onMounted(async () => {
+  await loadOptions()  // 先确保 options 已加载
+  await fetchList()    // 再确保列表已加载
+  const id = route.query.jobId
+  if (typeof id === 'string' && /^\d+$/.test(id)) {
+    openDetail(Number(id))
+  }
+})
+```
+
+**白名单校验**：stage 这类枚举值必须 `valid.includes(s as Stage)`，否则 URL 注入非法值会渲染异常。
+
+### 2.11.4 危险 vs 中间操作：差异化二次确认
+
+**关键流转必须 NPopconfirm，中间过程直接执行**：
+
+```vue
+<!-- 看板 drawer footer · 关键流转包 NPopconfirm -->
+<NPopconfirm
+  v-if="next === 'OFFER' || next === 'HIRED' || next === 'REJECTED'"
+  ...
+>
+  <template #trigger>
+    <NButton size="small" :type="next === 'REJECTED' ? 'error' : 'primary'">
+      → {{ STAGE_LABEL[next] }}
+    </NButton>
+  </template>
+  即将把 {{ candidate }} 流转到 {{ STAGE_LABEL[next] }}。
+  <span v-if="next === 'HIRED'">入职后该投递进入终态，不可再变更。</span>
+</NPopconfirm>
+
+<!-- 中间过程（SCREENING_PASS / *_INTERVIEW）直接推进，避免每次都打扰 -->
+<NButton v-else size="small" @click="transition(next)">
+  → {{ STAGE_LABEL[next] }}
+</NButton>
+```
+
+**权衡**：每次都 confirm 会教育用户忽视，关键操作 confirm 才有价值。
+
+### 2.11.5 全局 `:focus-visible` 覆盖范围
+
+**反模式**：用通配 `*:focus-visible { outline: ... }` 会和 Naive UI 内置 focus 双环。
+
+**正模式**：用 `:where()` 精确覆盖**裸**交互元素：
+
+```css
+:where(a, button, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+```
+
+`:where()` 让选择器特异度为 0（不会覆盖 Naive UI 的 focus 样式），同时 `:focus-visible` 保证鼠标点击时不出现"刺眼蓝框"，只在键盘 Tab 时呈现。
+
+### 2.11.6 移除永久 disabled 菜单项 / dead link
+
+**反模式**：
+
+```ts
+{ label: '个人资料', key: 'me', disabled: true }
+{ label: '快捷键', key: 'shortcut', disabled: true }
+```
+
+```html
+<a class="text-brand">服务条款</a>  <!-- 没有 href -->
+```
+
+**问题**：disabled 占位看起来像坏链 / 故障，UX 上比"暂未提供"标注更糟。
+
+**正模式**（择一）：
+1. 真删掉；
+2. 改成 `<span title="演示版本">服务条款</span>` 加可达 tooltip；
+3. 替换成可用功能（如把"个人资料 disabled"换成"我的工作台 → /me/applications"）。
+
+### 2.11.7 工具函数公用化时机
+
+**信号**：当一个工具函数（如 `resumeDownloadUrl`）出现在第 2 个文件里时，立即提到 `utils/`，而不是 copy-paste。
+
+**本次踩到**：原 `hr/board.vue` 私有的 `resumeDownloadUrl` + `isResumeFile`，me/applications.vue 也要回看简历，提取到 `utils/resume.ts` 单一真值，两个 view 都 import。
+
+---
+
+## 2.12 公开聚合接口 + 词条收敛规约（v0.0.26）
+
+> **背景**：登录 / 注册页左半部分原本是<strong>静态硬编码示例数</strong>（"200+ 入驻企业 / 1.2k 活跃岗位 / 98% 回复及时"），看起来真实但毫无实际意义；同时"入驻企业"暗示这是 SaaS 多租户平台，与"公司内部私有招聘系统"的产品定位不符。
+
+### 2.12.1 公开聚合接口设计 · 4 条铁律
+
+未登录用户能看到的统计接口需要严格的"信息边界"设计，否则就是免费的情报泄露通道。
+
+1. **只返回聚合数字，不返回任何个体记录**：禁止返回 list / id / name / email 任何能定位到候选人 / 岗位 / HR 个人的字段。`PublicStatsVO` 全 long 标量。
+
+2. **不接受任何过滤参数**：`GET /stats/public` 不带 query / path 参数。一旦支持 `?jobId=` / `?hrId=` 就给了攻击者通过差分攻击推断个体存在性的接口（先查全量、再加过滤、对比变化得到目标信息）。
+
+3. **稀疏数据要在<strong>前端</strong>而非后端模糊化**：后端返回真实数字，前端 `formatCount(n)` 把 `n < 5` 显示为"多人/多个"。原因：(1) 后端返回固定数值方便单测、缓存、CDN；(2) 前端格式化逻辑可随产品策略快速调整阈值；(3) 已登录用户在前端自己页面（dashboard）看自己切片是允许的精确数据，混在同一个 service 里会让测试断言变难。
+
+4. **`permitAll` 路径必须显式配置 + 带 HTTP method 限定**：`SecurityConfig` 用 `.requestMatchers(HttpMethod.GET, "/stats/public")` 而非 `requestMatchers("/stats/public")`，避免未来加 POST/PUT 时被误放行。
+
+```java
+// SecurityConfig.java
+.requestMatchers(HttpMethod.GET, "/stats/public").permitAll()
+
+// StatsController.java
+@GetMapping("/public")  // 不带 @PreAuthorize
+public ApiResponse<PublicStatsVO> publicStats() {
+    return ApiResponse.ok(statsService.publicStats());
+}
+
+// StatsService.java —— 复用 mapper，hrUserId/jobId 全传 null
+public PublicStatsVO publicStats() {
+    List<Map<String,Object>> rows = applicationMapper.countByStage(null, null);
+    // ...聚合 5 个 stage group
+}
+```
+
+### 2.12.2 公开统计字段选取原则
+
+不要直接把"现成的 OverviewVO"暴露成公开版 —— "本月新增投递 20 / Offer 3 / 入职 1" 这种数字在小公司能直接被员工反推到具体岗位 / 候选人。
+
+**安全字段清单**（按"无法定位个体"程度排序）：
+- ✅ `publishedJobs` —— 当前在招岗位数（候选人页本来就能看见全量列表，不是新信息）
+- ✅ `coveredDepartments` —— 至少有 1 个 PUBLISHED 岗位的 distinct 部门数
+- ✅ 当前各 stage 候选人数（`screeningCount` / `interviewCount` / `offerCount`）—— 总数足够大时模糊
+- ❌ "本月入职数" —— 小公司每月入职 1-3 人，能直接被同事反推
+- ❌ "平均面试轮数" —— 暴露面试流程节奏
+- ❌ "Offer 接受率" —— 暴露薪资竞争力
+
+> **原则**：返回的数字应该是"候选人 + HR 同事在自己日常使用产品时<strong>本来就能感受到</strong>的水位"，而不是管理层视角的运营指标。
+
+### 2.12.3 `formatCount` 三段式 helper
+
+```typescript
+// composables/use-format-count.ts
+export function formatCount(n: number, fewLabel = '多人'): string {
+  if (n < 5) return fewLabel             // 数据稀疏 → 模糊化
+  if (n > 999) {
+    const k = n / 1000
+    const rounded = Math.floor(k * 10) / 10
+    return rounded % 1 === 0 ? `${rounded.toFixed(0)}k+` : `${rounded.toFixed(1)}k+`
+  }
+  return String(n)                       // 5 ≤ n ≤ 999 真实展示
+}
+```
+
+**关键点**：
+- `fewLabel` 默认"多人"（候选人语义），部门 / 岗位场景传"多个"。
+- 临界值用 `< 5` 而非 `<= 5`：5 个候选人在小团队也是有差异化感的，但 4 个就太稀疏。
+- `> 999` 用 `Math.floor(k*10)/10` 而非四舍五入：避免 1199 显示成 1.2k 让用户以为已破 1200。
+
+### 2.12.4 fetch 失败的降级策略：静默 → 占位
+
+公开统计是<strong>装饰性</strong>信息，不能阻塞登录 / 注册主流程。
+
+```typescript
+const publicStats = ref<PublicStatsVO | null>(null)
+onMounted(async () => {
+  try {
+    publicStats.value = await statsApi.publicStats()
+  }
+  catch (e) {
+    console.warn('[login] publicStats fetch failed, falling back to placeholders', e)
+    // 不 throw, 不 message.error —— 用户根本不需要知道"水位卡片"加载失败
+  }
+})
+// 模板中：formatCount(s?.screeningCount ?? 0)  → 空值兜底走 "多人"
+```
+
+**对比反模式**：在 `onMounted` 里 `await` 后 throw / 弹 toast 把"装饰加载失败"升级成"用户感知错误"，登录页变成报错页。
+
+### 2.12.5 词条与产品定位一致性检查
+
+**触发信号**：用户提到"我们是 X 类型的系统"。立即扫一遍：
+1. **页面文案**：是否有暗示其它产品形态的词（"入驻企业" / "多租户" / "为众多公司"）？
+2. **图标 / 视觉**：是否有 SaaS 风格的元素（"Free Forever" / "All Plans" 等定价暗示）？
+3. **文档背景**：技术设计 / 里程碑 / SKILL 是否一致使用同一定位？
+
+**本次替换链**：
+- `register.vue` "入驻企业 200+" → "覆盖部门 {coveredDepartments}"（产品定位 + 真实数据）
+- `login.vue` "一套现代化招聘追踪系统" → "公司内部招聘追踪系统"（强调私有部署）
+- 注册页第 3 个 stat block "回复及时 98%"（虚构指标）→ "全程追踪 7×24"（真实属性）
+
+> **教训**：UI 上的所有数字 / 描述如果是<strong>假的</strong>就别放，宁可放真实但平淡的（"7×24 全程追踪"），也别放虚构但闪亮的（"98% 回复及时"）—— demo 阶段用户会发现，产品阶段会被合规打。
 

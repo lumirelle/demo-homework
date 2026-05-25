@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { FormInst, FormRules } from 'naive-ui'
+import type { PublicStatsVO } from '@/api/stats'
 import { NForm, NFormItem, NInput } from 'naive-ui'
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { BizError } from '@/api/request'
+import { statsApi } from '@/api/stats'
+import { formatCount } from '@/composables/use-format-count'
 
 const router = useRouter()
 
@@ -14,6 +17,26 @@ const errorMsg = ref('')
 const done = ref(false)
 
 const model = reactive({ email: '', password: '', fullName: '' })
+
+/**
+ * 公开聚合统计 —— 注册页左侧三个 stat block 显示真实数据。
+ * 拉取失败时降级为静态占位（formatCount 0 → "多人/多个"）。
+ */
+const publicStats = ref<PublicStatsVO | null>(null)
+
+onMounted(async () => {
+  try {
+    publicStats.value = await statsApi.publicStats()
+  }
+  catch (e) {
+    console.warn('[register] publicStats fetch failed, falling back to placeholders', e)
+  }
+})
+
+/** 覆盖部门 · 注册页换"入驻企业"为更贴切的"覆盖部门"（此为公司内部私有平台） */
+const coveredDepartmentsLabel = computed(() => formatCount(publicStats.value?.coveredDepartments ?? 0, '多个'))
+/** 在招岗位 · 真实 PUBLISHED 数 */
+const publishedJobsLabel = computed(() => formatCount(publicStats.value?.publishedJobs ?? 0, '多个'))
 
 /** 候选人感兴趣的方向（点击浮动标签切换；纯前端 demo 状态，未来 M4 接 profile） */
 const TAGS = [
@@ -135,28 +158,28 @@ async function handleSubmit() {
         <div class="mt-10 flex items-end gap-5">
           <div class="stat-block">
             <div class="stat-num">
-              200<span>+</span>
+              {{ coveredDepartmentsLabel }}
             </div>
             <div class="stat-label">
-              入驻企业
+              覆盖部门
             </div>
           </div>
           <div class="stat-divider" />
           <div class="stat-block">
             <div class="stat-num">
-              1.2<span>k</span>
+              {{ publishedJobsLabel }}
             </div>
             <div class="stat-label">
-              活跃岗位
+              在招岗位
             </div>
           </div>
           <div class="stat-divider" />
           <div class="stat-block">
             <div class="stat-num">
-              98<span>%</span>
+              7<span>×24</span>
             </div>
             <div class="stat-label">
-              回复及时
+              全程追踪
             </div>
           </div>
         </div>
@@ -168,6 +191,8 @@ async function handleSubmit() {
         :key="t.id"
         type="button"
         :class="[t.cls, { 'is-active': interests.has(t.id) }]"
+        :aria-pressed="interests.has(t.id)"
+        :aria-label="`${interests.has(t.id) ? '取消选择' : '选择'} ${t.label}（仅作视觉收藏，不影响注册）`"
         @click="toggleInterest(t.id)"
       >
         <span v-if="interests.has(t.id)" class="tag-check">
@@ -198,7 +223,7 @@ async function handleSubmit() {
     </div>
 
     <!-- ══ 右：表单面板 ════════════════════════════════════== -->
-    <div class="flex flex-1 flex-col items-center justify-center bg-(--bg-app) px-6 py-12">
+    <div class="flex flex-1 flex-col items-center justify-center bg-app px-6 py-12">
       <div class="w-full max-w-[400px]">
         <!-- top bar: mobile logo + 返回首页 -->
         <div class="mb-10 flex items-center justify-between">
@@ -357,14 +382,18 @@ async function handleSubmit() {
             </button>
 
             <p class="mt-3 text-center text-[11px] text-tertiary">
-              注册即表示同意 <a class="text-brand">服务条款</a> 与 <a class="text-brand">隐私政策</a>
+              注册即表示同意
+              <span class="text-brand-700 font-medium" title="演示项目，暂未提供独立条款页面">服务条款</span>
+              与
+              <span class="text-brand-700 font-medium" title="演示项目，暂未提供独立条款页面">隐私政策</span>
+              <span class="ml-1 text-tertiary">· 演示版本</span>
             </p>
           </NForm>
 
           <div class="my-6 flex items-center gap-3">
-            <div class="h-px flex-1 bg-(--border)" />
+            <div class="h-px flex-1 bg-(--border-default)" />
             <span class="text-[11px] uppercase tracking-widest text-tertiary">已有账号</span>
-            <div class="h-px flex-1 bg-(--border)" />
+            <div class="h-px flex-1 bg-(--border-default)" />
           </div>
 
           <router-link to="/login" class="btn-secondary group">

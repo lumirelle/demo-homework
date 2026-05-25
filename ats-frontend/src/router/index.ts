@@ -1,5 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
+import { nextTick } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
+import { loadingBarRef } from '@/utils/loading-bar'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -26,7 +28,7 @@ const routes: RouteRecordRaw[] = [
     path: '/health',
     name: 'Health',
     component: () => import('@/views/health.vue'),
-    meta: { title: 'Health · M0', requiresAuth: false, transition: 'slide-up' },
+    meta: { title: 'Health · 服务检查', requiresAuth: false, transition: 'slide-up' },
   },
   {
     path: '/login',
@@ -93,6 +95,30 @@ const routes: RouteRecordRaw[] = [
       transition: 'fade-slide',
     },
   },
+  // ── M5 · 数据看板（HR / Admin · 招聘漏斗 + 4 指标）──
+  {
+    path: '/hr/dashboard',
+    name: 'HrDashboard',
+    component: () => import('@/views/hr/dashboard.vue'),
+    meta: {
+      title: 'HR · 数据看板',
+      requiresAuth: true,
+      roles: ['HR', 'ADMIN'],
+      transition: 'fade-slide',
+    },
+  },
+  // ── Admin · 账号管理（单个 / 批量创建 HR）──
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/views/admin/users.vue'),
+    meta: {
+      title: 'Admin · 账号管理',
+      requiresAuth: true,
+      roles: ['ADMIN'],
+      transition: 'fade-slide',
+    },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
@@ -104,12 +130,25 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
+  async scrollBehavior(to, _from, savedPosition) {
+    if (savedPosition) return savedPosition
+
+    if (to.hash) {
+      await nextTick()
+      return {
+        el: to.hash,
+        top: 76,
+        behavior: 'smooth',
+      }
+    }
+
     return { top: 0 }
   },
 })
 
 router.beforeEach(async (to, _from, next) => {
+  loadingBarRef.value?.start()
+
   if (typeof to.meta.title === 'string') {
     document.title = `${to.meta.title} · ATS`
   }
@@ -118,12 +157,9 @@ router.beforeEach(async (to, _from, next) => {
   const { useAuthStore } = await import('@/stores/auth')
   const auth = useAuthStore()
 
-  // 首次访问需要鉴权的页面 → 先 silent refresh 恢复登录态
-  if (to.meta.requiresAuth !== false) {
-    if (!auth.isLoggedIn) {
-      await auth.initialize()
-    }
-  }
+  // 应用启动 / 页面刷新后恢复登录态（initialize 内部会防重入，全局只跑一次）。
+  // 必须无条件调用：公开页面（/home /jobs /health 等）也要识别已登录身份用于显示头像 / 切换 CTA
+  await auth.initialize()
 
   const requiresAuth = to.meta.requiresAuth !== false // 默认需要登录
   const roles = to.meta.roles
@@ -142,6 +178,14 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   next()
+})
+
+router.afterEach(() => {
+  loadingBarRef.value?.finish()
+})
+
+router.onError(() => {
+  loadingBarRef.value?.error()
 })
 
 export default router
