@@ -88,11 +88,18 @@ public class GlobalExceptionHandler {
         if (c == ErrorCode.FILE_NOT_FOUND.getCode()
                 || c == ErrorCode.JOB_NOT_FOUND.getCode()
                 || c == ErrorCode.TAG_NOT_FOUND.getCode()
-                || c == ErrorCode.APPLICATION_NOT_FOUND.getCode()) {
+                || c == ErrorCode.APPLICATION_NOT_FOUND.getCode()
+                || c == ErrorCode.INTERVIEW_NOT_FOUND.getCode()) {
             return HttpStatus.NOT_FOUND;
+        }
+        if (c == ErrorCode.INTERVIEW_EDIT_FORBIDDEN.getCode()) {
+            return HttpStatus.FORBIDDEN;
         }
         if (c == ErrorCode.FILE_TOO_LARGE.getCode()) {
             return HttpStatus.PAYLOAD_TOO_LARGE;
+        }
+        if (c == ErrorCode.FILE_TYPE_NOT_ALLOWED.getCode()) {
+            return HttpStatus.UNSUPPORTED_MEDIA_TYPE;
         }
         if (c >= 40000 && c < 50000) {
             return HttpStatus.BAD_REQUEST;

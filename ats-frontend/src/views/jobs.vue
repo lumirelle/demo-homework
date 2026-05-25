@@ -8,6 +8,7 @@ import type {
   TagCategory,
   TagVO,
 } from '@/api/jobs'
+import type { UploadVO } from '@/api/files'
 import {
   NButton,
   NDrawer,
@@ -25,6 +26,7 @@ import {
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { applicationsApi } from '@/api/applications'
+import { filesApi, FileValidationError, UPLOAD_LIMITS } from '@/api/files'
 import {
   jobsApi,
   LEVEL_LABEL,
@@ -170,6 +172,11 @@ const applyForm = reactive({
 })
 const applying = ref(false)
 
+// 简历上传：本地预览 + 异步上传 → 拿到 URL 写入 applyForm.resumeUrl
+const resumeFile = ref<{ name: string, size: number, url: string } | null>(null)
+const uploadingResume = ref(false)
+const resumeInputRef = ref<HTMLInputElement | null>(null)
+
 function openApplyDialog() {
   if (!detail.value) return
   if (!auth.isLoggedIn) {
@@ -184,7 +191,46 @@ function openApplyDialog() {
   applyForm.yearsExp = undefined
   applyForm.phone = ''
   applyForm.resumeUrl = ''
+  resumeFile.value = null
   applyDialogVisible.value = true
+}
+
+function pickResume() {
+  resumeInputRef.value?.click()
+}
+
+async function onResumeChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  // 重置 input value 让用户能重新选同一个文件
+  input.value = ''
+  if (!file) return
+  uploadingResume.value = true
+  try {
+    const vo: UploadVO = await filesApi.upload(file, 'RESUME')
+    resumeFile.value = { name: file.name, size: vo.size, url: vo.url }
+    applyForm.resumeUrl = vo.url
+    message.success('简历上传成功')
+  }
+  catch (err) {
+    if (err instanceof FileValidationError) message.warning(err.message)
+    else if (err instanceof BizError) message.error(err.message)
+    else message.error('上传失败，请重试')
+  }
+  finally {
+    uploadingResume.value = false
+  }
+}
+
+function removeResume() {
+  resumeFile.value = null
+  applyForm.resumeUrl = ''
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
 async function submitApply() {
@@ -803,9 +849,43 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
         </div>
         <div>
           <label text="xs tertiary" font-medium mb-1.5 block uppercase tracking-wider>
-            简历链接（可选）
+            简历 PDF（可选 · ≤5MB）
           </label>
-          <NInput v-model:value="applyForm.resumeUrl" placeholder="https:// 或留空，HR 会主动联系你" />
+          <!-- 隐藏 input，自定义按钮触发，便于完全控制 UI 与 axios 上传链 -->
+          <input
+            ref="resumeInputRef"
+            type="file"
+            :accept="UPLOAD_LIMITS.RESUME.accept"
+            class="hidden"
+            @change="onResumeChange"
+          >
+          <div v-if="!resumeFile" class="resume-uploader" :class="{ 'is-loading': uploadingResume }" @click="pickResume">
+            <div text="2xl" class="resume-uploader-icon">
+              ↑
+            </div>
+            <p m="0 b-1" text="sm primary" font-semibold>
+              {{ uploadingResume ? '上传中…' : '点击选择 PDF 文件' }}
+            </p>
+            <p m="0" text="xs tertiary">
+              仅 PDF · 最大 5MB · 不上传也能投递，HR 会主动联系
+            </p>
+          </div>
+          <div v-else class="resume-attached">
+            <div class="resume-attached-icon" aria-hidden="true">
+              PDF
+            </div>
+            <div flex-1 min-w-0>
+              <p m="0" text="sm primary" font-semibold class="truncate">
+                {{ resumeFile.name }}
+              </p>
+              <p m="t-0.5 b-0" text="[11px] tertiary font-mono">
+                {{ formatFileSize(resumeFile.size) }} · 已上传
+              </p>
+            </div>
+            <NButton size="tiny" quaternary @click="removeResume">
+              移除
+            </NButton>
+          </div>
         </div>
       </div>
 
@@ -957,12 +1037,73 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
   max-height: 600px;
 }
 
+/* ─────────────── 简历上传 ─────────────── */
+.resume-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  background: color-mix(in oklab, var(--brand-500) 3%, var(--bg-elevated));
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    background var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.resume-uploader:hover {
+  border-color: var(--brand-500);
+  background: color-mix(in oklab, var(--brand-500) 8%, var(--bg-elevated));
+  transform: translateY(-1px);
+}
+.resume-uploader.is-loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.resume-uploader-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--brand-500) 12%, transparent);
+  color: var(--brand-600, var(--brand-500));
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.resume-attached {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.resume-attached-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--success-500) 14%, transparent);
+  color: var(--success-700, var(--success-500));
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .job-card,
   .job-card-bar,
   .job-card-arrow,
   .tag-panel-enter-active,
-  .tag-panel-leave-active {
+  .tag-panel-leave-active,
+  .resume-uploader {
     transition: none !important;
   }
 }

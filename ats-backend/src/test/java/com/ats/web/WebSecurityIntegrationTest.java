@@ -86,6 +86,7 @@ class WebSecurityIntegrationTest {
     // M3 新增 mapper：同样必须 mock，否则 M1/M2 测试反向被波及
     @MockitoBean com.ats.repository.ApplicationMapper applicationMapper;
     @MockitoBean com.ats.repository.StageLogMapper stageLogMapper;
+    @MockitoBean com.ats.repository.InterviewMapper interviewMapper;
 
     // ════════════════════════════════════════════════════════════
     //                    401 · JWT 过滤器链

@@ -394,8 +394,8 @@
     <div class="doc-meta">
       <span><strong>项目：</strong>招聘管理系统 MVP</span>
       <span><strong>当前阶段：</strong>Phase 3 · 编码实现</span>
-      <span><strong>当前里程碑：</strong>M3 完成 · E2E 联调通过 · 准备进入 M4</span>
-      <span><strong>最后更新：</strong>2026-05-25 22:50 (UTC+8)</span>
+      <span><strong>当前里程碑：</strong>M4 编码完成 · 265 后端测试全绿 · 准备进入 M5</span>
+      <span><strong>最后更新：</strong>2026-05-25 23:30 (UTC+8)</span>
     </div>
   </div>
 
@@ -831,9 +831,62 @@
     </ul>
   </div>
 
-  <h2 id="m4">8. M4 · 辅助模块 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <h2 id="m4">8. M4 · 辅助模块 <span class="pill done" style="vertical-align: middle">done</span></h2>
   <div class="ms-detail">
-    <p style="color: var(--g-500)">M3 完成后补充详情。</p>
+    <h4>验收清单</h4>
+    <ul>
+      <li><strong>M4.1 文件上传/下载（后端）</strong>：
+        <ul>
+          <li><code>UploadProperties</code>（<code>@ConfigurationProperties(ats.upload)</code>）+ <code>FileCategory</code>（白名单 enum：MIME + 扩展名）+ <code>FileStorage</code> 接口 / <code>LocalFileStorage</code> 实现（UUID v4 文件名 / yyyy-MM 子目录 / 路径穿越防御）+ <code>FileService</code>（双层大小校验：servlet multipart 硬限 + service 软限）+ <code>FileController</code>（POST /files/upload + GET /files/**）。</li>
+          <li><strong>主类加 <code>@ConfigurationPropertiesScan("com.ats")</code></strong>：取代分散的 <code>@EnableConfigurationProperties</code>，未来新增 properties 不再需要改 SecurityConfig。</li>
+          <li><strong>错误码 → HTTP 映射扩展</strong>：FILE_TYPE_NOT_ALLOWED→415（Unsupported Media Type，比 409 更 RESTful）/ FILE_TOO_LARGE→413（已 mapping）/ FILE_NOT_FOUND→404（已 mapping）。</li>
+          <li><strong>测试 21 case</strong>：LocalFileStorageTest（save/load/路径穿越/扩展名提取 8）+ FileServiceTest（业务校验 6）+ FileControllerSecurityTest（权限矩阵 + 错误码 7）。</li>
+        </ul>
+      </li>
+      <li><strong>M4.2 面试评价（后端）</strong>：
+        <ul>
+          <li><code>InterviewRecord</code> entity / <code>InterviewMapper</code>（BaseMapper + listByApplication join users）+ DTO（Create/Update Req + VO 含 editable 标记）。</li>
+          <li><code>InterviewService</code>：访问权与 ApplicationService 完全同构（仅 ADMIN 或 owner HR）；<strong>编辑窗口 24 小时</strong>：作者本人 ≤24h 可改、ADMIN 不限时间、其他 HR（即使是 owner）不可改 —— "谁面试谁负责"。</li>
+          <li>错误码扩 3 个：<code>INTERVIEW_NOT_FOUND</code>(20031)→404 / <code>INTERVIEW_EDIT_EXPIRED</code>(20032)→409 / <code>INTERVIEW_EDIT_FORBIDDEN</code>(20033)→403。</li>
+          <li><code>InterviewController</code>：GET / POST <code>/applications/{id}/interviews</code> + PUT <code>/interviews/{id}</code>，全部 HR/ADMIN。</li>
+          <li><strong>测试 30 case</strong>：InterviewServiceTest（add / update / list / 编辑窗口边界 14）+ InterviewControllerSecurityTest（权限矩阵 + 错误码 16）。</li>
+          <li><strong>累计 265 case 全绿（M1 43 + M2 71 + M3 101 + M4 51）</strong></li>
+        </ul>
+      </li>
+      <li><strong>M4.3 简历 PDF 上传（前端）</strong>：
+        <ul>
+          <li><code>api/files.ts</code>：本地预校验（MIME + size）→ 抛 <code>FileValidationError</code>（避免白跑后端）；走 <code>multipart/form-data</code>，axios 自动加 boundary。</li>
+          <li>投递弹窗（<code>views/jobs.vue</code>）：把"简历链接"文本输入升级为<strong>自定义上传区</strong>（隐藏 input + 自定义虚线 dropzone + 上传中态 + 已附文件 chip + 移除按钮）。可选不上传，HR 主动联系仍走通。</li>
+        </ul>
+      </li>
+      <li><strong>M4.4 面试评价区 + PDF 预览（前端）</strong>：
+        <ul>
+          <li><code>api/interviews.ts</code>：list / create / update + CONCLUSION_LABEL/TONE 镜像。</li>
+          <li>HR 看板详情 Drawer：阶段时间线下方新增"面试评价 · N"区，列表（NRate readonly + NTag tone）+ 添加/编辑共享一个内嵌表单（NRate 1-5 + NSelect 结论 + 优势/不足/备注 textarea）+ <code>editable</code> 标记控制按钮显隐。</li>
+          <li>简历区：<code>/uploads/...</code> 自动转 <code>/api/v1/files/...</code> 下载，渲染成"PDF · 在新标签页打开"按钮（chip 风格）。</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h4>关键决策</h4>
+    <ul>
+      <li><strong>UUID v4 文件名 vs hash 文件名</strong>：UUID 122 bit 熵不可枚举 + 不依赖文件内容，简单足够；后续 M5 加去重时再考虑 SHA-256 hash 名（CAS 模式）。</li>
+      <li><strong>下载鉴权简化</strong>：MVP 阶段只校验"任意 JWT 用户"，依赖 UUID 不可枚举 + URL 只在 application 当事人 / owner HR / ADMIN 三方可见自然形成访问边界。生产环境再加"按 url 反查 application 鉴权"（复杂度 + 1 个 SQL）。</li>
+      <li><strong>面试编辑窗口 24h</strong>：给面试官改错的窗口，但禁止"半年后追改"破坏审计完整性。ADMIN 可绕过用于人工修复脏数据。</li>
+      <li><strong>结论 PASS/REJECT/HOLD vs application stage REJECTED 分离</strong>：面试结论是这一轮的判定（多轮可不一致）；application stage 是流水线状态。决策权在 HR，不耦合。</li>
+      <li><strong>HTML5 file input 自定义 UI vs NUpload</strong>：NUpload 内置 file-list 状态机偏复杂，自己拿 hidden <code>&lt;input type=file&gt;</code> + 一个虚线 dropzone 更可控；与 board 看板的"浮动拒绝区"是一致的设计语言。</li>
+    </ul>
+
+    <h4>踩坑（M4）</h4>
+    <ul>
+      <li><strong>所有 @WebMvcTest 必须加 <code>@MockitoBean InterviewMapper</code></strong>：M3 同样的坑第三次踩，<code>@MapperScan</code> 会让 Spring 尝试给所有 mapper 创建 bean，WebMvcTest 没启 sqlSessionFactory，必须 mock。已扩充至 SKILL "踩坑表"作为铁律。</li>
+      <li><strong>FILE_TYPE_NOT_ALLOWED 没在 mapStatus 显式分支</strong>：默认 fallthrough 到 BAD_REQUEST 400 而不是 415。修复后明确 → UNSUPPORTED_MEDIA_TYPE 415 更 RESTful。</li>
+      <li><strong>FileController 用 <code>req.getServletPath()</code> 在 Spring 6 下可能返回空</strong>：导致 NPE 500。改用 <code>req.getRequestURI()</code> + 去 contextPath 更稳。</li>
+      <li><strong>Windows TempDir + UrlResource 文件 handle 泄漏</strong>：测试 <code>load_ok</code> 直接 <code>res.getInputStream().readAllBytes()</code> 不关闭，导致 @TempDir 清理失败。改 try-with-resources。</li>
+      <li><strong>Mockito 对 BaseMapper.insert(any()) 类型推断歧义</strong>：直接 <code>any()</code> 触发 "reference to insert is ambiguous"。修复：明确 <code>any(InterviewRecord.class)</code>。</li>
+      <li><strong>setup script 顺序求值（M3 第三次踩）</strong>：openDetail 引用 interviews / interviewFormVisible 但它们声明在后面 → oxlint no-use-before-define。修复：把这些 ref 提到 openDetail 之前。这次直接在 SKILL 沉淀为 board.vue 编辑铁律。</li>
+      <li><strong>axios FormData 时不能用 default Content-Type: application/json</strong>：必须 <code>headers: { 'Content-Type': 'multipart/form-data' }</code> 让 axios 自动加 boundary。</li>
+    </ul>
   </div>
 
   <h2 id="m5">9. M5 · 打磨交付 <span class="pill todo" style="vertical-align: middle">todo</span></h2>

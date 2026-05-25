@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.19.20260525
+metadata: v0.0.20.20260525
 ---
 
 # AI 全栈开发工作流
@@ -1323,4 +1323,160 @@ private static OffsetDateTime toOffsetDateTime(Object v) {
 > 🔧 **可选硬核方案**：在 mapper XML 里给每个时间列显式声明 `<result column="applied_at" property="appliedAt" javaType="java.time.OffsetDateTime"/>`，但需要把 Map 改成 DTO，相比 helper 工作量大很多，MVP 阶段不划算。
 >
 > 📌 **测试启示**：service 单测里的 mock Map 应该至少有一份"真实类型"的契约测试（`Map.of("applied_at", new Timestamp(...))`），把这种 JDBC 默认类型路径覆盖进来，避免下次再踩。
+
+## 2.8 文件上传通用规约（M4 沉淀）
+
+### 2.8.1 三件套：UploadProperties + FileCategory + LocalFileStorage
+
+**典型分层**（M4 ATS 实战）：
+
+```
+ats.upload.path         → UploadProperties (@ConfigurationProperties)
+                        ↓
+FileCategory enum       → 白名单（MIME + 扩展名 + 子目录）
+   RESUME → resumes/, application/pdf, .pdf
+                        ↓
+FileStorage 接口        → 抽象（save / load / detectContentType）
+   LocalFileStorage     → MVP 实现（生产换 S3/OSS/MinIO 不动调用方）
+                        ↓
+FileService             → 业务校验（双层 size：servlet hard + service soft）
+                        ↓
+FileController          → POST /files/upload + GET /files/**
+```
+
+**关键设计点**：
+
+1. **UUID v4 文件名** + `yyyy-MM` 子目录：122 bit 熵不可枚举 + 月份分桶降低单目录文件数。
+2. **FileCategory enum 白名单**：每个分类独立 MIME + 扩展名集合，`validate(contentType, ext)` 双校验，防止"PDF 接口被当图床"。
+3. **路径穿越防御**：`ensureWithinRoot(resolved)`，解析后绝对路径必须 `startsWith(uploadRoot)`，否则拒绝。处理 `..` / 符号链接 / 绝对路径注入。
+4. **双层 size 校验**：
+   - `spring.servlet.multipart.max-file-size: 5MB` 硬拦截 → `MaxUploadSizeExceededException` → 413
+   - `FileService` 用 `props.maxFileMb` 软校验 → 统一 `FILE_TOO_LARGE` 业务码 → 413
+   - 双层冗余的好处：servlet 层早断（不消费完整 body），service 层给业务化错误信息
+
+### 2.8.2 错误码 → HTTP 映射约定（M4 增补）
+
+| 错误码 | HTTP | 备注 |
+|---|---|---|
+| `FILE_TYPE_NOT_ALLOWED` (30001) | **415 Unsupported Media Type** | 比 409 更 RESTful 标准 |
+| `FILE_TOO_LARGE` (30002) | **413 Payload Too Large** | 来自 servlet 层或 service 层 |
+| `FILE_NOT_FOUND` (30003) | **404 Not Found** | 含路径穿越拦截 |
+
+> 💡 **下载鉴权简化原则**（MVP 阶段）：`@PreAuthorize("isAuthenticated()")` 即可。靠 UUID 不可枚举 + URL 仅在合法链路（application 当事人 / owner HR / ADMIN）暴露形成自然边界。生产再加"按 url 反查 application"。
+
+### 2.8.3 GET /files/\*\* 多级路径捕获
+
+**反模式**：`req.getServletPath()` 在 Spring 6 + Tomcat 嵌入式下可能返回空，导致 `null.startsWith()` NPE 500（M4 踩坑）。
+
+**正模式**：
+
+```java
+@GetMapping("/**")
+public ResponseEntity<Resource> download(HttpServletRequest req) {
+    String uri = req.getRequestURI();           // 原始 URI 始终有值
+    String contextPath = req.getContextPath();  // /api/v1
+    if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+        uri = uri.substring(contextPath.length());
+    }
+    // uri = /files/resumes/2026-05/xxx.pdf
+    // ...
+}
+```
+
+### 2.8.4 axios FormData 上传必须显式覆盖 Content-Type
+
+**反模式**（默认 `application/json` 污染）：
+
+```ts
+// request.ts 默认 Content-Type: application/json
+return post('/files/upload', formData)  // ❌ 后端拿不到 multipart boundary
+```
+
+**正模式**：
+
+```ts
+return post('/files/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },  // ← axios 自动加 boundary
+})
+```
+
+### 2.8.5 自定义 file input vs NUpload
+
+**判断标准**：
+
+| 场景 | 推荐 |
+|---|---|
+| 需要进度条 / 多文件队列 / 拖拽 | NUpload |
+| 单文件上传 + 自定义虚线 dropzone + 上传中态 + 移除按钮 | hidden `<input type="file">` + 自定义 div |
+
+**MVP 倾向后者**：与看板"浮动拒绝区"等设计语言一致，CSS 完全可控，轻量。
+
+```vue
+<input ref="fileRef" type="file" :accept="..." class="hidden" @change="onChange">
+<div v-if="!attached" class="uploader" @click="fileRef.click()">点击选择 ...</div>
+<div v-else class="attached">{{ attached.name }} <button @click="remove">移除</button></div>
+```
+
+### 2.8.6 编辑窗口模式（24h + ADMIN bypass）
+
+**问题**：UGC 系统都有"作者改错的窗口" vs "审计完整性"的张力。
+
+**ATS M4 决策**：
+
+```java
+private static final long EDIT_WINDOW_HOURS = 24;
+
+if (!isAdmin) {
+    if (!isAuthor) throw INTERVIEW_EDIT_FORBIDDEN;
+    if (isOutsideEditWindow(createdAt)) throw INTERVIEW_EDIT_EXPIRED;
+}
+```
+
+**关键约定**：
+
+1. **窗口长度按业务定**：面试评价 24h（次日还能改）；评论可短到 5 分钟；订单备注一般不允许改。
+2. **ADMIN 必须能 bypass**：用于人工修复脏数据 + 申诉处理；这种"超级权限"不能省。
+3. **同岗位 owner HR ≠ 作者**：哪怕你管这个岗位，别人面试的评价你也不能改 ——「谁面试谁负责」。这是 ATS 业务特定，其他场景按需调整。
+4. **VO 返回 `editable` 字段**：service 在响应时根据 SecurityUtil + createdAt 算好返回，前端零额外往返决定按钮显隐。
+
+> 💡 **测试启示**：编辑窗口边界用 `OffsetDateTime.now().minusHours(N)` 直接构造，覆盖 `0h / 23h / 24h / 100h` 四点确保不漏边界。
+
+### 2.8.7 setup script 编辑铁律（第三次踩 no-use-before-define）
+
+**已经第三次踩了**（M3 拒绝 modal、M4 面试 ref），形成铁律：
+
+> **凡是写 `async function openDetail/openXxxForm` 时，所有它引用的 ref 必须在它之前声明。**
+
+**实践模板**：
+
+```vue
+<script setup>
+// 1. 全局 imports
+// 2. 路由 / store
+// 3. 所有顶层 ref / reactive / computed —— 一次性堆在前面
+const drawerVisible = ref(false)
+const detail = ref(null)
+const interviews = ref([])           // ← 先声明
+const interviewFormVisible = ref(false)
+
+// 4. 所有 async / sync function —— 此时 setup 已执行到这里，所有 ref 都已 init
+async function openDetail(id) {
+  interviews.value = []              // ← 安全引用
+  interviewFormVisible.value = false
+}
+</script>
+```
+
+**反模式**：
+
+```vue
+<script setup>
+async function openDetail(id) {
+  interviews.value = []  // ❌ TDZ + oxlint no-use-before-define
+}
+const interviews = ref([])
+</script>
+```
+
+> ⚠️ Vue setup 的 `<script setup>` 是**顺序求值**的（不是 hoisting），所以 ref 必须早于使用它的 function。每次新加 ref 时**自查一遍**：是否被某个上面的 function 引用？是 → 提到 function 之前。
 

@@ -13,6 +13,7 @@ import com.ats.config.SecurityConfig;
 import com.ats.controller.ApplicationController;
 import com.ats.entity.ApplicationStage;
 import com.ats.repository.ApplicationMapper;
+import com.ats.repository.InterviewMapper;
 import com.ats.repository.JobMapper;
 import com.ats.repository.JobTagMapper;
 import com.ats.repository.RefreshTokenMapper;
@@ -84,6 +85,7 @@ class ApplicationControllerSecurityTest {
     @MockitoBean RefreshTokenMapper refreshTokenMapper;
     @MockitoBean ApplicationMapper applicationMapper;
     @MockitoBean StageLogMapper stageLogMapper;
+    @MockitoBean InterviewMapper interviewMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private static final String APPLY_BODY = """

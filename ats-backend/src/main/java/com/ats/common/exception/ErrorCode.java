@@ -41,6 +41,10 @@ public enum ErrorCode {
     SELF_APPLY_FORBIDDEN(20024, "不能为自己创建的岗位投递"),
     APPLICATION_TERMINATED(20025, "该投递已处于终态（已入职 / 已拒绝），不可再变更"),
 
+    INTERVIEW_NOT_FOUND(20031, "面试评价不存在"),
+    INTERVIEW_EDIT_EXPIRED(20032, "面试评价已超过 24 小时编辑窗口，不可修改"),
+    INTERVIEW_EDIT_FORBIDDEN(20033, "只有原面试官（24h 内）或管理员可以修改"),
+
     FILE_TYPE_NOT_ALLOWED(30001, "文件类型不被允许"),
     FILE_TOO_LARGE(30002, "文件超出大小限制"),
     FILE_NOT_FOUND(30003, "文件不存在或无权访问"),

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ApplicationDetailVO, ApplicationListItemVO, ApplicationStage, BoardColumnVO, BoardVO, StageLogVO } from '@/api/applications'
+import type { InterviewCreateReq, InterviewVO } from '@/api/interviews'
 import type { JobListItemVO } from '@/api/jobs'
 import type { SelectOption } from 'naive-ui'
 import {
@@ -8,6 +9,7 @@ import {
   NDrawerContent,
   NEmpty,
   NInput,
+  NRate,
   NSelect,
   NSpin,
   NTag,
@@ -23,6 +25,11 @@ import {
   STAGE_LABEL,
   STAGE_TRANSITIONS,
 } from '@/api/applications'
+import {
+  CONCLUSION_LABEL,
+  CONCLUSION_TONE,
+  interviewsApi,
+} from '@/api/interviews'
 import { jobsApi } from '@/api/jobs'
 import { BizError } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
@@ -219,12 +226,42 @@ const drawerVisible = ref(false)
 const detail = ref<ApplicationDetailVO | null>(null)
 const detailLoading = ref(false)
 
+// 面试记录状态先声明（openDetail 会用到，setup script 顺序求值，否则 oxlint no-use-before-define）
+const interviews = ref<InterviewVO[]>([])
+const interviewFormVisible = ref(false)
+const editingInterview = ref<InterviewVO | null>(null)
+const interviewSubmitting = ref(false)
+/** 表单 model — 与 InterviewCreateReq 同字段（rating 用 number 而非 short） */
+const interviewForm = ref<InterviewCreateReq>({
+  round: '',
+  rating: 4,
+  conclusion: 'PASS',
+  strengths: '',
+  weaknesses: '',
+  notes: '',
+})
+
+const conclusionOptions: SelectOption[] = [
+  { label: CONCLUSION_LABEL.PASS, value: 'PASS' },
+  { label: CONCLUSION_LABEL.HOLD, value: 'HOLD' },
+  { label: CONCLUSION_LABEL.REJECT, value: 'REJECT' },
+]
+
 async function openDetail(id: number) {
   drawerVisible.value = true
   detailLoading.value = true
   detail.value = null
+  // 重置面试记录区
+  interviews.value = []
+  interviewFormVisible.value = false
+  editingInterview.value = null
   try {
-    detail.value = await applicationsApi.detail(id)
+    const [d, ivs] = await Promise.all([
+      applicationsApi.detail(id),
+      interviewsApi.list(id),
+    ])
+    detail.value = d
+    interviews.value = ivs
   }
   catch (e) {
     drawerVisible.value = false
@@ -234,6 +271,89 @@ async function openDetail(id: number) {
   finally {
     detailLoading.value = false
   }
+}
+
+// ───────────────────────── 面试记录 actions ─────────────────────────
+
+function openInterviewCreate() {
+  editingInterview.value = null
+  interviewForm.value = {
+    round: '',
+    rating: 4,
+    conclusion: 'PASS',
+    strengths: '',
+    weaknesses: '',
+    notes: '',
+  }
+  interviewFormVisible.value = true
+}
+
+function openInterviewEdit(iv: InterviewVO) {
+  editingInterview.value = iv
+  interviewForm.value = {
+    round: iv.round,
+    rating: iv.rating ?? 4,
+    conclusion: iv.conclusion,
+    strengths: iv.strengths ?? '',
+    weaknesses: iv.weaknesses ?? '',
+    notes: iv.notes ?? '',
+  }
+  interviewFormVisible.value = true
+}
+
+function cancelInterviewForm() {
+  interviewFormVisible.value = false
+  editingInterview.value = null
+}
+
+async function submitInterview() {
+  if (!detail.value) return
+  if (!interviewForm.value.round.trim()) {
+    message.warning('请填写面试轮次')
+    return
+  }
+  if (!interviewForm.value.rating || interviewForm.value.rating < 1) {
+    message.warning('请给出 1-5 星评分')
+    return
+  }
+  interviewSubmitting.value = true
+  try {
+    if (editingInterview.value) {
+      const updated = await interviewsApi.update(editingInterview.value.id, interviewForm.value)
+      // 就地替换：保持顺序
+      const idx = interviews.value.findIndex(i => i.id === updated.id)
+      if (idx >= 0) interviews.value.splice(idx, 1, updated)
+      message.success('已更新面试评价')
+    }
+    else {
+      const created = await interviewsApi.create(detail.value.id, interviewForm.value)
+      interviews.value.push(created)
+      message.success('已添加面试评价')
+    }
+    interviewFormVisible.value = false
+    editingInterview.value = null
+  }
+  catch (e) {
+    if (e instanceof BizError) message.error(e.message)
+    else throw e
+  }
+  finally {
+    interviewSubmitting.value = false
+  }
+}
+
+/** 把 /uploads/... 的相对 URL 转成可下载的 /api/v1/files/... */
+function resumeDownloadUrl(uploadsUrl: string) {
+  // 投递时存的是 /uploads/resumes/yyyy-MM/<uuid>.pdf；下载走 /files/...
+  if (uploadsUrl.startsWith('/uploads/')) {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+    return `${base}/files/${uploadsUrl.substring('/uploads/'.length)}`
+  }
+  return uploadsUrl
+}
+
+function isResumeFile(url: string | null | undefined) {
+  return !!url && url.startsWith('/uploads/')
 }
 
 async function transitionFromDrawer(target: ApplicationStage) {
@@ -539,8 +659,18 @@ onMounted(async () => {
                   <span text-primary font-medium ml-1>{{ detail.yearsExp ?? '—' }} 年</span>
                 </div>
                 <div v-if="detail.resumeUrl" col-span-2 class="truncate">
-                  <span text-tertiary>简历链接 ·</span>
+                  <span text-tertiary>简历 ·</span>
                   <a
+                    v-if="isResumeFile(detail.resumeUrl)"
+                    :href="resumeDownloadUrl(detail.resumeUrl)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ml-1 inline-flex items-center gap-1 text-(--brand-700) hover:underline font-medium"
+                  >
+                    <span class="resume-pill">PDF</span> 在新标签页打开
+                  </a>
+                  <a
+                    v-else
                     :href="detail.resumeUrl"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -580,6 +710,169 @@ onMounted(async () => {
                 </p>
               </NTimelineItem>
             </NTimeline>
+
+            <!-- ─────────── 面试评价（M4） ─────────── -->
+            <div mt-8>
+              <header flex="~ items-center justify-between" mb-3>
+                <h3 m-0 text="[10px] tertiary uppercase" tracking-widest font-bold>
+                  面试评价 · {{ interviews.length }}
+                </h3>
+                <NButton
+                  v-if="!interviewFormVisible"
+                  size="tiny"
+                  type="primary"
+                  ghost
+                  @click="openInterviewCreate"
+                >
+                  + 添加评价
+                </NButton>
+              </header>
+
+              <!-- 表单（添加 / 编辑共用） -->
+              <div v-if="interviewFormVisible" class="iv-form">
+                <p text="xs tertiary" m="0 b-3" font-semibold uppercase tracking-wider>
+                  {{ editingInterview ? '编辑评价' : '添加新评价' }}
+                  <span v-if="editingInterview" text-tertiary>· 24h 内可改</span>
+                </p>
+                <div flex flex-col gap-3>
+                  <div>
+                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      面试轮次
+                    </label>
+                    <NInput
+                      v-model:value="interviewForm.round"
+                      placeholder="如：技术一面 / HR 终面"
+                      maxlength="100"
+                    />
+                  </div>
+                  <div flex="~ items-center wrap" gap-4>
+                    <div>
+                      <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                        评分
+                      </label>
+                      <NRate v-model:value="interviewForm.rating" :count="5" />
+                    </div>
+                    <div flex-1 min-w="[180px]">
+                      <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                        结论
+                      </label>
+                      <NSelect
+                        v-model:value="interviewForm.conclusion"
+                        :options="conclusionOptions"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      优势
+                    </label>
+                    <NInput
+                      v-model:value="interviewForm.strengths"
+                      type="textarea"
+                      :rows="2"
+                      maxlength="2000"
+                      show-count
+                      placeholder="技术 / 软实力 / 业务亮点"
+                    />
+                  </div>
+                  <div>
+                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      不足
+                    </label>
+                    <NInput
+                      v-model:value="interviewForm.weaknesses"
+                      type="textarea"
+                      :rows="2"
+                      maxlength="2000"
+                      show-count
+                      placeholder="待补 / 风险点"
+                    />
+                  </div>
+                  <div>
+                    <label text="[11px] tertiary" font-medium mb-1 block uppercase tracking-wider>
+                      备注（可选）
+                    </label>
+                    <NInput
+                      v-model:value="interviewForm.notes"
+                      type="textarea"
+                      :rows="2"
+                      maxlength="2000"
+                    />
+                  </div>
+                  <div flex="~ items-center justify-end" gap-2>
+                    <NButton size="small" @click="cancelInterviewForm">
+                      取消
+                    </NButton>
+                    <NButton
+                      size="small"
+                      type="primary"
+                      :loading="interviewSubmitting"
+                      @click="submitInterview"
+                    >
+                      {{ editingInterview ? '保存修改' : '提交评价' }}
+                    </NButton>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 列表 -->
+              <div v-if="interviews.length === 0 && !interviewFormVisible" class="iv-empty">
+                <span text="xs tertiary">暂无面试评价</span>
+              </div>
+              <div v-else flex flex-col gap-3>
+                <article
+                  v-for="iv in interviews"
+                  :key="iv.id"
+                  class="iv-card"
+                >
+                  <header flex="~ items-center justify-between wrap" gap-2 mb-2>
+                    <div flex="~ items-center" gap-2>
+                      <span font-bold text-sm text-primary>{{ iv.round }}</span>
+                      <NTag
+                        :type="CONCLUSION_TONE[iv.conclusion]"
+                        round
+                        :bordered="false"
+                        size="small"
+                      >
+                        {{ CONCLUSION_LABEL[iv.conclusion] }}
+                      </NTag>
+                    </div>
+                    <div flex="~ items-center" gap-2>
+                      <NRate
+                        readonly
+                        :value="iv.rating ?? 0"
+                        :count="5"
+                        size="small"
+                      />
+                      <NButton
+                        v-if="iv.editable"
+                        size="tiny"
+                        quaternary
+                        @click="openInterviewEdit(iv)"
+                      >
+                        编辑
+                      </NButton>
+                    </div>
+                  </header>
+                  <p v-if="iv.strengths" m="0 b-1" text="sm secondary" leading="[1.6]">
+                    <strong text-primary>优势 ·</strong> {{ iv.strengths }}
+                  </p>
+                  <p v-if="iv.weaknesses" m="0 b-1" text="sm secondary" leading="[1.6]">
+                    <strong text-primary>不足 ·</strong> {{ iv.weaknesses }}
+                  </p>
+                  <p v-if="iv.notes" m="0 b-1" text="sm secondary" leading="[1.6]">
+                    <strong text-primary>备注 ·</strong> {{ iv.notes }}
+                  </p>
+                  <footer flex="~ items-center justify-between wrap" gap-2 mt-2 text="[11px] tertiary">
+                    <span>
+                      面试官 · <span text-primary font-medium>{{ iv.interviewerName ?? '—' }}</span>
+                      <span v-if="iv.interviewerRole" ml-1>· {{ iv.interviewerRole }}</span>
+                    </span>
+                    <span font-mono>{{ formatTime(iv.createdAt) }}</span>
+                  </footer>
+                </article>
+              </div>
+            </div>
           </template>
         </NSpin>
 
@@ -823,10 +1116,50 @@ onMounted(async () => {
   }
 }
 
+/* ─────── 面试评价（M4） ─────── */
+.resume-pill {
+  display: inline-grid;
+  place-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--success-500) 14%, transparent);
+  color: var(--success-700, var(--success-500));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.iv-form {
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--brand-500) 4%, var(--bg-elevated));
+  margin-bottom: 12px;
+}
+
+.iv-empty {
+  padding: 18px;
+  text-align: center;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
+}
+
+.iv-card {
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+.iv-card:hover {
+  border-color: var(--border-strong);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .board-col,
   .board-card,
-  .reject-dropzone {
+  .reject-dropzone,
+  .iv-card {
     transition: none !important;
     animation: none !important;
   }
