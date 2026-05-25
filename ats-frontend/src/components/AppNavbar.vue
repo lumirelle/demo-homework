@@ -31,9 +31,20 @@ const avatarBg = computed(() => {
 
 const initial = computed(() => (auth.user?.fullName ?? 'U')[0].toUpperCase())
 
-const navLinks = computed(() => [
-  { to: '/home', label: '首页', icon: 'M3 12 L12 4 L21 12 M5 10 V20 H19 V10' },
-])
+const navLinks = computed(() => {
+  const links: Array<{ to: string, label: string, icon: string }> = [
+    { to: '/home', label: '首页', icon: 'M3 12 L12 4 L21 12 M5 10 V20 H19 V10' },
+  ]
+  // HR / Admin：岗位管理台
+  if (auth.isHr || auth.isAdmin) {
+    links.push({
+      to: '/hr/jobs',
+      label: '岗位管理',
+      icon: 'M4 7 H20 M4 12 H20 M4 17 H14',
+    })
+  }
+  return links
+})
 
 function renderIcon(svg: string) {
   return () => h(NIcon, null, {
@@ -47,7 +58,7 @@ const menuOptions = computed(() => [
   {
     key: 'header',
     type: 'render',
-    render: () => h('div', { class: 'px-3 py-2.5 border-b border-(--border)' }, [
+    render: () => h('div', { class: 'px-3 py-2.5 border-b border-default' }, [
       h('p', { class: 'text-[11px] uppercase tracking-widest text-tertiary mb-0.5' }, '当前账户'),
       h('p', { class: 'text-sm font-semibold text-primary truncate' }, auth.user?.email ?? ''),
     ]),
@@ -107,7 +118,7 @@ function isActive(path: string) {
       </router-link>
 
       <!-- ── Center nav ─────────────────────────── -->
-      <nav v-if="auth.isLoggedIn" class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-(--border) bg-(--bg-elevated)/40 p-1 backdrop-blur-sm">
+      <nav v-if="auth.isLoggedIn" class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-(--bg-elevated)/40 p-1 backdrop-blur-sm">
         <router-link
           v-for="item in navLinks"
           :key="item.to"

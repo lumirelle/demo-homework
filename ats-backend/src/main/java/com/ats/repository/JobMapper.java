@@ -1,0 +1,53 @@
+package com.ats.repository;
+
+import com.ats.entity.Job;
+import com.ats.job.dto.JobListReq;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
+
+import java.util.List;
+
+@Mapper
+public interface JobMapper extends BaseMapper<Job> {
+
+    /** 候选人查看详情时 view_count 原子 +1。 */
+    @Update("UPDATE jobs SET view_count = view_count + 1 WHERE id = #{id} AND deleted_at IS NULL")
+    int incrementViewCount(@Param("id") Long id);
+
+    /**
+     * 动态条件 + 分页查询（不含 description 之外的所有字段）。
+     *
+     * @param q                 前端传来的过滤参数
+     * @param ownerOnlyUserId   非 null 时强制 WHERE created_by = ownerOnlyUserId（HR mine 模式）
+     * @param visibleStatuses   非空时强制 WHERE status IN (...)（候选人/匿名时由 service 强制注入）
+     * @param sortColumn        白名单：published_at / created_at / view_count / salary_max
+     * @param sortDir           ASC / DESC
+     * @param offset            分页 offset
+     * @param size              分页 size
+     */
+    List<Job> listJobs(@Param("q") JobListReq q,
+                       @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                       @Param("visibleStatuses") List<String> visibleStatuses,
+                       @Param("sortColumn") String sortColumn,
+                       @Param("sortDir") String sortDir,
+                       @Param("offset") int offset,
+                       @Param("size") int size);
+
+    long countJobs(@Param("q") JobListReq q,
+                   @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                   @Param("visibleStatuses") List<String> visibleStatuses);
+
+    /**
+     * 部门字典查询（id → name），用于列表/详情显示部门名。
+     * 单独写 SQL 避免为 departments 表新建独立 Mapper / Entity（M2 暂不需要 CRUD 部门）。
+     */
+    @org.apache.ibatis.annotations.Select({
+        "<script>",
+        "SELECT id, name FROM departments WHERE id IN",
+        "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+        "</script>"
+    })
+    List<java.util.Map<String, Object>> selectDepartmentNames(@Param("ids") List<Long> ids);
+}

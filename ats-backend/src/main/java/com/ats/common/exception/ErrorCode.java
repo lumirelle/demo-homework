@@ -29,6 +29,12 @@ public enum ErrorCode {
     DUPLICATE_APPLICATION(20003, "已投递过此岗位，请勿重复操作"),
     REJECT_REASON_REQUIRED(20004, "拒绝时必须填写原因"),
 
+    JOB_NOT_FOUND(20011, "岗位不存在或已被删除"),
+    JOB_ACCESS_DENIED(20012, "无权操作此岗位（仅创建人或管理员可修改）"),
+    JOB_NOT_PUBLISHED(20013, "岗位未发布，候选人不可查看"),
+    JOB_SALARY_RANGE_INVALID(20014, "薪资下限不能大于上限"),
+    TAG_NOT_FOUND(20015, "标签不存在或已被删除"),
+
     FILE_TYPE_NOT_ALLOWED(30001, "文件类型不被允许"),
     FILE_TOO_LARGE(30002, "文件超出大小限制"),
     FILE_NOT_FOUND(30003, "文件不存在或无权访问"),

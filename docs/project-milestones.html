@@ -464,10 +464,10 @@
       <tr>
         <td><code>M2</code></td>
         <td><strong>岗位 CRUD</strong></td>
-        <td><span class="pill todo">todo</span></td>
+        <td><span class="pill wip">in-progress</span></td>
+        <td>2026-05-24</td>
         <td>—</td>
-        <td>—</td>
-        <td>状态机 · 全文搜索 · HR/候选人双页</td>
+        <td>5 态状态机 · 全文/标签搜索 · 114 单测全绿（后端完成，前端进行中）</td>
       </tr>
       <tr>
         <td><code>M3</code></td>
@@ -668,9 +668,48 @@
     </ul>
   </div>
 
-  <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill wip" style="vertical-align: middle">in-progress</span></h2>
   <div class="ms-detail">
-    <p style="color: var(--g-500)">M1 完成后补充详情。</p>
+    <h4>已完成 · 后端（M2.1 ~ M2.5）</h4>
+    <ul>
+      <li><strong>M2.1 schema</strong>：5 态 enum（DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED）+ <code>jobs</code> 主表 +
+        <code>tags</code> 标准化表 + <code>job_tags</code> 多对多 + pg_trgm GIN（title 模糊）+ tsvector GIN（desc 全文）+ 24 tags + 3 示例岗位
+      </li>
+      <li><strong>M2.2 entity/mapper/DTO</strong>：18 个新文件 + ErrorCode 扩充 5 个新码（JOB_NOT_FOUND/JOB_ACCESS_DENIED/JOB_NOT_PUBLISHED/JOB_SALARY_RANGE_INVALID/TAG_NOT_FOUND）+
+        <code>JobStatusMachine</code>（8 条合法边 + 自环禁止）</li>
+      <li><strong>M2.3 service/controller</strong>：JobService 全 CRUD + 状态机推进 + 可见性裁剪 +
+        TagService 列举 + JobController/TagController + JobMapper.xml 动态 SQL（keyword/status/workType/level/dept/tagSlugs/sort/page）+ <code>incrementViewCount</code> 原子 +1
+      </li>
+      <li><strong>M2.4 权限</strong>：<code>@PreAuthorize</code> + HR own / Admin all / Candidate read-only PUBLISHED + 软删仅 Admin（合并到 M2.3）</li>
+      <li><strong>M2.5 后端单测</strong>：<code>114</code> case 全绿（M1 留下 43 + M2 新增 71）：
+        <ul>
+          <li><code>JobStatusMachineTest</code> · 35 case：8 合法边 + 3 require + 12 非法 + 5 自环 + 6 边界（null/nextStates）</li>
+          <li><code>JobServiceTest</code> · 17 case @Nested：create / update / transition / softDelete / getDetail 全分支 + ownership + 可见性</li>
+          <li><code>JobControllerSecurityTest</code> · 17 case：5 公开放行 + 5 创建权限矩阵 + 4 状态机错误码映射 + 3 删除权限</li>
+        </ul>
+      </li>
+    </ul>
+    <h4>待办 · 前端（M2.6 ~ M2.8）</h4>
+    <ul>
+      <li><strong>M2.6 HR 岗位管理</strong>：NDataTable + Drawer 新建/编辑 + 状态切换 dropdown（按 allowedTransitions 动态渲染）</li>
+      <li><strong>M2.7 候选人岗位市场</strong>：卡片网格 + 搜索栏 + tags chip 过滤 + 详情 Drawer</li>
+      <li><strong>M2.8 联调 + 同步文档</strong></li>
+    </ul>
+    <h4>关键决策</h4>
+    <ul>
+      <li><strong>状态机选 rich-plus（5 态）</strong>而非 simple-3（DRAFT/PUBLISHED/CLOSED）：PAUSED 满足 HR 临时下架 + ARCHIVED 留档不影响列表性能 + 给 M3 看板预演状态机模式</li>
+      <li><strong>搜索选 hybrid（ILIKE + tsvector）</strong>：title 用 pg_trgm（短文本模糊更准）+ description 用 tsvector（中文需 zhparser 但 MVP 用 simple 也可走通）+ 双 GIN 索引并存，按字段查不同索引</li>
+      <li><strong>tags 选 norm（标准化表）</strong>而非 jsonb：M3 看板/M4 数据看板需要按 tag 聚合，关联表 join 直接走 GIN tagSlug 索引，比 jsonb 上 GIN 更高效</li>
+      <li><strong>前端选 hr-table-cand-card</strong>：HR 关注批量管理（NDataTable 紧凑信息密度）+ 候选人关注吸引力（卡片视觉重点）</li>
+    </ul>
+    <h4>踩坑</h4>
+    <ul>
+      <li><code>@WebMvcTest</code> 不启 MyBatis 自动配置，但 <code>@MapperScan</code> 仍扫到所有 mapper → 必须把<strong>项目所有 mapper</strong>都 <code>@MockitoBean</code> 进来，否则
+        <code>sqlSessionFactory / sqlSessionTemplate are required</code>。M2 加 JobMapper/TagMapper/JobTagMapper 后，M1 的 WebSecurityIntegrationTest 反向坏掉 → 同步补 mock</li>
+      <li>MyBatis-Plus <code>JobTag</code> 复合主键无法 <code>@TableId</code> → JobTagMapper 不继承 BaseMapper，只暴露 batchInsert / deleteByJobId（避免 xxById 误用）</li>
+      <li>PowerShell <code>curl.exe -d '{...}'</code> 单引号被吞导致 JSON 损坏 → 改用 <code>-d '@file.json'</code> 文件投递（写进 SKILL）</li>
+      <li>JobService.validateTagIds 用 selectCount 校验所有 tagId 必须存在 → 单测里默认 stub 99 会误失败 → 各 case 按需 stub tagIds.size</li>
+    </ul>
   </div>
 
   <h2 id="m3">7. M3 · 状态机看板 ⭐ <span class="pill todo" style="vertical-align: middle">todo</span></h2>
@@ -777,7 +816,7 @@
       <tr>
         <td>2026-05-22</td>
         <td>UnoCSS 圆括号简写适用边界澄清 + 插件辅助校验</td>
-        <td>实测 preset-uno v66.7：<strong>(a)</strong> <code>.vue</code> template、<code>class="..."</code> 字符串、attributify attribute name 内，<code>prop-(--var)</code> 简写均匹配成功；<strong>(b)</strong> <code>uno.config.ts</code> 的 <code>shortcuts</code> 字符串内会被解析器吞掉括号变成 <code>border---border</code>（vite 报 <code>unmatched utility</code>）—— shortcut 内仍写 <code>border-[var(--border)]</code>；<strong>(c)</strong> 带透明度修饰符的 <code>bg-(--bg-app)/70</code> 暂未稳定验证，保守用方括号。<strong>SKILL 2.5.5 新增「适用边界」段</strong>，反模式 #7 / #8 编号修正（之前重号）。<strong>新增「插件辅助」段</strong>：写法合法性以工具实时报告为准——VSCode <code>antfu.unocss</code> 扩展 hover 提示 / <code>@unocss/eslint-plugin</code> CLI 校验 / vite stdout 的 <code>[unocss] unmatched utility "..."</code> 警告。<strong>顺带修 bug</strong>：tokens.css 无 <code>--text-muted</code>，<code>text-muted</code> class 8 处实为 fallback 默认色，统一改 <code>text-tertiary</code>；register.vue scoped 内 <code>color: var(--text-muted)</code> 同步改 <code>--text-tertiary</code>。SKILL v0.0.16。</td>
+        <td>实测 preset-uno v66.7：<strong>(a)</strong> <code>.vue</code> template、<code>class="..."</code> 字符串、attributify attribute name 内，<code>prop-(--var)</code> 简写均匹配成功；<strong>(b)</strong> <code>uno.config.ts</code> 的 <code>shortcuts</code> 字符串内会被解析器吞掉括号变成 <code>border---border</code>（vite 报 <code>unmatched utility</code>）—— shortcut 内仍写 <code>border-default</code>；<strong>(c)</strong> 带透明度修饰符的 <code>bg-(--bg-app)/70</code> 暂未稳定验证，保守用方括号。<strong>SKILL 2.5.5 新增「适用边界」段</strong>，反模式 #7 / #8 编号修正（之前重号）。<strong>新增「插件辅助」段</strong>：写法合法性以工具实时报告为准——VSCode <code>antfu.unocss</code> 扩展 hover 提示 / <code>@unocss/eslint-plugin</code> CLI 校验 / vite stdout 的 <code>[unocss] unmatched utility "..."</code> 警告。<strong>顺带修 bug</strong>：tokens.css 无 <code>--text-muted</code>，<code>text-muted</code> class 8 处实为 fallback 默认色，统一改 <code>text-tertiary</code>；register.vue scoped 内 <code>color: var(--text-muted)</code> 同步改 <code>--text-tertiary</code>。SKILL v0.0.16。</td>
       </tr>
       <tr>
         <td>2026-05-22</td>
@@ -810,6 +849,36 @@
       <tr><th style="width:120px">时间</th><th style="width:80px">类型</th><th>变更</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td>2026-05-25 10:00</td>
+        <td><span class="pill done">test</span></td>
+        <td><strong>M2.5 完成：后端单测 114 case 全绿</strong>（M1 留 43 + M2 新增 71，全程 &lt; 15s）。三层分工延续：
+          <ul>
+            <li><strong>L1 Pure JUnit</strong>：<code>JobStatusMachineTest</code> 35 case（<code>@ParameterizedTest</code> + <code>@CsvSource</code>）—— 8 条合法边、3 条 require 不抛、12 条非法、5 个状态自环禁止、6 个边界（null/nextStates 三态）、1 个异常上下文断言（from/to 必须出现在 message）</li>
+            <li><strong>L2 Mockito</strong>：<code>JobServiceTest</code> 17 case @Nested（Create/Update/Transition/SoftDelete/GetDetail）。SecurityContext 用 <code>UsernamePasswordAuthenticationToken + ROLE_xxx</code> 现场注入，<code>@AfterEach</code> 清空。覆盖 salary 反向 / tagId 不存在 / 非 owner / Admin override / DRAFT→PUBLISHED 自动写 publishedAt / PUBLISHED→CLOSED 自动写 closedAt / candidate 看 DRAFT 拒 / HR 看自己 DRAFT 不计 view + 返回 allowedTransitions / Admin 看 ARCHIVED 返回 [DRAFT]。
+              <code>@MockitoSettings(strictness = LENIENT)</code> 避免 stub 复用警告。
+            </li>
+            <li><strong>L3 @WebMvcTest</strong>：<code>JobControllerSecurityTest</code> 17 case @Nested（PublicEndpoints/CreateAuth/TransitionAuth/DeleteAuth）。匿名 GET list/detail/tags 全 200 + JOB_NOT_FOUND → 404 / JOB_NOT_PUBLISHED → 403；POST /jobs 匿名 401、CANDIDATE 403、HR/ADMIN 200、validation 400；transitions ILLEGAL_TRANSITION → 409、JOB_ACCESS_DENIED → 403；DELETE 仅 ADMIN（HR 403）。</li>
+          </ul>
+          <strong>踩坑修复</strong>：<code>@WebMvcTest</code> 不启 MyBatis 自动配置，但 <code>@MapperScan</code> 仍会扫到 mapper bean 导致 <code>sqlSessionFactory required</code> →
+          必须把项目所有 mapper（JobMapper/TagMapper/JobTagMapper/UserMapper/RefreshTokenMapper）和 PasswordEncoder 都 <code>@MockitoBean</code> 进来。
+          M2 新增 mapper 后 M1 留下的 <code>WebSecurityIntegrationTest</code> 反向被波及 → 同步补 mock 才再次绿。
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-24 22:00</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M2.1–M2.4 完成</strong>（岗位 CRUD 后端全链路）：
+          <ul>
+            <li><strong>schema</strong>：5 态 enum（DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED）+ jobs 主表（含 salary_min/max、headcount、view_count、published_at、closed_at、deleted_at 软删）+ tags 标准化表（24 seed 跨 4 个 category）+ job_tags 多对多（composite PK + ON CONFLICT DO NOTHING）+ pg_trgm GIN（idx_jobs_title_trgm）+ tsvector GIN（idx_jobs_desc_fts）+ partial index on status='PUBLISHED'</li>
+            <li><strong>entity/mapper/DTO</strong>：18 个新文件 + JobStatusMachine（8 条合法边硬编码 Map）+ ErrorCode 扩 5 个；JobTagMapper 复合主键不继承 BaseMapper 避免 xxById 误用；JobMapper.xml 动态 SQL 7 维过滤（keyword/status/workType/level/dept/tagSlugs/sort）+ EXISTS 子查询走 GIN 索引</li>
+            <li><strong>service/controller</strong>：JobService 全 CRUD + 5 态推进（自动写 publishedAt/closedAt）+ 可见性裁剪（候选人只见 PUBLISHED）+ <code>incrementViewCount</code> 原子 +1（候选人触发，HR/Admin 不计）+ SecurityUtil helper；TagService 列举所有 tags；JobController/TagController + <code>@PreAuthorize</code>（HR own / Admin all / Candidate read-only）</li>
+            <li><strong>联调验证</strong>：8 个 curl case 全绿（匿名列表 / 匿名详情 / HR 创建 / DRAFT→PUBLISHED / 非法 PUBLISHED→DRAFT 拦截 / Admin 软删 / 关键词搜索命中 GIN / 标签过滤 EXISTS 子查询）</li>
+          </ul>
+          关键决策：状态机选 rich-plus 而非 simple-3、搜索选 hybrid（ILIKE + tsvector）、tags 选 norm 而非 jsonb、前端选 hr-table-cand-card —— 详见 M2 章节。
+          踩坑：PowerShell <code>curl.exe -d '{...}'</code> 单引号被吞导致 JSON 损坏，全程改用 <code>-d '@file.json'</code> 文件投递。
+        </td>
+      </tr>
       <tr>
         <td>2026-05-22 16:18</td>
         <td><span class="pill doing">docs</span></td>

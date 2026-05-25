@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.16.20260522
+metadata: v0.0.17.20260525
 ---
 
 # AI 全栈开发工作流
@@ -264,62 +264,39 @@ theme: {
 4. 单值 + 带括号（arbitrary 字面值）？                 → <div max-w="[1200px]" gap="[10px]">  ⚠️ 必须 attributify
 5. 单值 variant（hover/focus/group-hover/max-sm）？    → <div hover:bg-active group-hover:translate-x-1>
 6. 多值（含 ~ 或空格分隔的多个 utility）？             → <div flex="~ items-center" p="y-3 x-4">
-7. shortcut / 状态化 / 含 . is-visible？               → class="text-gradient reveal ms-card"
+7. shortcut / 状态化 / 含 . is-visible？               → <div text-gradient reveal ms-card>
+8. 与元素 / 组件属性冲突（边界情况，更优选择是通过语义化 shortcut 命名规避此情况）？  → <div class="disabled">
 ```
 
 | 场景 | 写法 | 说明 |
 |---|---|---|
 | **无值原子（display/position 等 keyword）** | `<div flex relative grid inline-flex>` | 直接 valueless，UnoCSS scanner 会扫到。**禁止** `flex="~"` 这种冗余形式 |
 | **单值无括号** | `<div bg-app mt-8 rounded-full text-lg font-bold>` | **当 class 用**，更紧凑（`bg="app"` 比 `bg-app` 多 4 字符却没好处） |
-| **单值带括号（arbitrary 字面值）** | `<div max-w="[1200px]" tracking="[-0.05em]" gap="[10px]">` | **⚠️ 必须 attributify value 形式**，**禁止** `max-w-[1200px]` 写在 attribute name 上 —— HTML attribute name 不允许 `[` `]` 字符，浏览器虽宽容但 vue-tsc / prettier / 严格 parser 会出问题；attributify value 字符串里方括号完全合法 |
-| **单值 = CSS 变量** ✨ | `<div bg-(--brand-500) text-(--text-primary) shadow-(--shadow-lg)>` | UnoCSS **圆括号简写**：`prop-(--var)` ≡ `prop-[var(--var)]`，比方括号 + `var()` 短 7 字符。HTML attribute name **允许** `(` `)`（与 `[` `]` 不同），所以可以直接当 attribute 写，无需 attributify value。**优先用此形式**替代 `bg-[var(--xxx)]`／`bg="[var(--xxx)]"` |
+| **单值带括号（arbitrary 字面值）** | `<div max-w="[1200px]" tracking="[-0.05em]" gap="[10px]">` | **⚠️ 必须 attributify value 形式**，**禁止** `max-w-[1200px]` 写在 attribute name 上 —— HTML attribute name 不允许 `[` `]` 字符，框架 / 浏览器不允许；attributify value 字符串里方括号完全合法 |
+| **单值 + CSS 变量** ✨ | `<div bg-(--brand-500) text-(--text-primary) shadow-(--shadow-lg)>` | UnoCSS **圆括号简写**：`prop-(--var)` ≡ `prop-[var(--var)]`，比方括号 + `var()` 短 7 字符。HTML attribute name **允许** `(` `)`（与 `[` `]` 不同）|
 | **单值 variant** | `<div hover:bg-active group-hover:translate-x-1 max-sm:hidden focus:ring-2>` | **当 class 用**，单值时连字符 + 冒号比 `hover="bg-active"` 更短更直观 |
 | **多值（同 prefix，含 prefix 本身）** | `flex="~ items-center justify-between wrap"` | `~` 表示 prefix 本身作为 class（`display:flex`）；**此处 `~` 不能省**——去掉就只剩 `align-items` `justify-content` `flex-wrap`，没有 `display:flex` |
 | **多值（同 prefix，不含 prefix 本身）** | `border="t subtle"` ／ `text="xs secondary uppercase"` | 不写 `~`，只组合子 class |
 | **多值简写连写** | `p="y-3 x-4"` → `py-3 px-4` ／ `m="t-6 x-auto"` → `mt-6 mx-auto` | 维度复合写在一个属性里 |
 | **多值 variant** | `hover="text-primary after:right-0"` ／ `before="absolute inset-0 content-empty"` | variant 包多个 utility 才用 attributify；单值 variant 走 class with hyphen |
-| **arbitrary 在 class 字符串里** | `class="max-w-[1200px] transition-[transform,box-shadow]"` | string value 内括号完全合法，复杂组合（含 variant + arbitrary）写 class 反而比拆 attribute 更清晰 |
-| **自定义 class（shortcut / 状态化）** | `class="text-gradient ms-card status-done reveal"` | shortcut、有 `::before/::after` / 状态切换 / JS 加 .is-visible 的 class 仍用 `class=` |
-
-> 💡 **核心心智模型**：HTML attribute name 在生成 selector 时 UnoCSS 走 `[attr~=value]` 路径，attribute value 字符串则走标准 class selector 路径。两者最终生成的 CSS 一致，但**只有 attribute name 不能含 `[` `]`**（HTML 规范限制 + 工具链兼容）。所以"括号必须用 attributify value"不是 UnoCSS 限制，是 HTML 限制。
-
-> 💡 **`~` 的语义**：UnoCSS attributify 里 `~` 代表"把 attribute prefix 本身也作为一个 utility class 应用"。只在「prefix 自身需要 + 子值组合」的混合写法里才需要 `~`，**单独 `xxx="~"` 是冗余写法**（等价于 valueless `xxx`），全项目应统一为 valueless。
+| **shortcut / 状态化** | `text-gradient ms-card status-done reveal` | shortcut 等命名尽量保持语义化命名，避免和元素 / 组件的属性冲突 |
 
 > 💡 **`duration-*` 默认 unit**：UnoCSS 对 `duration-N`（纯数字）默认 `N` 毫秒——`duration-260` ≡ `duration-[260ms]`，前者更短，**优先用**。同理 `delay-*`。但 `w-` `h-` `p-` `m-` 等纯数字走的是 theme.spacing（`w-4` ≠ `w-[4px]`），不要混淆。
-
-> 💡 **CSS 变量圆括号简写** ✨：`prop-(--var-name)` ≡ `prop-[var(--var-name)]`，三档展开率（短 7 字符）：
->
-> | 旧写法 | 新写法 | 等价 CSS |
-> |---|---|---|
-> | `bg-[var(--brand-500)]` | `bg-(--brand-500)` | `background-color: var(--brand-500)` |
-> | `text="[var(--text-primary)]"` | `text-(--text-primary)` | `color: var(--text-primary)` |
-> | `shadow-[var(--shadow-lg)]` | `shadow-(--shadow-lg)` | `box-shadow: var(--shadow-lg)` |
-> | `border-[var(--border-default)]` | `border-(--border-default)` | `border-color: var(--border-default)` |
-> | `animate-[var(--blink)]` | `animate-(--blink)` | `animation: var(--blink)` |
->
-> 同样适用于 hover variant：`hover:bg-(--brand-700)`。**全项目优先用圆括号简写**，仅当不是 CSS 变量而是任意字面值（`max-w-[1200px]`、`tracking-[-0.05em]`、复杂渐变字符串等）时才用方括号。
->
-> 🚧 **适用边界**（preset-uno v66 实测）：
-> - ✅ `.vue` template 内、`class="..."` 字符串内、attributify attribute name 上（`<div bg-(--brand-500)>`）：**圆括号简写匹配成功**
-> - ❌ `uno.config.ts` 内 `shortcuts` 字符串里：**会被解析器吞掉括号变成 `border---border`**（vite 报 `unmatched utility "border---border"`）。shortcut 字符串内仍写 `border-[var(--border)]`
-> - ❌ 带透明度修饰符的复合写法 `bg-(--bg-app)/70` 暂未验证稳定，遇到这种保留方括号 `bg-[var(--bg-app)]/70` 更稳
->
-> ⚠️ 圆括号简写**不会自动生成 gradient**——`bg-(--grad-spring)` 仍然展开为 `background-color`，渐变同样会静默失效，规避方式与方括号一致：用自定义 `rules` 接管（见下方反模式 #8）。
 
 > 💡 **借助插件做权威校验**：UnoCSS 写法的合法性以工具实时报告为准，**不要凭记忆判断**：
 > - **VSCode**：装 `antfu.unocss` 扩展，hover / 行内即可看到 utility 是否匹配 + 生成的 CSS
 > - **CLI 校验**：装 `@unocss/eslint-plugin`，配 minimal `eslint.config.js` 跑 `eslint . --rule '@unocss/order: error' --rule '@unocss/blocklist: error'` 验证；也可直接看 vite dev server stdout 的 `[unocss] unmatched utility "..."` 警告
-> - **凡是 vite 报 unmatched 的写法都是无效的**——立即修，不要 ship 残缺 class
+> - **凡是 vite 报 unmatched 的写法都是无效的，看看是不是用了不存在的规则**——立即修，不要 ship 残缺 class
 
 ##### ⚠️ 反模式
 
 1. **单独 `xxx="~"` 冗余写法**（如 `<div flex="~" relative="~">`）—— `~` 只在"prefix 本身 + 子值"混合场景才必要；单独无值原子直接 `<div flex relative>` 即可。全项目统一 valueless 风格
 2. **`max-w-[1200px]` 直接当 attribute name 用**（如 `<div max-w-[1200px]>`）—— HTML attribute name 不允许 `[` `]`，浏览器宽容但 vue-tsc / prettier 不可靠。**必须**改 `<div max-w="[1200px]">`。但写在 class 字符串里（`class="max-w-[1200px]"`）OK，因为是 string value
-3. **单值还用 attributify**（如 `<div bg="app" mt="8">`）—— 比 `bg-app mt-8` 多打 4-6 字符却没好处。**单值无括号 → class with hyphen** 是统一规约
-4. **同一原子同时出现在 class 和 attribute 上**—— diff 难读，规约混乱
+3. **单值还用 attributify value 模式**（如 `<div bg="app" mt="8">`）—— 比 `bg-app mt-8` 多打 4-6 字符却没好处。**单值无括号 → class with hyphen** 是统一规约
+4. **可以用 attributify 是使用 class**—— 规范不统一，diff 难读，规约混乱
 5. **shortcut / 复杂状态 class 拆成 atomic**（如把 `text-gradient` 拆成 5 个属性）—— 失去 shortcut 的语义聚合价值
 6. **在 UnoCSS theme 里重新写一遍颜色值**（如 `brand: { 500: '#10b981' }`）—— 破坏"token 单一真值"，Naive UI 和 UnoCSS 会渐行渐远
-7. **CSS 变量还用方括号 + `var()` 长写**（如 `bg-[var(--brand-500)]` / `text="[var(--text-primary)]"` / `class="shadow-[var(--shadow-lg)]"`）—— UnoCSS 早已支持**圆括号简写** `bg-(--brand-500)`，等价但短 7 字符且可直接当 attribute name（圆括号在 HTML 中合法）。template / class 字符串内统一走简写；**shortcut 字符串内例外**（preset-uno 解析失败，保留方括号 + `var()`）
+7. **CSS 变量还用方括号 + `var()` 长写**（如 `bg-[var(--brand-500)]` / `text="[var(--text-primary)]"` / `class="shadow-[var(--shadow-lg)]"`）—— UnoCSS 早已支持**圆括号简写** `bg-(--brand-500)`，等价但短 7 字符且可直接当 attribute name（圆括号在 HTML 中合法）。template / class 字符串内统一走简写
 8. **用 `bg-[var(--grad-xxx)]` ／ `bg-(--grad-xxx)` ／ shortcut 拼出渐变**—— UnoCSS 把 `bg-[...]` 和 `bg-(--xxx)` 都默认推断为 `background-color`，**`background-color` 不接受 `linear-gradient(...)`，渐变会静默失效**（不报错，但页面上就是一片透明 / 默认色）
    - **必须用 `rules` 接管**，显式输出 `background-image`：
      ```ts
@@ -340,6 +317,7 @@ theme: {
      ```
    - **自测**：浏览器打开页面，如果 `text-gradient` 文字是 `transparent` 但没看到渐变（一片空白） → 100% 是这个坑
    - **DOM 检查法**：dev tools 看 `__uno.css` 是否生成的是 `background-color: var(--grad-xxx)`（错）还是 `background-image: var(--grad-xxx)`（对）
+   - 使用 CSS 变量时同理，如：`bg-(--gradient)` 是不可用的
 
 ##### shims.d.ts 必备声明
 
@@ -347,7 +325,7 @@ theme: {
 declare module 'virtual:uno.css'
 ```
 
-> 💡 vue-tsc 现在对 attributify 属性是宽容的（任意未知 attribute 接受 string，**包括 valueless attribute 不再报 boolean 错**），无需为 `bg` / `text` / `p` / `m` 等做 HTMLAttributes augmentation。如果你看到旧文章建议加 `~` 来"绕过 boolean 报错"，那是过时信息——直接 valueless 即可。
+> 💡 vue-tsc 现在对 attributify 属性是宽容的（任意未知 attribute 接受 string，**包括 valueless attribute 不再报 boolean 错**），无需为 `bg` / `text` / `p` / `m` 等做 HTMLAttributes augmentation。如果你看到旧文章建议加 `~` 来"绕过 boolean 报错"，那是过时信息——忽略，继续使用 valueless 即可。
 
 ##### Shortcuts 分层规约（≥ 3 处复用就抽 shortcut）
 
@@ -365,16 +343,6 @@ declare module 'virtual:uno.css'
 | `navbar-*` / `logo-*` / `avatar` / `user-trigger` / `version-pill` | 导航栏专属 | `navbar-glass`、`navbar-glow-line`、`logo-mark`、`logo-mark-lg` |
 | `brand-*` / `hero-*` / `aurora-bg-*` / `orb-*` | 品牌视觉（认证页 / Hero） | `brand-pane`、`hero-display`、`hero-outline`、`hero-gradient` |
 | `anim-*` / `animate-*` / `btn-shimmer` / `cta-glow` | 动画绑定 | `animate-shimmer`、`btn-shimmer`、`cta-glow`（搭配 `group` 用）|
-
-**实战收益**（M1 认证页迁移）：
-
-| 文件 | scoped 样式行数（前 → 后） | 减少 |
-|---|---|---|
-| `AppNavbar.vue` | 175 → 0 | -100% |
-| `LoginView.vue` | 270 → 55 | -80% |
-| `RegisterView.vue` | 230 → 80 | -65% |
-
-**总体「UnoCSS 化率」≈ 92%**，剩 8% 都是合理留存（见下条）。
 
 ##### Keyframes 集中沉淀策略
 
@@ -441,13 +409,10 @@ rules: [
 | 场景 | 为什么留 CSS | 例子 |
 |---|---|---|
 | **`@keyframes` 本身** | UnoCSS 不能定义，只能引用 | `keyframes shimmer { ... }` |
-| **复杂 calc + CSS var** | `translate-x-[calc(var(--i)*36px)]` 可写但极丑 | `transform: translateX(calc(var(--i) * 36px))` |
 | **Vue Transition 命名 class** | Vue 命名约定要求 plain class | `.fade-slide-enter-active` |
 | **依赖 `::before` `::after` 伪元素** + 复杂结构 | utility 写多层伪元素链路啰嗦 | `.with-noise::after`（噪点 overlay）|
 | **依赖 JS 注入 CSS var** | `--mx --my` 跟随鼠标场景 | `.cursor-glow` |
 | **状态化 `[data-state='up']` 联动多个子元素** | 父级状态控制多个 selector 时 utility 难表达 | health card 状态色联动 |
-
-> 原则：**这一行写 utility 比写 CSS 更短更清晰 → 用 utility；反之 → 留 CSS**。不要为了"100% UnoCSS 化"硬塞复杂表达式，可读性永远第一。
 
 #### 2.5.4 页面过渡 / 路由动画基线（强制）
 
@@ -959,3 +924,119 @@ ats:
 | `JwtServiceTest` | 8 | sign + verify happy / 篡改 / 过期 / 错 issuer / 垃圾输入 / refresh 唯一 / hash 确定 / TTL |
 | `AuthServiceTest` | 17 | register × 2 / login × 4 / refresh × 6 / logout × 3 / me × 2 |
 | `WebSecurityIntegrationTest` | 18 | 401 × 4 / 角色守卫 × 4 / Auth 路径 × 7 / CSRF 回归 × 3 |
+
+**M2 状态机 / 业务服务测试矩阵**（71 case 新增，total 114 / 15s）：
+
+| 类 | Case 数 | 覆盖点 |
+|---|---|---|
+| `JobStatusMachineTest` | 35 | 8 合法边 + 3 require 不抛 + 12 非法 + 5 自环禁止 + 6 边界 + 1 异常 message 上下文 |
+| `JobServiceTest` | 17 | create × 4（含 salary 反向 + tagId 不存在 + 未登录）/ update × 5 / transition × 4 / softDelete × 2 / getDetail × 4 |
+| `JobControllerSecurityTest` | 17 | 公开 × 5（list/detail/tags + 404/403 错误码映射）/ create × 5（401/403/200/200/400）/ transition × 4（409/403 错误码映射）/ delete × 3 |
+
+**L1 状态机测试模式**（强烈推荐，新业务实体都套用）：
+
+```java
+@Nested @DisplayName("合法流转")
+class Legal {
+  @ParameterizedTest(name = "[{index}] {0} → {1}")
+  @CsvSource({ "DRAFT,PUBLISHED", "PUBLISHED,CLOSED", ... })  // 列全所有合法边
+  void canTransition_returnsTrue(JobStatus from, JobStatus to) {
+    assertThat(JobStatusMachine.canTransition(from, to)).isTrue();
+  }
+}
+
+@Nested @DisplayName("非法流转 · 含自环")
+class Illegal {
+  @ParameterizedTest @CsvSource({ "PUBLISHED,DRAFT", ... })   // 列出典型反例
+  void canTransition_returnsFalse(JobStatus from, JobStatus to) { ... }
+
+  @ParameterizedTest @EnumSource(JobStatus.class)              // 自环全枚举一遍
+  void selfLoop_isIllegal(JobStatus s) {
+    assertThat(JobStatusMachine.canTransition(s, s)).isFalse();
+  }
+}
+```
+
+> 💡 **35 case 看似多，跑完 &lt; 100ms**，覆盖度高、回归保护强、文档化效果好（CSV 即真理表）。
+
+**L2 SecurityContext 注入模式**（Service 单测要读 `SecurityUtil.requireUserId()` 时必备）：
+
+```java
+@BeforeEach void setUp() { SecurityContextHolder.clearContext(); }
+@AfterEach  void tearDown() { SecurityContextHolder.clearContext(); }
+
+private static void setAuth(long userId, String role) {
+  var auth = new UsernamePasswordAuthenticationToken(
+      String.valueOf(userId), null,
+      List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+  SecurityContextHolder.getContext().setAuthentication(auth);
+}
+```
+
+> ⚠️ 必须 `@AfterEach` 清空，否则用例污染顺序敏感。
+
+**L2 Mockito stub 冲突陷阱**（M2.5 踩到）：
+
+```java
+// ❌ 默认 stub 与具体 case 冲突：service 内部用 selectCount 校验 tagIds.size,
+//    默认 99L 会让 happyPath（提供 2 个 tag）误抛 TAG_NOT_FOUND
+@BeforeEach void setUp() {
+  when(tagMapper.selectCount(any())).thenReturn(99L);  // ← 陷阱
+}
+
+// ✅ 关键校验类 stub 不设默认，按 case 显式 stub
+@BeforeEach void setUp() {
+  // 只 stub 与业务校验无关的辅助方法（dept/user batch 查空列表）
+}
+
+@Test void happyPath() {
+  when(tagMapper.selectCount(any())).thenReturn(2L);  // 与 tagIds.size 对齐
+  ...
+}
+```
+
+> 💡 **判断标准**：被 service 用来"做校验比对"的 stub（count/exists）一定按 case 显式给；被 service 用来"拼数据"的 stub（batch select）可以默认空集合。
+
+**L3 `@MapperScan` 隐式依赖陷阱**（M2.5 踩到，最大坑）：
+
+```text
+症状：@WebMvcTest 加载失败 → BeanCreationException:
+  Property 'sqlSessionFactory' or 'sqlSessionTemplate' are required
+```
+
+`@WebMvcTest` **不启用 MyBatis 自动配置**，但 `@MapperScan`（通常在 main `@SpringBootApplication` 上）依然会扫描到所有 Mapper 接口并尝试创建 bean，导致缺 `sqlSessionFactory` 报错。修复必须**一次性 mock 项目所有 mapper**：
+
+```java
+@WebMvcTest(controllers = { JobController.class, TagController.class })
+@Import({ SecurityConfig.class, JwtAuthenticationFilter.class, ... })
+class JobControllerSecurityTest {
+  @MockitoBean JwtService jwtService;
+  @MockitoBean JobService jobService;   // ← 上层 service
+  @MockitoBean TagService tagService;
+
+  // ⚠️ 关键：项目所有 mapper 都要 mock，缺一个就 sqlSessionFactory required
+  @MockitoBean JobMapper jobMapper;
+  @MockitoBean TagMapper tagMapper;
+  @MockitoBean JobTagMapper jobTagMapper;
+  @MockitoBean UserMapper userMapper;
+  @MockitoBean RefreshTokenMapper refreshTokenMapper;
+  @MockitoBean PasswordEncoder passwordEncoder;
+}
+```
+
+> ⚠️ **每加一个 Mapper（M3/M4），所有现有 `@WebMvcTest` 类都要补 `@MockitoBean`，否则反向坏掉**。M2 加 JobMapper/TagMapper/JobTagMapper 后，M1 的 `WebSecurityIntegrationTest` 立刻全红，必须同步补 mock。
+> 💡 **替代方案**（暂未采用）：抽个 `@TestConfiguration` 基类一次声明所有 mapper mock，让各 `@WebMvcTest` 类 `@Import` 复用；MVP 阶段直接复制粘贴更直接。
+
+**L3 错误码 → HTTP 映射验证**（M2.5 模式，业务码越多越值钱）：
+
+```java
+@Test void transitionIllegal_returns409() throws Exception {
+  when(jobService.transition(anyLong(), any()))
+      .thenThrow(new BizException(ErrorCode.ILLEGAL_TRANSITION, "..."));
+  mvc.perform(post("/jobs/1/transitions").content("{\"to\":\"DRAFT\"}").contentType(JSON))
+     .andExpect(status().isConflict())                                    // ← 验证 HTTP
+     .andExpect(jsonPath("$.code").value(ErrorCode.ILLEGAL_TRANSITION.getCode())); // ← 验证业务码
+}
+```
+
+> 💡 **GlobalExceptionHandler 修改 mapStatus 时，对应错误码必须有 L3 测试守门**，否则一旦把 409 改成 400 也不会报警。

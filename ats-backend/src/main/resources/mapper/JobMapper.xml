@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ats.repository.JobMapper">
+
+  <!-- 公共 WHERE 条件：用 <sql>+<include> 在 list/count 复用 -->
+  <sql id="conditions">
+    j.deleted_at IS NULL
+    <if test="ownerOnlyUserId != null">
+      AND j.created_by = #{ownerOnlyUserId}
+    </if>
+    <if test="visibleStatuses != null and !visibleStatuses.isEmpty()">
+      AND j.status::text IN
+      <foreach collection="visibleStatuses" item="s" open="(" separator="," close=")">#{s}</foreach>
+    </if>
+    <if test="q.keyword != null and q.keyword != ''">
+      AND (
+        j.title ILIKE '%' || #{q.keyword} || '%'
+        OR to_tsvector('english', coalesce(j.description, ''))
+           @@ plainto_tsquery('english', #{q.keyword})
+      )
+    </if>
+    <if test="q.status != null and !q.status.isEmpty()">
+      AND j.status::text IN
+      <foreach collection="q.status" item="s" open="(" separator="," close=")">#{s}</foreach>
+    </if>
+    <if test="q.workType != null and !q.workType.isEmpty()">
+      AND j.work_type::text IN
+      <foreach collection="q.workType" item="w" open="(" separator="," close=")">#{w}</foreach>
+    </if>
+    <if test="q.level != null and !q.level.isEmpty()">
+      AND j.level::text IN
+      <foreach collection="q.level" item="l" open="(" separator="," close=")">#{l}</foreach>
+    </if>
+    <if test="q.departmentId != null">
+      AND j.department_id = #{q.departmentId}
+    </if>
+    <if test="q.tagSlugs != null and !q.tagSlugs.isEmpty()">
+      AND EXISTS (
+        SELECT 1 FROM job_tags jt
+        JOIN tags t ON t.id = jt.tag_id
+        WHERE jt.job_id = j.id
+          AND t.slug IN
+          <foreach collection="q.tagSlugs" item="s" open="(" separator="," close=")">#{s}</foreach>
+      )
+    </if>
+  </sql>
+
+  <select id="listJobs" resultType="com.ats.entity.Job">
+    SELECT
+      j.id, j.department_id, j.created_by,
+      j.title, j.description, j.location,
+      j.work_type::text AS work_type,
+      j.level::text     AS level,
+      j.salary_min, j.salary_max, j.headcount,
+      j.status::text    AS status,
+      j.view_count, j.published_at, j.closed_at,
+      j.created_at, j.updated_at, j.deleted_at
+    FROM jobs j
+    WHERE
+      <include refid="conditions"/>
+    ORDER BY ${sortColumn} ${sortDir} NULLS LAST, j.id DESC
+    LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countJobs" resultType="long">
+    SELECT count(*) FROM jobs j
+    WHERE
+      <include refid="conditions"/>
+  </select>
+
+</mapper>

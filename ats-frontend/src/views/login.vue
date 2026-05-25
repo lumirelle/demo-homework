@@ -281,7 +281,7 @@ function bringCardToTop(realIndex: number) {
         <!-- divider -->
         <div class="my-6 flex items-center gap-3">
           <div class="h-px flex-1 bg-(--border)" />
-          <span class="text-[11px] uppercase tracking-widest text-tertiary">还没有账号</span>
+          <span class="text-[11px] uppercase tracking-widest text-tertiary">还没有账号？</span>
           <div class="h-px flex-1 bg-(--border)" />
         </div>
 

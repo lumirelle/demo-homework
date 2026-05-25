@@ -46,7 +46,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/forbidden.vue'),
     meta: { title: '无权访问', requiresAuth: false, transition: 'fade-scale' },
   },
-  // M2 起补充：/jobs /hr/* 等
+  // ── M2 · 岗位管理 ──
+  {
+    path: '/hr/jobs',
+    name: 'HrJobs',
+    component: () => import('@/views/hr/jobs.vue'),
+    meta: {
+      title: 'HR · 岗位管理',
+      requiresAuth: true,
+      roles: ['HR', 'ADMIN'],
+      transition: 'fade-slide',
+    },
+  },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

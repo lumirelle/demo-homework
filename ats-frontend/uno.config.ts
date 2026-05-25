@@ -260,7 +260,7 @@ export default defineConfig({
     'eyebrow': 'flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.25em]',
 
     // ─ Surface（玻璃质感容器）─
-    'surface-glass': 'border border-(--border) bg-(--bg-app)/70 backdrop-blur-xl backdrop-saturate-180',
+    'surface-glass': 'border border-default bg-(--bg-app)/70 backdrop-blur-xl backdrop-saturate-180',
     'surface-glass-dark': 'border border-white/8 bg-white/4 backdrop-blur-md',
     'surface-elevated': 'bg-elevated border border-subtle rounded-xl shadow-sm',
 
@@ -275,7 +275,7 @@ export default defineConfig({
       + 'disabled:(opacity-65 cursor-not-allowed)',
     'btn-secondary':
       'flex items-center justify-center gap-1.5 w-full px-[18px] py-3 text-sm font-semibold rounded-xl no-underline '
-      + 'text-secondary bg-elevated border border-(--border] '
+      + 'text-secondary bg-elevated border border-default '
       + 'transition-all duration-260 ease-out '
       + 'hover:(text-(--brand-700) border-(--brand-300) bg-[rgba(16,185,129,.04)] -translate-y-px)',
     'btn-cta':
@@ -324,7 +324,7 @@ export default defineConfig({
 
     // ─ Navbar ─
     'navbar-glass':
-      'border-b border-(--border) bg-(--bg-app)/75 backdrop-blur-xl backdrop-saturate-180',
+      'border-b border-default bg-app/75 backdrop-blur-xl backdrop-saturate-180',
     'navbar-glow-line':
       'pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-0 transition-opacity duration-[400ms] ease-out '
       + 'bg-[linear-gradient(90deg,transparent_0%,rgba(16,185,129,.3)_25%,rgba(6,182,212,.4)_50%,rgba(16,185,129,.3)_75%,transparent_100%)]',
@@ -343,7 +343,7 @@ export default defineConfig({
     'user-trigger':
       'flex items-center gap-2.5 pr-3 pl-[5px] py-[5px] rounded-xl border border-transparent cursor-pointer bg-transparent '
       + 'transition-all duration-260 ease-out '
-      + 'hover:(border-(--border) bg-hover)',
+      + 'hover:(border-default bg-hover)',
     'avatar':
       'inline-flex items-center justify-center flex-shrink-0 w-[30px] h-[30px] rounded-[10px] text-xs font-bold text-white '
       + 'shadow-[0_2px_8px_rgba(0,0,0,.15),inset_0_1px_0_rgba(255,255,255,.2)]',

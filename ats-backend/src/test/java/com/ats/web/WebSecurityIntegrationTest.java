@@ -78,6 +78,11 @@ class WebSecurityIntegrationTest {
     @MockitoBean RefreshTokenMapper refreshTokenMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
+    // M2 引入的新 mapper：@MapperScan 仍会扫到，必须 mock 掉以避免 sqlSessionFactory 注入失败
+    @MockitoBean com.ats.repository.JobMapper jobMapper;
+    @MockitoBean com.ats.repository.TagMapper tagMapper;
+    @MockitoBean com.ats.repository.JobTagMapper jobTagMapper;
+
     // ════════════════════════════════════════════════════════════
     //                    401 · JWT 过滤器链
     // ════════════════════════════════════════════════════════════

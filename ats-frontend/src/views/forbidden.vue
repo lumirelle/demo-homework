@@ -26,7 +26,7 @@ function goHome() {
     </p>
     <div flex="~ gap-3 items-center">
       <button
-        class="px-5 py-2.5 rounded-xl border border-(--border) text-sm text-secondary hover:bg-(--bg-hover) transition-colors"
+        class="px-5 py-2.5 rounded-xl border border-default text-sm text-secondary hover:bg-(--bg-hover) transition-colors"
         @click="goBack"
       >
         返回上一页

@@ -1,8 +1,15 @@
 -- ============================================================
 --  ATS 招聘管理系统 — 数据库 Schema
 --  数据库：PostgreSQL 16
---  版本：v1.0   日期：2026-05-21
+--  版本：v1.1   日期：2026-05-22
+--  变更：M2 引入 jobs 5 态状态机 + tags 标准化表 + 组合拳搜索索引
 -- ============================================================
+
+-- ────────────────────────────────────────────────────────────
+--  扩展（必须在 superuser 下安装；Postgres 16 默认账号即 superuser）
+-- ────────────────────────────────────────────────────────────
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;     -- title ILIKE 加速（GIN trgm）
 
 -- ────────────────────────────────────────────────────────────
 --  枚举类型
@@ -15,11 +22,46 @@ CREATE TYPE user_role AS ENUM (
     'CANDIDATE'   -- 候选人
 );
 
--- 岗位状态
+-- 岗位状态（5 态状态机，合法流转见 JobStatusMachine.java）
+--   DRAFT     ──publish──▶ PUBLISHED ──pause───▶ PAUSED
+--   DRAFT     ──archive──▶ ARCHIVED  ──restore─▶ DRAFT
+--   PUBLISHED ──close────▶ CLOSED    ──archive─▶ ARCHIVED
+--   PAUSED    ──publish──▶ PUBLISHED （恢复招聘）
+--   PAUSED    ──close────▶ CLOSED    （直接关闭）
 CREATE TYPE job_status AS ENUM (
-    'DRAFT',   -- 草稿，未发布
-    'OPEN',    -- 开放，接受申请
-    'CLOSED'   -- 已关闭，不再接受申请
+    'DRAFT',       -- 草稿，HR 编辑中，候选人不可见
+    'PUBLISHED',   -- 招聘中，候选人可见可投递
+    'PAUSED',      -- 暂停收件（HR 短期不想看新简历，候选人仍可见但提示暂停）
+    'CLOSED',      -- 已关闭，候选人可见标记已关闭，不可投递
+    'ARCHIVED'     -- 已归档，列表默认隐藏，可恢复为 DRAFT
+);
+
+-- 工作类型
+CREATE TYPE job_work_type AS ENUM (
+    'FULL_TIME',   -- 全职
+    'PART_TIME',   -- 兼职
+    'CONTRACT',    -- 合同制
+    'INTERN',      -- 实习
+    'REMOTE'       -- 远程
+);
+
+-- 岗位资历级别
+CREATE TYPE job_level AS ENUM (
+    'INTERN',      -- 实习
+    'JUNIOR',      -- 初级 (P4/L3)
+    'MID',         -- 中级 (P5/L4)
+    'SENIOR',      -- 高级 (P6/L5)
+    'LEAD',        -- 资深 / 团队 Lead
+    'DIRECTOR'     -- 总监
+);
+
+-- 标签分类
+CREATE TYPE tag_category AS ENUM (
+    'TECH',        -- 技术栈：Java / Spring / TypeScript
+    'SOFT',        -- 软实力：沟通 / 团队协作
+    'CERT',        -- 证书：CISSP / AWS Certified
+    'LANG',        -- 语言能力：英语流利 / 日语 N1
+    'DOMAIN'       -- 业务领域：金融 / 电商 / 医疗
 );
 
 -- 候选人申请阶段
@@ -102,43 +144,102 @@ COMMENT ON TABLE  departments      IS '部门信息，岗位关联到部门';
 COMMENT ON COLUMN departments.name IS '部门名称，全局唯一';
 
 -- ────────────────────────────────────────────────────────────
---  3. jobs — 岗位表
+--  3. jobs — 岗位表（M2 增强：5 态状态机 + 结构化薪资 + 浏览量 + 软删）
 -- ────────────────────────────────────────────────────────────
 
 CREATE TABLE jobs (
-    id            BIGSERIAL     PRIMARY KEY,
-    department_id BIGINT        REFERENCES departments(id) ON DELETE SET NULL,
-    created_by    BIGINT        NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    title         VARCHAR(200)  NOT NULL,
-    location      VARCHAR(200),
-    salary_range  VARCHAR(100),                  -- 如 "20k–30k"
-    headcount     SMALLINT      NOT NULL DEFAULT 1 CHECK (headcount > 0),
-    description   TEXT,                          -- 岗位 JD，支持富文本
-    status        job_status    NOT NULL DEFAULT 'DRAFT',
-    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+    id              BIGSERIAL       PRIMARY KEY,
+    department_id   BIGINT          REFERENCES departments(id) ON DELETE SET NULL,
+    created_by      BIGINT          NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+
+    title           VARCHAR(200)    NOT NULL,
+    description     TEXT,                                       -- 岗位 JD，支持 Markdown
+    location        VARCHAR(200),
+    work_type       job_work_type   NOT NULL DEFAULT 'FULL_TIME',
+    level           job_level       NOT NULL DEFAULT 'MID',
+
+    salary_min      INTEGER         CHECK (salary_min >= 0),    -- 月薪下限（元），NULL 表示面议
+    salary_max      INTEGER         CHECK (salary_max >= 0),    -- 月薪上限（元）
+    headcount       SMALLINT        NOT NULL DEFAULT 1 CHECK (headcount > 0),
+
+    status          job_status      NOT NULL DEFAULT 'DRAFT',
+    view_count      INTEGER         NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+    published_at    TIMESTAMPTZ,                                -- 首次进入 PUBLISHED 的时间
+    closed_at       TIMESTAMPTZ,                                -- 进入 CLOSED 的时间
+
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,                                -- 软删，Admin 专用
+
+    CONSTRAINT jobs_salary_range_chk
+        CHECK (salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max)
 );
 
-COMMENT ON TABLE  jobs               IS '招聘岗位，由 HR 创建和维护';
+COMMENT ON TABLE  jobs               IS '招聘岗位，5 态状态机由 JobStatusMachine 控制';
 COMMENT ON COLUMN jobs.department_id IS 'FK → departments，部门可被删除，置 NULL';
-COMMENT ON COLUMN jobs.created_by    IS 'FK → users，创建人（HR）';
+COMMENT ON COLUMN jobs.created_by    IS 'FK → users，创建人（HR），不可删除';
 COMMENT ON COLUMN jobs.headcount     IS '招聘人数，至少为 1';
-COMMENT ON COLUMN jobs.status        IS 'DRAFT→OPEN→CLOSED，只能向前推进';
+COMMENT ON COLUMN jobs.salary_min    IS '月薪下限（元/月），NULL 表示薪资面议';
+COMMENT ON COLUMN jobs.salary_max    IS '月薪上限（元/月），≥ salary_min';
+COMMENT ON COLUMN jobs.status        IS 'DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED，流转规则见 JobStatusMachine';
+COMMENT ON COLUMN jobs.view_count    IS '岗位详情页浏览次数，候选人查看时 +1';
+COMMENT ON COLUMN jobs.published_at  IS '首次发布时间，用于「最新岗位」排序';
+COMMENT ON COLUMN jobs.deleted_at    IS '软删时间，Admin 物理删除入口在后台；候选人列表完全过滤';
 
--- 索引
-CREATE INDEX idx_jobs_status        ON jobs (status);
-CREATE INDEX idx_jobs_department_id ON jobs (department_id);
-CREATE INDEX idx_jobs_created_by    ON jobs (created_by);
-CREATE INDEX idx_jobs_created_at    ON jobs (created_at DESC);
+-- 索引（带 WHERE deleted_at IS NULL 的 partial index 仅命中活跃岗位，体积更小）
+CREATE INDEX idx_jobs_status        ON jobs (status)                              WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_department_id ON jobs (department_id)                       WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_created_by    ON jobs (created_by)                          WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_published_at  ON jobs (published_at DESC NULLS LAST)        WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_work_type     ON jobs (work_type)                           WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_level         ON jobs (level)                               WHERE deleted_at IS NULL;
 
--- 全文检索索引（标题 + 地点）
-CREATE INDEX idx_jobs_fts ON jobs USING GIN (
-    to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(location, ''))
-);
+-- 全文搜索组合拳：
+--   (1) title 走 pg_trgm GIN，加速 ILIKE '%kw%' 模糊匹配（中文/英文都行）
+--   (2) description 走 to_tsvector('english') GIN，英文岗位 JD 自动分词
+CREATE INDEX idx_jobs_title_trgm    ON jobs USING GIN (title gin_trgm_ops)         WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_desc_fts      ON jobs USING GIN (to_tsvector('english', coalesce(description, ''))) WHERE deleted_at IS NULL;
 
 CREATE TRIGGER trg_jobs_updated_at
     BEFORE UPDATE ON jobs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────────────────
+--  3a. tags — 技能/标签标准化表
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE tags (
+    id         BIGSERIAL     PRIMARY KEY,
+    slug       VARCHAR(80)   NOT NULL,                       -- url-safe 标识，如 'spring-boot'
+    name       VARCHAR(80)   NOT NULL,                       -- 显示名，如 'Spring Boot'
+    category   tag_category  NOT NULL DEFAULT 'TECH',
+    created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT tags_slug_unique UNIQUE (slug)
+);
+
+COMMENT ON TABLE  tags          IS '技能/标签标准化表，HR 选已有标签，避免拼写发散';
+COMMENT ON COLUMN tags.slug     IS 'url-safe 唯一标识，前端 query string 用';
+COMMENT ON COLUMN tags.category IS 'TECH(技术) / SOFT(软实力) / CERT(证书) / LANG(语言) / DOMAIN(业务领域)';
+
+CREATE INDEX idx_tags_category ON tags (category);
+
+-- ────────────────────────────────────────────────────────────
+--  3b. job_tags — 岗位 ↔ 标签 关联表
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE job_tags (
+    job_id     BIGINT       NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    tag_id     BIGINT       NOT NULL REFERENCES tags(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (job_id, tag_id)
+);
+
+COMMENT ON TABLE job_tags IS '岗位 ↔ 标签 多对多关联，查询时 JOIN tags 即可';
+
+-- 反向查询索引（"有 Java 标签的岗位"用得到）
+CREATE INDEX idx_job_tags_tag_id ON job_tags (tag_id);
 
 -- ────────────────────────────────────────────────────────────
 --  4. applications — 候选人申请表
@@ -282,6 +383,113 @@ INSERT INTO departments (name) VALUES
     ('财务法务');
 
 -- ────────────────────────────────────────────────────────────
+--  种子：标签库（前端选岗位标签时的下拉选项）
+-- ────────────────────────────────────────────────────────────
+
+INSERT INTO tags (slug, name, category) VALUES
+    -- 技术栈
+    ('java',         'Java',         'TECH'),
+    ('spring-boot',  'Spring Boot',  'TECH'),
+    ('typescript',   'TypeScript',   'TECH'),
+    ('vue3',         'Vue 3',        'TECH'),
+    ('react',        'React',        'TECH'),
+    ('node',         'Node.js',      'TECH'),
+    ('python',       'Python',       'TECH'),
+    ('go',           'Go',           'TECH'),
+    ('postgres',     'PostgreSQL',   'TECH'),
+    ('redis',        'Redis',        'TECH'),
+    ('docker',       'Docker',       'TECH'),
+    ('kubernetes',   'Kubernetes',   'TECH'),
+    ('aws',          'AWS',          'TECH'),
+    -- 软实力
+    ('teamwork',     '团队协作',     'SOFT'),
+    ('communication','跨部门沟通',   'SOFT'),
+    ('ownership',    'Ownership',    'SOFT'),
+    -- 证书
+    ('pmp',          'PMP',          'CERT'),
+    ('aws-saa',      'AWS SAA',      'CERT'),
+    -- 语言
+    ('english',      '英语流利',     'LANG'),
+    ('japanese-n1',  '日语 N1',      'LANG'),
+    -- 业务领域
+    ('fintech',      '金融科技',     'DOMAIN'),
+    ('ecommerce',    '电商',         'DOMAIN'),
+    ('saas-b2b',     'SaaS B2B',     'DOMAIN'),
+    ('hr-tech',      'HR Tech',      'DOMAIN');
+
+-- ────────────────────────────────────────────────────────────
+--  种子：示例岗位（id = 1, 2, 3）
+--    - 由 admin (users.id = 1) 创建，挂在「技术研发 / 产品设计」部门
+--    - 1 个 PUBLISHED + 1 个 PAUSED + 1 个 DRAFT，方便演示不同状态
+-- ────────────────────────────────────────────────────────────
+
+INSERT INTO jobs (
+    department_id, created_by, title, description, location,
+    work_type, level, salary_min, salary_max, headcount,
+    status, published_at
+) VALUES
+    (1, 1,
+     '高级 Java 后端工程师',
+     '## 岗位描述
+
+负责 ATS 招聘平台核心服务的设计与开发，使用 Java 21 + Spring Boot 3.4 + PostgreSQL 16。
+
+## 任职要求
+
+- 5+ 年 Java 服务端开发经验
+- 精通 Spring 生态（Boot / Security / Data）
+- 熟悉 PostgreSQL 索引与调优、Redis 缓存设计
+- 有 Docker / Kubernetes 部署经验加分
+
+## 加分项
+
+- 主导过 10+ 万 QPS 系统
+- 开源贡献者优先',
+     '上海·浦东', 'FULL_TIME', 'SENIOR', 30000, 50000, 2,
+     'PUBLISHED', NOW() - INTERVAL '3 days'),
+
+    (1, 1,
+     'Vue 前端工程师（中级）',
+     '## 岗位描述
+
+参与 ATS 招聘平台前端建设，技术栈 Vue 3.5 + TypeScript + Naive UI + UnoCSS。
+
+## 任职要求
+
+- 3+ 年 Vue 项目经验
+- 熟悉 TypeScript / Pinia / Vue Router
+- 有组件库设计经验，理解原子化 CSS 思想
+- 注重交互细节，懂动效曲线设计
+
+## 工作模式
+
+远程办公，每月线下 1 次集中协作日。',
+     '远程办公', 'REMOTE', 'MID', 20000, 35000, 1,
+     'PUBLISHED', NOW() - INTERVAL '1 day'),
+
+    (2, 1,
+     '产品经理（HR SaaS）',
+     '## 岗位描述
+
+负责 ATS 产品规划，深耕招聘场景，对接 HR 客户需求。（暂时暂停收件）
+
+## 任职要求
+
+- 5+ 年 B2B SaaS 产品经验
+- 有 HR 行业背景优先
+- 能写清晰的 PRD 与产品决策文档',
+     '北京·朝阳', 'FULL_TIME', 'SENIOR', 25000, 45000, 1,
+     'PAUSED', NOW() - INTERVAL '14 days');
+
+-- 关联标签
+INSERT INTO job_tags (job_id, tag_id)
+SELECT 1, id FROM tags WHERE slug IN ('java', 'spring-boot', 'postgres', 'redis', 'docker', 'kubernetes', 'ownership');
+INSERT INTO job_tags (job_id, tag_id)
+SELECT 2, id FROM tags WHERE slug IN ('vue3', 'typescript', 'teamwork', 'communication');
+INSERT INTO job_tags (job_id, tag_id)
+SELECT 3, id FROM tags WHERE slug IN ('saas-b2b', 'hr-tech', 'communication', 'english');
+
+-- ────────────────────────────────────────────────────────────
 --  视图：招聘漏斗（各阶段申请数，用于数据看板）
 -- ────────────────────────────────────────────────────────────
 
@@ -293,6 +501,7 @@ SELECT
     COUNT(*)      AS cnt
 FROM applications a
 JOIN jobs j ON j.id = a.job_id
+WHERE j.deleted_at IS NULL
 GROUP BY j.id, j.title, a.stage
 ORDER BY j.id, a.stage;
 

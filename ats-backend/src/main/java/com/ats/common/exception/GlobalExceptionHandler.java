@@ -78,10 +78,14 @@ public class GlobalExceptionHandler {
         if (c == ErrorCode.UNAUTHORIZED.getCode() || c == ErrorCode.INVALID_TOKEN.getCode()) {
             return HttpStatus.UNAUTHORIZED;
         }
-        if (c == ErrorCode.FORBIDDEN.getCode()) {
+        if (c == ErrorCode.FORBIDDEN.getCode()
+                || c == ErrorCode.JOB_ACCESS_DENIED.getCode()
+                || c == ErrorCode.JOB_NOT_PUBLISHED.getCode()) {
             return HttpStatus.FORBIDDEN;
         }
-        if (c == ErrorCode.FILE_NOT_FOUND.getCode()) {
+        if (c == ErrorCode.FILE_NOT_FOUND.getCode()
+                || c == ErrorCode.JOB_NOT_FOUND.getCode()
+                || c == ErrorCode.TAG_NOT_FOUND.getCode()) {
             return HttpStatus.NOT_FOUND;
         }
         if (c == ErrorCode.FILE_TOO_LARGE.getCode()) {

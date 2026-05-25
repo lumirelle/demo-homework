@@ -58,8 +58,8 @@ public class SecurityConfig {
                         .requestMatchers("/health").permitAll()
                         // /auth/register · /auth/login 公开；/auth/refresh · /auth/logout 只凭 cookie 操作
                         .requestMatchers("/auth/register", "/auth/login", "/auth/refresh", "/auth/logout").permitAll()
-                        // 候选人可未登录浏览岗位（M2 视设计可再收紧）
-                        .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*").permitAll()
+                        // 候选人可未登录浏览岗位 + 标签
+                        .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*", "/tags").permitAll()
                         // 其他全部需要登录
                         .anyRequest().authenticated()
                 )
