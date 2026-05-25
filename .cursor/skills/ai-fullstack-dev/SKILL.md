@@ -1,7 +1,7 @@
 ---
 name: ai-fullstack-dev
 description: AI 辅助全栈开发工作流。用于从 0 到 1 搭建中等复杂度 Web 系统 MVP，覆盖选题分析、需求调研、技术设计、编码实现到部署交付的完整流程。当用户提到全栈开发、搭建系统、需求文档、MVP、从零开始建项目时触发。
-metadata: v0.0.17.20260525
+metadata: v0.0.19.20260525
 ---
 
 # AI 全栈开发工作流
@@ -1040,3 +1040,287 @@ class JobControllerSecurityTest {
 ```
 
 > 💡 **GlobalExceptionHandler 修改 mapStatus 时，对应错误码必须有 L3 测试守门**，否则一旦把 409 改成 400 也不会报警。
+
+---
+
+## 2.7 状态机看板落地规约（M3 沉淀）
+
+### 2.7.1 后端状态机模式（与 M2 JobStatusMachine 完全同构）
+
+```java
+public final class XxxStageMachine {
+    private static final Map<Stage, Set<Stage>> ALLOWED;
+    public static final Set<Stage> TERMINAL_STAGES;
+
+    public static boolean canTransition(Stage from, Stage to) { ... }
+    public static void requireTransition(Stage from, Stage to) {
+        if (isTerminal(from)) throw new BizException(STAGE_TERMINATED, ...);
+        if (!canTransition(from, to)) throw new BizException(ILLEGAL_TRANSITION,
+            "非法流转：" + from + " → " + to + "，允许的下一步：" + nextStages(from));
+    }
+    public static Set<Stage> nextStages(Stage from) { ... }
+    public static boolean isTerminal(Stage s) { ... }
+}
+```
+
+**关键规则**：
+
+1. **静态 EnumMap + EnumSet** 构建 ALLOWED 图，O(1) 查询，0 GC 压力。
+2. **错误消息附带 from→to + 允许列表**，前端可直接 toast 不需要再翻文档。
+3. **终态保护**：HIRED/REJECTED 这种"死亡线"用单独的 `TERMINAL_STAGES` 集合 + `APPLICATION_TERMINATED` 错误码区分（vs `ILLEGAL_TRANSITION`），便于前端给出"已是终态，无法变更"的友好提示。
+4. **3 套测试全部要写**：合法边（含横切的 reject 边）+ 非法（跳级 / 回退 / 自环用 `@EnumSource`）+ 终态保护（用 `@EnumSource` 遍历所有目标，全部应抛 TERMINATED）。
+
+### 2.7.2 看板拖拽：HTML5 原生 dnd vs 第三方 lib
+
+**结论**：MVP 阶段强烈推荐 HTML5 原生 dnd（Vue 3 + 原生事件即可），**不引 vuedraggable / sortablejs**。
+
+**为什么**：
+
+| 维度 | HTML5 原生 | vuedraggable / sortablejs |
+|---|---|---|
+| 包体增量 | 0 | +200KB |
+| Chromium 桌面端 | 稳如磐石 | 同样稳 |
+| 触摸设备 | 需 polyfill | 自带 |
+| 代码量 | ~80 行（4 事件 + 1 ref） | ~50 行（v-model + handler） |
+| 视觉自定义 | 任意 CSS class | 受 helper class 约束 |
+
+**最小落地骨架**：
+
+```vue
+<script setup>
+const dragState = ref<{ id: number, fromStage: Stage } | null>(null)
+const hoverStage = ref<Stage | null>(null)
+
+function onCardDragStart(e, item) {
+  if (isTerminal(item.stage)) { e.preventDefault(); return }
+  dragState.value = { id: item.id, fromStage: item.stage }
+  e.dataTransfer.effectAllowed = 'move'
+}
+function onColumnDragOver(e, target) {
+  if (!dragState.value) return
+  if (!canTransition(dragState.value.fromStage, target)) return  // ← 0 RT 预校验
+  e.preventDefault()
+  hoverStage.value = target
+}
+async function onColumnDrop(e, target) {
+  e.preventDefault()
+  const drag = dragState.value; dragState.value = null
+  if (!drag || !canTransition(drag.fromStage, target)) return
+  // 乐观更新：先搬卡片
+  const moved = removeFromCol(drag.fromStage, drag.id)
+  insertToCol(target, moved)
+  try { await api.transition(drag.id, { toStage: target }) }
+  catch (e) { rollback(); message.error(e.message) }  // ← 失败回滚
+}
+</script>
+```
+
+**视觉编排**（`.board-col`）：
+
+```css
+.board-col.is-allowed { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.board-col.is-dim     { opacity: 0.42; }
+.board-col.is-hover   { background: color-mix(in oklab, var(--accent) 8%, var(--bg)); transform: translateY(-1px); }
+```
+
+> 💡 **draggable 属性**：终态卡片必须 `:draggable="!isTerminal(item.stage)"`，否则用户拖动看板已 HIRED 的卡片会触发 dragstart 但 dragover 总返回 false，体验割裂。
+
+### 2.7.3 前端镜像状态机
+
+后端 `ApplicationStageMachine.ALLOWED` 在前端 `api/applications.ts` 镜像一份：
+
+```ts
+export const STAGE_TRANSITIONS: Record<Stage, Stage[]> = { APPLIED: ['SCREENING_PASS', 'REJECTED'], ... }
+export function canTransition(from, to) { return STAGE_TRANSITIONS[from]?.includes(to) ?? false }
+```
+
+**好处**：拖拽 dragover 时 0 RT 即时反馈合法性，避免每次问后端。**风险**：状态机迁移时前后端要同步改。**可接受性**：状态机一旦定型很少变；MVP 阶段 5-8 态以内，复制 1 份成本极低。
+
+### 2.7.4 乐观更新 + 失败回滚
+
+看板拖拽**必须**乐观更新，否则每次拖拽都要等 200-500ms 网络往返，体验断裂。
+
+```ts
+async function commitTransition(id, from, target, note) {
+  // 1. 先在 UI 搬卡片
+  const moved = colFrom.items.splice(idx, 1)[0]
+  moved.stage = target
+  colTo.items.unshift(moved)
+  colFrom.count--; colTo.count++
+
+  try {
+    await api.transition(id, { toStage: target, note })
+  } catch (e) {
+    // 2. 失败回滚到原列原位
+    colTo.items.shift()
+    moved.stage = from
+    colFrom.items.splice(idx, 0, moved)
+    colFrom.count++; colTo.count--
+    message.error(e.message)
+  }
+}
+```
+
+> ⚠️ **关键细节**：(a) 回滚时必须把卡片插回**原 idx**（不是 unshift），保持顺序稳定；(b) `count` 字段也要同步增减，否则列头计数会漂；(c) `moved.stage` 也要回退（因为 splice 出来的是引用，会泄漏到详情 Drawer）。
+
+### 2.7.5 NSelect 哨兵值（NSelect option value 不能为 null）
+
+Naive UI 的 `SelectOption['value']: string | number`，**无法直接传 null**（type error）。
+
+**反模式**：
+
+```ts
+const options = [
+  { label: '所有岗位', value: null },   // ← TS 报错
+  ...
+]
+```
+
+**正解**（用 sentinel 数字 + 内部转 undefined）：
+
+```ts
+const ALL_SENTINEL = -1
+const selectedJobId = ref<number>(-1)
+const effectiveJobId = computed(() => selectedJobId.value === ALL_SENTINEL ? undefined : selectedJobId.value)
+const options = computed<SelectOption[]>(() => [
+  { label: '所有岗位', value: ALL_SENTINEL },
+  ...
+])
+```
+
+### 2.7.6 oxlint `no-use-before-define` · setup script 顺序
+
+Vue 3 setup script 是**顺序求值**的：
+
+```vue
+<script setup>
+function onDrop() {
+  pendingReject.value = ...  // ❌ oxlint: no-use-before-define
+}
+const pendingReject = ref(null)
+</script>
+```
+
+**修复**：把所有被函数引用的 ref 声明前置到所有 function 之前，再写函数。或者 `oxlint-disable-next-line` 但 MVP 阶段还是规范一点好。
+
+### 2.7.7 看板 schema：8 列固定顺序 + 计数为 0 也要返回空列
+
+**反模式**：service 只返回 mapper 查到的非空列，前端被迫做"补齐缺失列"。
+
+**正解**（service 端补齐）：
+
+```java
+private static final List<Stage> BOARD_ORDER = List.of(APPLIED, SCREENING_PASS, ..., REJECTED);
+
+public BoardVO board(Long jobId, int itemsPerColumn) {
+    Map<Stage, Long> counts = ...; // 从 mapper 拿
+    List<BoardColumnVO> cols = new ArrayList<>();
+    for (Stage st : BOARD_ORDER) {
+        long count = counts.getOrDefault(st, 0L);
+        List<Item> items = count == 0 ? List.of() : mapper.listItems(jobId, hrUserId, st, limit);
+        cols.add(BoardColumnVO.builder().stage(st).count(count).items(items).build());
+    }
+    return BoardVO.builder().columns(cols).build();
+}
+```
+
+> 💡 **这样前端可以直接 `v-for="col in board.columns"`**，不需要再 mergeWithDefaults，UI 代码极简。
+
+### 2.7.8 monorepo 根脚本转发（避免 cd 来回切）
+
+每加一个子项目，root `package.json` 加一行转发：
+
+```json
+{
+  "scripts": {
+    "fe:dev":       "cd ats-frontend && bun run dev",
+    "fe:typecheck": "cd ats-frontend && bun run typecheck",
+    "fe:lint":      "cd ats-frontend && bun run lint",
+    "fe:check":     "cd ats-frontend && bun run typecheck && bun run lint",
+    "be:dev":       "cd ats-backend && mvn spring-boot:run",
+    "be:test":      "cd ats-backend && mvn -B test",
+    "be:build":     "cd ats-backend && mvn -B package -DskipTests"
+  }
+}
+```
+
+> ⚠️ Windows 没有 `mvnw` shell wrapper（除非 Git Bash），要么生成 `mvnw.cmd`，要么直接用全局 `mvn`。MVP 阶段后者更简单。
+
+### 2.7.9 `@MapperScan` 陷阱再次警告（M3 第二次踩）
+
+**每加一个 Mapper，所有 `@WebMvcTest` 类都要补 `@MockitoBean`**。M3 加了 `ApplicationMapper` + `StageLogMapper`，必须立刻同步到 `WebSecurityIntegrationTest` + `JobControllerSecurityTest` + 新写的 `ApplicationControllerSecurityTest`，否则 M1/M2 测试反向变红。
+
+**长期方案**（M4+ 考虑）：抽 `BaseWebMvcTest` 父类用 `@TestConfiguration` 一次性声明所有 mapper mock；但 MVP 阶段直接复制粘贴更直接。
+
+### 2.7.10 双轨页面语言：HR 克制 + 候选人张扬（再次实践）
+
+| 页面 | 角色 | 视觉语言 | 关键武器 |
+|---|---|---|---|
+| `views/hr/jobs.vue` | HR | 克制 | NDataTable 信息密度 |
+| `views/hr/board.vue` | HR | 克制 + 微张扬 | 8 列 grid + 拖拽高亮 + 状态机色板 |
+| `views/jobs.vue` | 候选人 | 张扬 + 克制 hero | aurora 装饰 / kicker eyebrow / 卡片进度条 |
+| `views/me/applications.vue` | 候选人 | 张扬 | 进度条 + 时间线 + reject_reason 高亮区 |
+
+> 💡 **看板用克制路线**：HR 高频操作的工作台必须信息密度 > 视觉炫技。状态机色板（每列 stage 一个 accent 色）是看板唯一的"张扬"点。
+
+### 2.7.10.1 高频终态的「快路径浮动投放区」
+
+**问题**：8 列流水线把 REJECTED 钉在最末尾，但「拒绝」是从任意阶段都可达的高频操作（每条非终态记录都至少有一条出边指向 REJECTED）。HR 在小屏 / 横向滚动到中段时，把卡片拖到最右侧极远 —— 实测 1280px 视口下要拖 800-1000px。
+
+**解法**：拖拽期间在视口右下浮出**固定的「拖到此一键拒绝」投放区**，dragend 自动消失。它本质上是 REJECTED 列的**视觉别名**（不复制状态，复用同一套 dragover/drop handler，target='REJECTED'），所以：
+
+- **0 状态新增**：`@dragover="onColumnDragOver($event, 'REJECTED')"` / `@drop="onColumnDrop($event, 'REJECTED')"` 直接复用列的 handler，REJECTED 列依然在原位（保留 8 态视觉一致性 + 看历史功能）；
+- **0 业务分支**：drop 后照样走 `pendingReject` → reject Drawer → `commitTransition`，乐观更新 / 回滚链条不动；
+- **入场动画 ≤ 220ms**：`opacity 0→1` + `translateY 8px→0`，避免突兀；hover 时 dashed → solid + 微 scale，给「确认要落到这」的视觉锚点；
+- **小屏 < 640px**：左右 12px 贴底拉满（`right:12px; left:12px; bottom:12px;`），不会和列横滚条打架。
+
+**关键判定**：
+
+```ts
+const canRejectFromDrag = computed(() =>
+  dragState.value !== null && canTransition(dragState.value.fromStage, 'REJECTED'),
+)
+```
+
+`v-show="canRejectFromDrag"` 双重保险：终态卡片本来 `:draggable="false"` 不会触发 dragstart，但状态机若以后调整（比如某些 stage 拒绝按钮要禁用），这里能自动跟随，不破。
+
+> ⚠️ **z-index 谨慎选**：浮动区给 `1500`（高于看板，低于 NMessage / 全局 toast 4000+）。给到 9999 会盖过 message.success 的成功反馈，破体验。
+>
+> 💡 **同模式可复用场景**：M4 文件上传若需「拖文件到任意位置上传」，也是同一套 fixed 浮动接收区 + `dragover/drop` 全局监听。这是 **「高频终态/全局意图」 vs 「列状态机」** 的通用 UX 解耦手法。
+
+### 2.7.11 PG `timestamptz` × 原生 SQL `Map<String,Object>` × 强转 OffsetDateTime
+
+**踩坑**：M3 看板 / 详情走原生 SQL（join 查询拼接 user 信息）用 `List<Map<String,Object>>` 接住结果，里面的 `timestamptz` 字段直接 `(OffsetDateTime) row.get("applied_at")` —— 单测全绿（mock 给的就是 OffsetDateTime），上线 E2E 立刻 500：
+
+```
+java.lang.ClassCastException: class java.sql.Timestamp cannot be cast to class java.time.OffsetDateTime
+    at ApplicationService.toStageLogVO(ApplicationService.java:336)
+```
+
+**根因**：
+- MyBatis 在用 entity（带 `@TableField` 或 `typeHandler`）时会自动把 PG `timestamptz` 转成 `OffsetDateTime`；
+- 但走 `Map<String, Object>` 这条"无类型"路径时，**MyBatis 直接走 JDBC 默认 typeHandler**，PG JDBC driver 在缺乏目标类型提示时返回 `java.sql.Timestamp`，强转必崩。
+
+**为什么单测没拦住**：service 单测用 Mockito 注入了 `Map.of("applied_at", OffsetDateTime.now(), ...)`，路径覆盖到了，类型却"作弊"了 —— mock 数据和真实 JDBC 返回值类型不一致。
+
+**修复**（最小侵入，不动 mapper）：在 service 里加一个统一的 helper 兼容所有时间类型，把所有 `(OffsetDateTime) row.get("xxx_at")` 都换成 `toOffsetDateTime(row.get("xxx_at"))`：
+
+```java
+private static OffsetDateTime toOffsetDateTime(Object v) {
+    if (v == null) return null;
+    if (v instanceof OffsetDateTime odt) return odt;       // 走 entity / mock 路径
+    if (v instanceof Timestamp ts) {                        // 走 Map<String,Object> 真实路径
+        return ts.toLocalDateTime().atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    }
+    if (v instanceof LocalDateTime ldt) return ldt.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    if (v instanceof java.util.Date d) return d.toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    throw new IllegalStateException("不支持的时间类型: " + v.getClass());
+}
+```
+
+> 💡 **后续防御**：M4+ 引入新表前评估 —— 如果有原生 SQL + Map 接收 + timestamptz 字段三件套，**默认走 helper**，永远不直接强转。
+>
+> 🔧 **可选硬核方案**：在 mapper XML 里给每个时间列显式声明 `<result column="applied_at" property="appliedAt" javaType="java.time.OffsetDateTime"/>`，但需要把 Map 改成 DTO，相比 helper 工作量大很多，MVP 阶段不划算。
+>
+> 📌 **测试启示**：service 单测里的 mock Map 应该至少有一份"真实类型"的契约测试（`Map.of("applied_at", new Timestamp(...))`），把这种 JDBC 默认类型路径覆盖进来，避免下次再踩。
+

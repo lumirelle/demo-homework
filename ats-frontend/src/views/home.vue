@@ -197,7 +197,7 @@ onUnmounted(() => io?.disconnect())
           <span inline-block>Grow&nbsp;</span>
           <span class="text-gradient" inline-block>talent.</span>
           <span inline-block text-gray-600>Hire every</span>
-          <span class="text-gradient-bloom" inline-block pb-4>good seed.</span>
+          <span class="text-gradient-bloom" inline-block pb-8>good seed.</span>
         </h1>
 
         <p

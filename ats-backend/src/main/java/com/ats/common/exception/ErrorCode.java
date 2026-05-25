@@ -35,6 +35,12 @@ public enum ErrorCode {
     JOB_SALARY_RANGE_INVALID(20014, "薪资下限不能大于上限"),
     TAG_NOT_FOUND(20015, "标签不存在或已被删除"),
 
+    APPLICATION_NOT_FOUND(20021, "投递记录不存在"),
+    APPLICATION_ACCESS_DENIED(20022, "无权操作此投递（仅本人候选人或对应岗位 HR / 管理员可访问）"),
+    JOB_NOT_HIRING(20023, "岗位不在招聘中，无法投递"),
+    SELF_APPLY_FORBIDDEN(20024, "不能为自己创建的岗位投递"),
+    APPLICATION_TERMINATED(20025, "该投递已处于终态（已入职 / 已拒绝），不可再变更"),
+
     FILE_TYPE_NOT_ALLOWED(30001, "文件类型不被允许"),
     FILE_TOO_LARGE(30002, "文件超出大小限制"),
     FILE_NOT_FOUND(30003, "文件不存在或无权访问"),

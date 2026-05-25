@@ -80,6 +80,8 @@ class JobControllerSecurityTest {
     @MockitoBean JobTagMapper jobTagMapper;
     @MockitoBean UserMapper userMapper;
     @MockitoBean RefreshTokenMapper refreshTokenMapper;
+    @MockitoBean com.ats.repository.ApplicationMapper applicationMapper;
+    @MockitoBean com.ats.repository.StageLogMapper stageLogMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     // ═════════════════════════════ 公开放行 ═════════════════════════════

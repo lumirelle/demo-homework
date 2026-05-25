@@ -159,7 +159,9 @@
       letter-spacing: 0.4px;
     }
     .pill.done    { background: var(--green-50); color: var(--green-700); }
-    .pill.doing   { background: var(--orange-50); color: var(--orange-700); }
+    .pill.doing,
+    .pill.wip,
+    .pill.next    { background: var(--orange-50); color: var(--orange-700); }
     .pill.todo    { background: var(--g-100); color: var(--g-500); }
     .pill.blocked { background: var(--red-50); color: var(--red-700); }
 
@@ -392,8 +394,8 @@
     <div class="doc-meta">
       <span><strong>项目：</strong>招聘管理系统 MVP</span>
       <span><strong>当前阶段：</strong>Phase 3 · 编码实现</span>
-      <span><strong>当前里程碑：</strong>M1 已完成 · 准备启动 M2</span>
-      <span><strong>最后更新：</strong>2026-05-22 16:05 (UTC+8)</span>
+      <span><strong>当前里程碑：</strong>M3 完成 · E2E 联调通过 · 准备进入 M4</span>
+      <span><strong>最后更新：</strong>2026-05-25 22:50 (UTC+8)</span>
     </div>
   </div>
 
@@ -411,23 +413,23 @@
 
   <div class="dash-grid">
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.33"></div>
-      <div class="stat">2<small> / 6</small></div>
+      <div class="bar" style="--progress: 0.66"></div>
+      <div class="stat">4<small> / 6</small></div>
       <div class="label">完成的里程碑</div>
     </div>
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.22"></div>
-      <div class="stat">~18<small>h</small></div>
+      <div class="bar" style="--progress: 0.55"></div>
+      <div class="stat">~47<small>h</small></div>
       <div class="label">已耗时 (估)</div>
     </div>
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.22"></div>
+      <div class="bar" style="--progress: 0.55"></div>
       <div class="stat">85<small>h</small></div>
       <div class="label">总预估工时</div>
     </div>
     <div class="dash-cell">
-      <div class="bar" style="--progress: 0.10"></div>
-      <div class="stat">D1<small> / 10</small></div>
+      <div class="bar" style="--progress: 0.55"></div>
+      <div class="stat">D5<small> / 10</small></div>
       <div class="label">冲刺日</div>
     </div>
   </div>
@@ -464,18 +466,18 @@
       <tr>
         <td><code>M2</code></td>
         <td><strong>岗位 CRUD</strong></td>
-        <td><span class="pill wip">in-progress</span></td>
+        <td><span class="pill done">done</span></td>
         <td>2026-05-24</td>
-        <td>—</td>
-        <td>5 态状态机 · 全文/标签搜索 · 114 单测全绿（后端完成，前端进行中）</td>
+        <td>2026-05-25</td>
+        <td>5 态状态机 · 全文/标签搜索 · 114 单测全绿 · HR 管理台 + 候选人岗位市场</td>
       </tr>
       <tr>
         <td><code>M3</code></td>
         <td><strong>状态机看板</strong> ⭐</td>
-        <td><span class="pill todo">todo</span></td>
-        <td>—</td>
-        <td>—</td>
-        <td>投递 · 看板拖拽 · 审计日志 · 单测</td>
+        <td><span class="pill done">done</span></td>
+        <td>2026-05-25</td>
+        <td>2026-05-25</td>
+        <td>8 态招聘漏斗 · 候选人投递 + 我的投递 · HR/Admin 拖拽看板 · 215 单测全绿</td>
       </tr>
       <tr>
         <td><code>M4</code></td>
@@ -509,13 +511,40 @@
       </div>
       <p class="tl-body">monorepo 布局 · podman compose · 7 张表自动初始化 · Spring Boot + Vue 双骨架 · /health 联调通过</p>
     </div>
-    <div class="tl-item doing">
+    <div class="tl-item done">
       <div class="tl-head">
         <span class="tl-id">M1</span>
         <span class="tl-name">认证模块</span>
-        <span class="pill doing">next</span>
+        <span class="pill done">done</span>
+        <span class="tl-date">2026-05-22</span>
       </div>
-      <p class="tl-body">JWT RS256 + 5 个 auth 接口 + 前端登录态 + 路由守卫</p>
+      <p class="tl-body">JWT RS256 + 5 个 auth 接口 + 前端登录态 + 路由守卫 · 43 单测全绿（&lt; 10s）</p>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-head">
+        <span class="tl-id">M2</span>
+        <span class="tl-name">岗位 CRUD</span>
+        <span class="pill done">done</span>
+        <span class="tl-date">2026-05-24 → 2026-05-25</span>
+      </div>
+      <p class="tl-body">5 态状态机 + tags 标准化 + 全文/标签搜索 + HR 管理台（NDataTable+Drawer）+ 候选人岗位市场（卡片网格+ Markdown 详情 Drawer）· 114 单测全绿（&lt; 15s）</p>
+    </div>
+    <div class="tl-item done">
+      <div class="tl-head">
+        <span class="tl-id">M3</span>
+        <span class="tl-name">状态机看板 ⭐</span>
+        <span class="pill done">done</span>
+        <span class="tl-date">2026-05-25</span>
+      </div>
+      <p class="tl-body">8 态招聘漏斗状态机（12 条合法边）+ 候选人投递（含我的投递时间线）+ HR/Admin 看板（HTML5 拖拽 / 合法目标列高亮 / REJECTED 强制填原因 / 终态冻结）+ stage_logs 审计日志 · 215 单测全绿</p>
+    </div>
+    <div class="tl-item">
+      <div class="tl-head">
+        <span class="tl-id">M4</span>
+        <span class="tl-name">面试记录 + 文件上传</span>
+        <span class="pill next">next</span>
+      </div>
+      <p class="tl-body">interview_records 4 类 + 评分 + 简历 PDF 上传（5MB / 仅 PDF）+ 候选人简历预览</p>
     </div>
   </div>
 
@@ -668,32 +697,33 @@
     </ul>
   </div>
 
-  <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill wip" style="vertical-align: middle">in-progress</span></h2>
+  <h2 id="m2">6. M2 · 岗位 CRUD <span class="pill done" style="vertical-align: middle">done</span></h2>
   <div class="ms-detail">
-    <h4>已完成 · 后端（M2.1 ~ M2.5）</h4>
+    <h4>验收记录（2026-05-24 ~ 2026-05-25）</h4>
     <ul>
-      <li><strong>M2.1 schema</strong>：5 态 enum（DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED）+ <code>jobs</code> 主表 +
-        <code>tags</code> 标准化表 + <code>job_tags</code> 多对多 + pg_trgm GIN（title 模糊）+ tsvector GIN（desc 全文）+ 24 tags + 3 示例岗位
-      </li>
-      <li><strong>M2.2 entity/mapper/DTO</strong>：18 个新文件 + ErrorCode 扩充 5 个新码（JOB_NOT_FOUND/JOB_ACCESS_DENIED/JOB_NOT_PUBLISHED/JOB_SALARY_RANGE_INVALID/TAG_NOT_FOUND）+
-        <code>JobStatusMachine</code>（8 条合法边 + 自环禁止）</li>
-      <li><strong>M2.3 service/controller</strong>：JobService 全 CRUD + 状态机推进 + 可见性裁剪 +
-        TagService 列举 + JobController/TagController + JobMapper.xml 动态 SQL（keyword/status/workType/level/dept/tagSlugs/sort/page）+ <code>incrementViewCount</code> 原子 +1
-      </li>
-      <li><strong>M2.4 权限</strong>：<code>@PreAuthorize</code> + HR own / Admin all / Candidate read-only PUBLISHED + 软删仅 Admin（合并到 M2.3）</li>
-      <li><strong>M2.5 后端单测</strong>：<code>114</code> case 全绿（M1 留下 43 + M2 新增 71）：
-        <ul>
-          <li><code>JobStatusMachineTest</code> · 35 case：8 合法边 + 3 require + 12 非法 + 5 自环 + 6 边界（null/nextStates）</li>
-          <li><code>JobServiceTest</code> · 17 case @Nested：create / update / transition / softDelete / getDetail 全分支 + ownership + 可见性</li>
-          <li><code>JobControllerSecurityTest</code> · 17 case：5 公开放行 + 5 创建权限矩阵 + 4 状态机错误码映射 + 3 删除权限</li>
-        </ul>
-      </li>
+      <li><strong>后端（M2.1 ~ M2.5）</strong>：schema 5 态 enum + jobs/tags/job_tags 三表 + pg_trgm/tsvector 双 GIN ; 18 个 entity/mapper/DTO ; <code>JobStatusMachine</code>（8 条合法边）+ JobService 全 CRUD + 7 维动态过滤 + 可见性裁剪 + <code>incrementViewCount</code> 原子 +1 ; ErrorCode 扩 5 个新码 ; 单测 <strong>114 case</strong> 全绿（&lt; 15s）。</li>
+      <li><strong>前端 M2.6 HR 岗位管理</strong>（<code>views/hr/jobs.vue</code>）：NDataTable + 7 维过滤条 + Drawer 新建/编辑 + 状态切换 NDropdown（懒加载 detail.allowedTransitions 动态渲染）+ Admin 软删确认对话框。</li>
+      <li><strong>前端 M2.7 候选人岗位市场</strong>（<code>views/jobs.vue</code>，公开路由）：克制路线 + 张扬 hero ；sticky 搜索栏（focus 玻璃边发光）+ work_type / level chip 过滤 + 折叠的 tag 面板（按 category 分组）；卡片网格 <code>auto-fill minmax(320px,1fr)</code>，hover 顶部进度条 scaleX(1) + 卡片 -3px + arrow 露头 ；详情 NDrawer 含极简 Markdown 渲染（escapeHTML + h/li/p/code 行内替换，0 依赖）+ 候选人「立即投递」（M3 占位）+ HR/Admin「到管理台 →」 + reduce-motion 兜底。</li>
+      <li><strong>M2.8 文档</strong>：本文（活文档）+ AppNavbar 加岗位市场入口（公开可见）+ 路由守卫保留 <code>/hr/jobs</code> 角色限制 + root <code>package.json</code> 加 <code>fe:typecheck/fe:lint/fe:check/be:test/be:verify</code> 转发脚本（往后无需 cd）。</li>
+      <li><strong>质量门</strong>：<code>bun run fe:typecheck</code> 0 error ; <code>bun run fe:lint</code> 0 warning ; 后端无变更，<code>JobControllerSecurityTest</code> + <code>JobServiceTest</code> + <code>JobStatusMachineTest</code> 维持 71 case 全绿。</li>
     </ul>
-    <h4>待办 · 前端（M2.6 ~ M2.8）</h4>
+    <h4>关键决策</h4>
     <ul>
-      <li><strong>M2.6 HR 岗位管理</strong>：NDataTable + Drawer 新建/编辑 + 状态切换 dropdown（按 allowedTransitions 动态渲染）</li>
-      <li><strong>M2.7 候选人岗位市场</strong>：卡片网格 + 搜索栏 + tags chip 过滤 + 详情 Drawer</li>
-      <li><strong>M2.8 联调 + 同步文档</strong></li>
+      <li><strong>状态机选 rich-plus（5 态）</strong>而非 simple-3：PAUSED 满足 HR 临时下架 + ARCHIVED 留档不影响列表性能 + 给 M3 看板预演状态机模式</li>
+      <li><strong>搜索选 hybrid（ILIKE + tsvector）</strong>：title 用 pg_trgm（短文本模糊更准）+ description 用 tsvector + 双 GIN 索引并存</li>
+      <li><strong>tags 选 norm（标准化表）</strong>而非 jsonb：M3/M4 聚合方便，关联表 join 走 GIN tagSlug 索引比 jsonb 上 GIN 更高效</li>
+      <li><strong>前端两套语言</strong>：HR 管理台走克制（NDataTable 信息密度），候选人市场走克制 + hero 张扬（kicker eyebrow + display heading + aurora 装饰）。<strong>共享一套 tokens.css</strong>，张扬轨只追加 accent / glow / aurora，不覆盖。</li>
+      <li><strong>详情 Markdown 不引第三方</strong>：<code>renderMarkdown()</code> 用 escapeHTML + 正则替换 ##/-/`` 三档语法。理由：MVP 阶段岗位 JD 结构简单，引 marked 拖累首屏 + 增加 XSS 面 ; 后续真要 GFM 语法再升级。</li>
+      <li><strong>「立即投递」按钮放在详情 Drawer 而非卡片</strong>：避免误点 + 强迫候选人先看完 JD ; 未登录跳 /login ?redirect=/jobs ; 不是 CANDIDATE 角色 toast 拒绝；HR/Admin 替换为「到管理台 →」。</li>
+    </ul>
+    <h4>踩坑（M2.6 ~ M2.8）</h4>
+    <ul>
+      <li><strong>L3 单测 <code>@MapperScan</code> 隐式依赖</strong>：M2 加 JobMapper/TagMapper/JobTagMapper 后，M1 的 <code>WebSecurityIntegrationTest</code> 立刻反向坏掉 → 必须把项目所有 mapper 都 <code>@MockitoBean</code> 进来。已沉淀进 SKILL 2.6.7 「踩坑表」。</li>
+      <li><strong>MyBatis-Plus <code>JobTag</code> 复合主键无法 <code>@TableId</code></strong> → JobTagMapper 不继承 BaseMapper，只暴露 batchInsert / deleteByJobId。</li>
+      <li><strong>PowerShell <code>curl.exe -d '{...}'</code> 单引号被吞 JSON 损坏</strong> → 全程改用 <code>-d '@file.json'</code>。</li>
+      <li><strong>JobService.validateTagIds 默认 stub 99 误失败</strong> → 各 case 按 <code>tagIds.size</code> 显式 stub。</li>
+      <li><strong>Vue 3 <code>&lt;component :is="vnode" /&gt;</code> 不工作</strong>：函数返回 VNode 不能被 :is 直接渲染。改成 template 内直接渲染 footer 一行。</li>
+      <li><strong>Windows 环境跑 <code>bun run typecheck</code> 必须先在 ats-frontend 安装依赖</strong>：root 目录无 node_modules，oxlint 找不到 <code>@lumirelle/oxlint-config</code> 时静默吞错。已加 <code>fe:check / fe:typecheck</code> 转发脚本到 root <code>package.json</code>，避免 cd 来回切。</li>
     </ul>
     <h4>关键决策</h4>
     <ul>
@@ -712,9 +742,93 @@
     </ul>
   </div>
 
-  <h2 id="m3">7. M3 · 状态机看板 ⭐ <span class="pill todo" style="vertical-align: middle">todo</span></h2>
+  <h2 id="m3">7. M3 · 状态机看板 ⭐ <span class="pill done" style="vertical-align: middle">done</span></h2>
   <div class="ms-detail">
-    <p style="color: var(--g-500)">M2 完成后补充详情。整个项目的核心亮点，<strong>需要单测覆盖状态机的所有合法/非法流转</strong>。</p>
+    <h4>验收记录（2026-05-25）</h4>
+    <ul>
+      <li><strong>状态机（M3.1）</strong>：<code>ApplicationStageMachine</code> 8 态招聘漏斗，12 条合法边
+        （6 forward + 6 任意非终态→REJECTED）；终态 HIRED / REJECTED 一律拒绝离开（抛 <code>APPLICATION_TERMINATED</code>）；
+        <code>ALLOWED</code> 用 <code>EnumMap&lt;Stage, EnumSet&lt;Stage&gt;&gt;</code> 静态构建；
+        <code>requireTransition</code> 失败附带 from→to + 允许列表错误信息（前端可直接 toast）。</li>
+      <li><strong>schema 复用（M3.2）</strong>：直接使用 M0 已建好的 <code>applications</code> 主表 + <code>stage_logs</code> 审计表
+        （8 态 enum 已落地 + 唯一约束 (job_id, candidate_id) + GIN 索引）。M3 只读取，无 schema 变更。</li>
+      <li><strong>entity / mapper / DTO（M3.3）</strong>：<code>Application</code> + <code>StageLog</code>（PgEnumTypeHandler）；
+        <code>ApplicationMapper</code>（<code>countByStage</code> + <code>listBoardItems</code> + <code>listByCandidate</code>
+        + <code>countDuplicate</code>，全部支持 Admin null / HR ownerId 双视角的 SQL 切片）；
+        <code>StageLogMapper.findByApplicationId</code>（join users → operatedByName / operatedByRole）。</li>
+      <li><strong>service（M3.4）</strong>：
+        <ul>
+          <li><code>apply</code>：CANDIDATE only · 校验岗位 PUBLISHED / 不能自创自投 / 不能重复 · insert app + 初始 stage_log(null→APPLIED, by candidate)</li>
+          <li><code>transition</code>：HR(job owner) / Admin · 状态机校验 · REJECTED 必须 note · 把 from→to + 操作人写 stage_logs · REJECTED 同步写 reject_reason 字段</li>
+          <li><code>getDetail</code>：3 类访问者裁剪：本人候选人（看 phone / 不看 allowedTransitions）/ 同岗位 HR-owner（看 phone + allowedTransitions）/ Admin（全字段）。陌生人一律 <code>APPLICATION_ACCESS_DENIED</code></li>
+          <li><code>listMine</code>：候选人「我的投递」时间倒序</li>
+          <li><code>board</code>：固定 8 列顺序 + 计数为 0 也回填空列 + 每列前 N 条明细 · Admin 看全 / HR 只看 created_by=自己 的岗位</li>
+        </ul>
+      </li>
+      <li><strong>controller（M3.5）</strong>：<code>POST /applications</code>（CANDIDATE）· <code>GET /applications/me</code>（CANDIDATE）·
+        <code>GET /applications/board?jobId=&itemsPerColumn=</code>（HR/ADMIN）· <code>GET /applications/{id}</code>（登录即可，service 做 owner / job-owner-hr / admin 三方裁剪）·
+        <code>POST /applications/{id}/transitions</code>（HR/ADMIN）。<code>@PreAuthorize</code> + service 双重防御。</li>
+      <li><strong>错误码（M3.6）</strong>：扩 5 个新码：<code>APPLICATION_NOT_FOUND</code> 20021 / <code>APPLICATION_ACCESS_DENIED</code> 20022 /
+        <code>JOB_NOT_HIRING</code> 20023 / <code>SELF_APPLY_FORBIDDEN</code> 20024 / <code>APPLICATION_TERMINATED</code> 20025 ；
+        <code>GlobalExceptionHandler</code> 把 ACCESS_DENIED / SELF_APPLY 映射为 403；APPLICATION_NOT_FOUND 映射为 404；其余 20xxx 仍走 409 Conflict。</li>
+      <li><strong>后端测试（M3.7）</strong>：新增 <code>101</code> case，三层分工延续：
+        <ul>
+          <li><code>ApplicationStageMachineTest</code> · 58 case：12 合法边 + 4 require · 11 跳级回退 + 8 自环 + 1 上下文 · HIRED/REJECTED 终态保护 8+8+1 · null/边界 5</li>
+          <li><code>ApplicationServiceTest</code> · 20 case @Nested：apply 5 / transition 6 / getDetail 4 / listMine 2 / board 3</li>
+          <li><code>ApplicationControllerSecurityTest</code> · 23 case：Apply 6 / ListMine 3 / Board 4 / Detail 4 / Transitions 6</li>
+        </ul>
+        <strong>累计 215 case 全绿（M1 43 + M2 71 + M3 101），&lt; 17s 跑完。</strong>
+      </li>
+      <li><strong>前端 M3.8</strong>：3 个新页 + 1 个 API 模块。
+        <ul>
+          <li><code>api/applications.ts</code>：8 态 enum 镜像 + <code>STAGE_TRANSITIONS</code> 状态机镜像（前端拖拽落点 0 RT 预校验）+ <code>canTransition</code> / <code>isTerminal</code> 工具函数。</li>
+          <li><code>views/jobs.vue</code>：「立即投递」从占位升级为真实 API · NModal 表单（年限 / 联系方式 / 简历链接）· 投递成功后跳 <code>/me/applications</code>。</li>
+          <li><code>views/me/applications.vue</code>（候选人）：「进行中 / 已完成」分组 · 卡片 + 进度条（按 stage 推算 0-100）· NDrawer 时间线（NTimeline）· 拒绝原因高亮区。</li>
+          <li><code>views/hr/board.vue</code>（HR/Admin · ⭐ 项目核心）：8 列 grid + 横向滚动；岗位 NSelect 切换范围（Admin 全部 / HR own）；
+            <strong>HTML5 原生 drag-and-drop</strong>（dragstart / dragover / drop / dragleave 全套），<strong>0 第三方 lib</strong>；
+            拖拽时合法目标列 <code>border-color + box-shadow</code> 高亮、非法目标列 <code>op-42</code> 降亮；
+            REJECTED 强制 NDrawer 填原因；
+            乐观更新（先搬卡再调 API，失败回滚）；
+            详情 NDrawer 含动态推进按钮（按 service 返回的 <code>allowedTransitions</code> 渲染）+ stage_logs 时间线 + reject_reason 高亮。</li>
+        </ul>
+      </li>
+      <li><strong>路由 + 导航（M3.9）</strong>：<code>/me/applications</code>（CANDIDATE only）+ <code>/hr/board</code>（HR/ADMIN only）；AppNavbar
+        新增对应入口（角色感知），CANDIDATE 看到「我的投递」、HR/Admin 看到「招聘看板」。</li>
+      <li><strong>额外修复</strong>：发现并修复 <code>ats-frontend/src/api/jobs.ts</code> 里 <code>JobLevel</code>
+        与后端 / schema 不一致的存量 bug（前端定义 STAFF/PRINCIPAL，实际 schema 是 LEAD/DIRECTOR）。</li>
+      <li><strong>质量门</strong>：<code>bun run be:test</code> 215/215 全绿（&lt; 17s）· <code>bun run fe:check</code>（typecheck + lint）0 error / 0 warning。</li>
+    </ul>
+    <h4>关键决策</h4>
+    <ul>
+      <li><strong>状态机选 strict-no-rollback</strong>（不允许 SCREENING_PASS → APPLIED 回退）：审计责任更清晰；如果想"打回重试"用 REJECTED + 候选人重新投递，逻辑更干净。</li>
+      <li><strong>REJECTED 是死亡线，HIRED 是终结线</strong>：两者都是终态，不可再变更。如果 HR 误操作发了 OFFER，候选人未接受，只能拒掉走 REJECTED。</li>
+      <li><strong>看板拖拽用 HTML5 原生 API 而非 vuedraggable / sortablejs</strong>：HTML5 dnd 在 Chromium 内核稳如磐石，4 个事件处理器 + 1 个 dragState ref 就搞定，<strong>0 依赖 / -200KB 包体</strong>。
+        触摸设备 dnd 的 fallback 等 M5 真有需求再考虑。</li>
+      <li><strong>前端镜像状态机</strong>：<code>STAGE_TRANSITIONS</code> 在前端硬编码一份。这样拖拽落点合法性 0 RT 即时反馈（dragover 时直接 return false 阻止 drop），后端再做最终校验。</li>
+      <li><strong>看板范围切换用 sentinel(-1) 而非 null</strong>：NSelect 的 value 类型不允许 null，强行 cast 会导致 type error。<code>ALL_JOBS_SENTINEL = -1</code> 内部转 undefined 再传给 axios。</li>
+      <li><strong>候选人时间线 vs 看板时间线复用一个 schema</strong>：StageLogVO 是统一的 VO，候选人/HR 都看到一样的日志，但看板那边能看到操作人姓名 + 角色色（候选人只看到操作时间）。</li>
+      <li><strong>乐观更新 + 失败回滚</strong>：拖拽放手后立刻在 UI 搬卡片，给用户「丝滑」感；如果后端返回非法（角色 / 状态机 / 网络），自动回滚到原列。这是看板体验的灵魂。</li>
+    </ul>
+    <h4>踩坑（M3）</h4>
+    <ul>
+      <li><strong>所有 @WebMvcTest 必须把新 mapper @MockitoBean</strong>：M3 加 ApplicationMapper / StageLogMapper 后，<code>WebSecurityIntegrationTest</code> 和 <code>JobControllerSecurityTest</code> 立刻反向坏掉（同 M2 加 JobMapper 时一样的坑）。已第二次沉淀进 SKILL「踩坑表」。</li>
+      <li><strong>ApplicationService 的 batchUsers helper 走错路</strong>：原型里想偷懒用 jobMapper.selectById 拼候选人姓名，结果 <code>jobMapper</code> 不识别 user。重构改为注入 <code>UserMapper</code>。</li>
+      <li><strong>oxlint no-use-before-define</strong>：<code>onColumnDrop</code> 引用了 <code>pendingReject / rejectModalVisible</code>，但它们声明在文件后面。Vue setup script 是顺序执行的，必须把 reject 状态变量提升到函数声明之前。</li>
+      <li><strong>NSelect option value 不能为 null</strong>：TypeScript 类型 <code>SelectOption['value']</code> 是 <code>string | number</code>，强行 null 会 build 失败。<strong>方案</strong>：用 <code>-1</code> 当哨兵 + 内部转 undefined。</li>
+      <li><strong>Vue 3 <code>&lt;component :is="vnode" /&gt;</code> 不工作</strong>（M2.7 已踩过）：本次没再踩，但拒绝弹窗一开始用 NDrawer 其实更合适（保持页面焦点不切走），最终就用了 NDrawer。</li>
+      <li><strong>★ PG <code>timestamptz</code> + 原生 SQL <code>Map&lt;String,Object&gt;</code> + 强转 OffsetDateTime = 500</strong>：<br>
+        E2E 真实 JDBC 路径下 PG 把 <code>timestamptz</code> 反序列化成 <code>java.sql.Timestamp</code>（不是 <code>OffsetDateTime</code>），强转直接 <code>ClassCastException</code>，触发 500「服务器内部错误」。<br>
+        <strong>讽刺的是 215 单测全绿</strong>：mock Map 给的是 <code>OffsetDateTime</code>，类型对了但跟真实 JDBC 不一致。<br>
+        <strong>修复</strong>：<code>ApplicationService</code> 加 <code>toOffsetDateTime(Object)</code> helper（兼容 OffsetDateTime / Timestamp / LocalDateTime / Date），所有 <code>row.get("xxx_at")</code> 走 helper。<br>
+        <strong>沉淀位置</strong>：SKILL 2.7.11 + 风险登记台账「中风险」加入「mock 数据类型与真实 JDBC 类型不一致」条目。</li>
+    </ul>
+    <h4>E2E 联调验证（M3）</h4>
+    <ul>
+      <li><strong>候选人投递</strong>：<code>/jobs</code> → 「立即投递」（jobId=2 / yearsExp=3 / phone / resumeUrl）→ <strong>POST /api/v1/applications</strong> → 200 OK，application id=2 入库 stage=APPLIED，stage_logs 写入「候选人投递」。</li>
+      <li><strong>HR 拖拽</strong>：登录 ADMIN → <code>/hr/board</code> → 拖 APPLIED 卡片到 SCREENING_PASS → <strong>POST /api/v1/applications/2/transitions</strong> → 200 OK，DB stage 更新，stage_logs 增加 <code>APPLIED → SCREENING_PASS</code>。</li>
+      <li><strong>详情查看</strong>：<strong>GET /api/v1/applications/2</strong> → 200 OK，时间线返回 2 条 stage_log（投递 + 推进），所有时间字段正确转 OffsetDateTime（修复后）。</li>
+      <li><strong>结论</strong>：核心三条主路径（投递 / 拖拽 / 详情）全部 E2E 跑通，M3 闭环可交付。</li>
+    </ul>
   </div>
 
   <h2 id="m4">8. M4 · 辅助模块 <span class="pill todo" style="vertical-align: middle">todo</span></h2>
@@ -849,6 +963,35 @@
       <tr><th style="width:120px">时间</th><th style="width:80px">类型</th><th>变更</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td>2026-05-25 22:50</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M3 完成 → 项目核心亮点（状态机看板）落地</strong>。
+          <ul>
+            <li><strong>后端</strong>：8 态 <code>ApplicationStageMachine</code>（12 条合法边 + HIRED/REJECTED 终态保护）+ <code>ApplicationService</code> 5 大动作（apply/listMine/board/getDetail/transition）+ <code>ApplicationController</code> + 5 个新错误码 → HTTP 映射 + <code>ApplicationMapper</code> 含 Admin/HR 双视角动态 SQL 切片。</li>
+            <li><strong>前端</strong>：<code>api/applications.ts</code>（前端镜像状态机用于拖拽落点 0 RT 预校验）+ <code>views/me/applications.vue</code>（候选人「我的投递」分组 + 进度条 + 时间线）+ <code>views/hr/board.vue</code>（HTML5 原生 dnd，<strong>0 第三方 lib</strong> · 合法目标列高亮 / 非法变暗 · 乐观更新 + 失败回滚 · REJECTED 强制 NDrawer 填原因 · 终态卡片 draggable=false）。</li>
+            <li><strong>路由</strong>：新增 <code>/me/applications</code>（CANDIDATE）+ <code>/hr/board</code>（HR/ADMIN）；AppNavbar 角色感知动态显示入口。</li>
+            <li><strong>测试</strong>：M3 新增 101 case（状态机 58 + 服务 20 + 控制器 23），三层分工延续。<strong>累计 215 case 全绿</strong>，<code>bun run be:test</code> &lt; 17s 跑完；<code>bun run fe:check</code>（typecheck + lint） 0 error / 0 warning。</li>
+            <li><strong>修复存量 bug</strong>：<code>JobLevel</code> 前端类型与 schema 不一致（前端 STAFF/PRINCIPAL → 改回 LEAD/DIRECTOR）。</li>
+            <li><strong>踩坑</strong>：（1）所有 @WebMvcTest 必须把新 mapper @MockitoBean，否则反向坏掉 M1/M2 测试（与 M2 同一类型的坑，<strong>第二次踩</strong>）；（2）NSelect option value 不能为 null，用 sentinel(-1) 替代；（3）oxlint <code>no-use-before-define</code>：Vue setup script 中函数引用的 ref 必须在函数声明前先定义。</li>
+          </ul>
+          <strong>跑一次 e2e</strong>：1) 候选人在 <code>/jobs</code> 投递；2) 切换到 HR 账号在 <code>/hr/board</code> 拖卡推进；3) 切回候选人在 <code>/me/applications</code> 看到时间线更新 → 跑通即 M3 验收完成。
+        </td>
+      </tr>
+      <tr>
+        <td>2026-05-25 22:10</td>
+        <td><span class="pill done">feat</span></td>
+        <td><strong>M2.6–M2.8 完成 → M2 整体 done</strong>。
+          <ul>
+            <li><strong>M2.6 HR 岗位管理台</strong>（之前已落地）：<code>views/hr/jobs.vue</code> · NDataTable 7 维过滤 + Drawer create/edit + 状态切换 NDropdown（懒加载 detail.allowedTransitions）+ Admin 软删确认 + 角色感知 actions 列。</li>
+            <li><strong>M2.7 候选人岗位市场</strong>：新增 <code>views/jobs.vue</code>（公开路由 <code>/jobs</code>）。Hero kicker + display 标题 + aurora 装饰 ; sticky 搜索栏（Enter 搜索 + ⏎ kbd hint + focus 状态发光）+ work_type / level chip 过滤 + 折叠 tag 面板（按 category 分组渲染 24 个 tag） ; 卡片网格 <code>auto-fill minmax(320px, 1fr)</code> · hover 顶部进度条 scaleX 0.18→1 + 卡片 -3px + arrow 露头 ; <code>NDrawer</code> 详情含 0 依赖 Markdown 渲染（<code>escapeHtml</code> + 正则替换 #/-/`` 三档语法）+ 「立即投递」按钮（CANDIDATE 进 M3 占位 / HR/Admin 替换为「到管理台 →」 / 未登录跳 <code>/login?redirect=/jobs</code>） + reduce-motion 兜底。</li>
+            <li><strong>路由 + 导航</strong>：<code>router/index.ts</code> 加 <code>/jobs</code>（无鉴权）；<code>AppNavbar.vue</code> 取消未登录隐藏 nav，统一展示「首页 / 岗位市场（所有人）/ 岗位管理（HR/Admin）」三个入口。</li>
+            <li><strong>M2.8 文档 + 工程化</strong>：本文（活文档）同步 ; root <code>package.json</code> 新增 <code>fe:typecheck / fe:lint / fe:lint:fix / fe:check / be:test / be:build / be:verify</code> 七个转发脚本，往后从 root 一条命令搞定，避免 cd 来回切。</li>
+          </ul>
+          <strong>质量门</strong>：<code>bun run fe:typecheck</code> 0 error · <code>bun run fe:lint</code> 0 warning · 后端 71 case 全绿（无后端代码变更）。
+          <strong>踩坑沉淀</strong>：（1）Vue 3 <code>&lt;component :is="vnode" /&gt;</code> 不工作 → 改 template 直接渲染 ; （2）Windows 下 <code>bun run typecheck</code> 必须 ats-frontend 内执行（root 无 node_modules，oxlint extends 链断裂）→ 加 fe:* 转发脚本规避。
+        </td>
+      </tr>
       <tr>
         <td>2026-05-25 10:00</td>
         <td><span class="pill done">test</span></td>

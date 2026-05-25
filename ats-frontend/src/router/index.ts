@@ -46,13 +46,48 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/forbidden.vue'),
     meta: { title: '无权访问', requiresAuth: false, transition: 'fade-scale' },
   },
-  // ── M2 · 岗位管理 ──
+  // ── M2 · 岗位市场（候选人 / 公开浏览）──
+  {
+    path: '/jobs',
+    name: 'Jobs',
+    component: () => import('@/views/jobs.vue'),
+    meta: {
+      title: '岗位市场',
+      requiresAuth: false,
+      transition: 'fade-slide',
+    },
+  },
+  // ── M2 · 岗位管理（HR / Admin）──
   {
     path: '/hr/jobs',
     name: 'HrJobs',
     component: () => import('@/views/hr/jobs.vue'),
     meta: {
       title: 'HR · 岗位管理',
+      requiresAuth: true,
+      roles: ['HR', 'ADMIN'],
+      transition: 'fade-slide',
+    },
+  },
+  // ── M3 · 候选人「我的投递」──
+  {
+    path: '/me/applications',
+    name: 'MyApplications',
+    component: () => import('@/views/me/applications.vue'),
+    meta: {
+      title: '我的投递',
+      requiresAuth: true,
+      roles: ['CANDIDATE'],
+      transition: 'fade-slide',
+    },
+  },
+  // ── M3 · 招聘看板（HR / Admin · 状态机拖拽）──
+  {
+    path: '/hr/board',
+    name: 'HrBoard',
+    component: () => import('@/views/hr/board.vue'),
+    meta: {
+      title: 'HR · 招聘看板',
       requiresAuth: true,
       roles: ['HR', 'ADMIN'],
       transition: 'fade-slide',

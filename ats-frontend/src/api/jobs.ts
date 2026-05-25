@@ -5,7 +5,7 @@ import { del, get, patch, post } from './request'
 
 export type JobStatus = 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'CLOSED' | 'ARCHIVED'
 export type JobWorkType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERN' | 'REMOTE'
-export type JobLevel = 'INTERN' | 'JUNIOR' | 'MID' | 'SENIOR' | 'STAFF' | 'PRINCIPAL'
+export type JobLevel = 'INTERN' | 'JUNIOR' | 'MID' | 'SENIOR' | 'LEAD' | 'DIRECTOR'
 export type TagCategory = 'TECH' | 'SOFT' | 'CERT' | 'LANG' | 'DOMAIN'
 
 export const STATUS_LABEL: Record<JobStatus, string> = {
@@ -29,8 +29,8 @@ export const LEVEL_LABEL: Record<JobLevel, string> = {
   JUNIOR: '初级',
   MID: '中级',
   SENIOR: '高级',
-  STAFF: '资深',
-  PRINCIPAL: '专家',
+  LEAD: '资深 / Lead',
+  DIRECTOR: '总监',
 }
 
 export const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {

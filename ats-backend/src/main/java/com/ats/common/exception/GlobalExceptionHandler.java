@@ -80,12 +80,15 @@ public class GlobalExceptionHandler {
         }
         if (c == ErrorCode.FORBIDDEN.getCode()
                 || c == ErrorCode.JOB_ACCESS_DENIED.getCode()
-                || c == ErrorCode.JOB_NOT_PUBLISHED.getCode()) {
+                || c == ErrorCode.JOB_NOT_PUBLISHED.getCode()
+                || c == ErrorCode.APPLICATION_ACCESS_DENIED.getCode()
+                || c == ErrorCode.SELF_APPLY_FORBIDDEN.getCode()) {
             return HttpStatus.FORBIDDEN;
         }
         if (c == ErrorCode.FILE_NOT_FOUND.getCode()
                 || c == ErrorCode.JOB_NOT_FOUND.getCode()
-                || c == ErrorCode.TAG_NOT_FOUND.getCode()) {
+                || c == ErrorCode.TAG_NOT_FOUND.getCode()
+                || c == ErrorCode.APPLICATION_NOT_FOUND.getCode()) {
             return HttpStatus.NOT_FOUND;
         }
         if (c == ErrorCode.FILE_TOO_LARGE.getCode()) {

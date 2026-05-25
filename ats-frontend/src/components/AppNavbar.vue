@@ -34,13 +34,27 @@ const initial = computed(() => (auth.user?.fullName ?? 'U')[0].toUpperCase())
 const navLinks = computed(() => {
   const links: Array<{ to: string, label: string, icon: string }> = [
     { to: '/home', label: '首页', icon: 'M3 12 L12 4 L21 12 M5 10 V20 H19 V10' },
+    { to: '/jobs', label: '岗位市场', icon: 'M4 8 H20 V20 H4 Z M9 8 V5 a2 2 0 0 1 2-2 h2 a2 2 0 0 1 2 2 V8' },
   ]
-  // HR / Admin：岗位管理台
+  // HR / Admin：岗位管理台 + 招聘看板
   if (auth.isHr || auth.isAdmin) {
     links.push({
       to: '/hr/jobs',
       label: '岗位管理',
       icon: 'M4 7 H20 M4 12 H20 M4 17 H14',
+    })
+    links.push({
+      to: '/hr/board',
+      label: '招聘看板',
+      icon: 'M5 5 H9 V19 H5 Z M11 5 H15 V14 H11 Z M17 5 H19 V11 H17 Z',
+    })
+  }
+  // CANDIDATE：我的投递
+  if (auth.isCandidate) {
+    links.push({
+      to: '/me/applications',
+      label: '我的投递',
+      icon: 'M5 4 H15 L19 8 V20 H5 Z M14 4 V8 H19 M8 12 H16 M8 16 H13',
     })
   }
   return links
@@ -118,7 +132,7 @@ function isActive(path: string) {
       </router-link>
 
       <!-- ── Center nav ─────────────────────────── -->
-      <nav v-if="auth.isLoggedIn" class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-(--bg-elevated)/40 p-1 backdrop-blur-sm">
+      <nav class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-(--bg-elevated)/40 p-1 backdrop-blur-sm">
         <router-link
           v-for="item in navLinks"
           :key="item.to"
