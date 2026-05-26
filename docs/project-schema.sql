@@ -384,6 +384,28 @@ INSERT INTO users (email, password_hash, full_name, role) VALUES
     ('candidate@ats.local',
      '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
      '示例候选人 · 李哲',
+     'CANDIDATE'),
+    -- 额外的 5 个示例候选人（覆盖前端 / 后端 / 设计 / SRE / 产品五大方向，
+    -- 让看板在多 stage 上有足够的真实分布。密码统一 Admin@123，仅 demo 用途）
+    ('xiaotong.wang@demo.io',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     '王晓彤',
+     'CANDIDATE'),
+    ('haochen@demo.io',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     '陈昊',
+     'CANDIDATE'),
+    ('qingya.lin@demo.io',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     '林清雅',
+     'CANDIDATE'),
+    ('zixuan.liu@demo.io',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     '刘子轩',
+     'CANDIDATE'),
+    ('mengqi.zhang@demo.io',
+     '$2b$12$8daJQt9doR02lLfOVSmVWOW7e7DgA7pLAD39IgeqoTHdxmz0odHVm',
+     '张梦琪',
      'CANDIDATE');
 
 INSERT INTO departments (name) VALUES
@@ -650,6 +672,114 @@ INSERT INTO stage_logs (
     application_id, operated_by, from_stage, to_stage, note, operated_at
 ) VALUES
     (1, 3, NULL, 'APPLIED', '候选人主动投递（seed 数据）', NOW() - INTERVAL '2 hours');
+
+-- ────────────────────────────────────────────────────────────
+--  种子：10 条多 stage 示例投递，让看板各阶段都有数据
+--    - 5 名候选人 × 不同岗位组合，覆盖 8 态状态机里的 7 个（HIRED 留空，避免演示时太静态）
+--    - 每条都配套完整 stage_logs 链（业务约束：从 APPLIED 开始顺序流转，REJECTED 必填 reason）
+--    - operated_by：投递（NULL→APPLIED）= 候选人自己；流转 = HR (id=2)
+--    - updated_at：手动设为「最后一次流转时间」，让看板按 updated_at DESC 排序时分布合理
+--      （INSERT 不触发 trg_applications_updated_at，trigger 仅 BEFORE UPDATE，所以可直接指定）
+-- ────────────────────────────────────────────────────────────
+
+DO $seed_apps$
+DECLARE
+    c_wang   bigint := (SELECT id FROM users WHERE email = 'xiaotong.wang@demo.io');
+    c_chen   bigint := (SELECT id FROM users WHERE email = 'haochen@demo.io');
+    c_lin    bigint := (SELECT id FROM users WHERE email = 'qingya.lin@demo.io');
+    c_liu    bigint := (SELECT id FROM users WHERE email = 'zixuan.liu@demo.io');
+    c_zhang  bigint := (SELECT id FROM users WHERE email = 'mengqi.zhang@demo.io');
+    hr_id    bigint := (SELECT id FROM users WHERE email = 'hr@ats.local');
+    aid      bigint;
+BEGIN
+    -- #1 王晓彤 → Vue 前端（job_id=2）→ APPLIED ──────────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (2, c_wang, 'APPLIED', 6, '13900002001', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at)
+    VALUES (aid, c_wang, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '1 day');
+
+    -- #2 陈昊 → 高级 Java（job_id=1）→ SCREENING_PASS ────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (1, c_chen, 'SCREENING_PASS', 5, '13900002002', NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_chen, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '3 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', '简历亮点：Spring + PG 调优经验', NOW() - INTERVAL '2 days');
+
+    -- #3 林清雅 → UI/UX（job_id=10）→ PHONE_INTERVIEW ────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (10, c_lin, 'PHONE_INTERVIEW', 4, '13900002003', NOW() - INTERVAL '5 days', NOW() - INTERVAL '3 days')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_lin, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '5 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', '作品集质量高，B 端项目经验匹配', NOW() - INTERVAL '4 days'),
+        (aid, hr_id, 'SCREENING_PASS', 'PHONE_INTERVIEW', '约电话初面 · 周三 14:00', NOW() - INTERVAL '3 days');
+
+    -- #4 刘子轩 → Go 微服务（job_id=3）→ TECH_INTERVIEW ──────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (3, c_liu, 'TECH_INTERVIEW', 7, '13900002004', NOW() - INTERVAL '7 days', NOW() - INTERVAL '3 days')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_liu, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '7 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', 'k8s operator 经验对口', NOW() - INTERVAL '6 days'),
+        (aid, hr_id, 'SCREENING_PASS', 'PHONE_INTERVIEW', '电话初面通过，沟通顺畅', NOW() - INTERVAL '5 days'),
+        (aid, hr_id, 'PHONE_INTERVIEW', 'TECH_INTERVIEW', '安排技术二面（部门 leader）', NOW() - INTERVAL '3 days');
+
+    -- #5 张梦琪 → 产品经理（job_id=9）→ HR_INTERVIEW ────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (9, c_zhang, 'HR_INTERVIEW', 4, '13900002005', NOW() - INTERVAL '6 days', NOW() - INTERVAL '1 day')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_zhang, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '6 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', 'HR Tech 行业背景匹配', NOW() - INTERVAL '5 days'),
+        (aid, hr_id, 'SCREENING_PASS', 'PHONE_INTERVIEW', '电话初面通过', NOW() - INTERVAL '4 days'),
+        (aid, hr_id, 'PHONE_INTERVIEW', 'TECH_INTERVIEW', '产品评审顺利', NOW() - INTERVAL '3 days'),
+        (aid, hr_id, 'TECH_INTERVIEW', 'HR_INTERVIEW', '约 HR 终面 · 周五', NOW() - INTERVAL '1 day');
+
+    -- #6 王晓彤 → DevOps（job_id=4）→ OFFER ─────────────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (4, c_wang, 'OFFER', 6, '13900002001', NOW() - INTERVAL '14 days', NOW() - INTERVAL '1 day')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_wang, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '14 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', 'Terraform / Prometheus 经验加分', NOW() - INTERVAL '12 days'),
+        (aid, hr_id, 'SCREENING_PASS', 'PHONE_INTERVIEW', '电话初面通过', NOW() - INTERVAL '10 days'),
+        (aid, hr_id, 'PHONE_INTERVIEW', 'TECH_INTERVIEW', '技术二面通过', NOW() - INTERVAL '7 days'),
+        (aid, hr_id, 'TECH_INTERVIEW', 'HR_INTERVIEW', 'HR 终面通过', NOW() - INTERVAL '4 days'),
+        (aid, hr_id, 'HR_INTERVIEW', 'OFFER', '已发 Offer，待候选人回复', NOW() - INTERVAL '1 day');
+
+    -- #7 陈昊 → 招聘官（job_id=19，跨方向投递）→ APPLIED ─────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (19, c_chen, 'APPLIED', 5, '13900002002', NOW() - INTERVAL '12 hours', NOW() - INTERVAL '12 hours')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at)
+    VALUES (aid, c_chen, NULL, 'APPLIED', '候选人主动投递（同时投了 Java 岗）', NOW() - INTERVAL '12 hours');
+
+    -- #8 林清雅 → 品牌设计（job_id=16）→ REJECTED ───────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, resume_url, years_exp, phone, reject_reason, applied_at, updated_at)
+    VALUES (16, c_lin, 'REJECTED', NULL, 4, '13900002003', '美术风格与品牌调性差异较大',
+            NOW() - INTERVAL '4 days', NOW() - INTERVAL '2 days')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_lin, NULL, 'APPLIED', '候选人主动投递', NOW() - INTERVAL '4 days'),
+        (aid, hr_id, 'APPLIED', 'REJECTED', '美术风格与品牌调性差异较大', NOW() - INTERVAL '2 days');
+
+    -- #9 刘子轩 → iOS（job_id=5）→ APPLIED ──────────────────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (5, c_liu, 'APPLIED', 7, '13900002004', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '2 hours')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at)
+    VALUES (aid, c_liu, NULL, 'APPLIED', '候选人主动投递（同时也投了 Go 岗）', NOW() - INTERVAL '2 hours');
+
+    -- #10 张梦琪 → 内容营销（job_id=14）→ SCREENING_PASS ────────────
+    INSERT INTO applications (job_id, candidate_id, stage, years_exp, phone, applied_at, updated_at)
+    VALUES (14, c_zhang, 'SCREENING_PASS', 4, '13900002005', NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day')
+    RETURNING id INTO aid;
+    INSERT INTO stage_logs (application_id, operated_by, from_stage, to_stage, note, operated_at) VALUES
+        (aid, c_zhang, NULL, 'APPLIED', '候选人主动投递（产品方向之外的试探）', NOW() - INTERVAL '2 days'),
+        (aid, hr_id, 'APPLIED', 'SCREENING_PASS', '文笔扎实，公众号案例有数据', NOW() - INTERVAL '1 day');
+END $seed_apps$;
 
 -- ────────────────────────────────────────────────────────────
 --  视图：招聘漏斗（各阶段申请数，用于数据看板）

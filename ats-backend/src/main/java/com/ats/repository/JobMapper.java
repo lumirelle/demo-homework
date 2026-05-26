@@ -40,6 +40,16 @@ public interface JobMapper extends BaseMapper<Job> {
                    @Param("visibleStatuses") List<String> visibleStatuses);
 
     /**
+     * 仅返回符合条件的 job IDs（不分页、不带 tag/dept/user join）。
+     * 用途：HR 看板按多维过滤先求出"哪些岗位"，再聚合这些岗位的投递。
+     * 复用 {@code <sql id="conditions">}，保证与 {@link #listJobs} 行为一致。
+     */
+    List<Long> selectFilteredJobIds(@Param("q") JobListReq q,
+                                    @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                                    @Param("visibleStatuses") List<String> visibleStatuses,
+                                    @Param("limit") int limit);
+
+    /**
      * 部门字典查询（id → name），用于列表/详情显示部门名。
      * 单独写 SQL 避免为 departments 表新建独立 Mapper / Entity（M2 暂不需要 CRUD 部门）。
      */
@@ -50,4 +60,10 @@ public interface JobMapper extends BaseMapper<Job> {
         "</script>"
     })
     List<java.util.Map<String, Object>> selectDepartmentNames(@Param("ids") List<Long> ids);
+
+    /** 全量部门字典（按 id 升序），用于前端筛选下拉。 */
+    @org.apache.ibatis.annotations.Select(
+        "SELECT id, name FROM departments ORDER BY id ASC"
+    )
+    List<java.util.Map<String, Object>> selectAllDepartments();
 }

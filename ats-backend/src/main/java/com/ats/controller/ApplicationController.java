@@ -4,6 +4,7 @@ import com.ats.application.ApplicationService;
 import com.ats.application.dto.ApplicationCreateReq;
 import com.ats.application.dto.ApplicationDetailVO;
 import com.ats.application.dto.ApplicationListItemVO;
+import com.ats.application.dto.BoardQueryReq;
 import com.ats.application.dto.BoardVO;
 import com.ats.application.dto.StageTransitionReq;
 import com.ats.common.response.ApiResponse;
@@ -11,11 +12,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -51,11 +52,18 @@ public class ApplicationController {
         return ApiResponse.ok(applicationService.listMine());
     }
 
+    /**
+     * 招聘看板。query 参数（详见 {@link BoardQueryReq}）：
+     * <ul>
+     *   <li>{@code jobId} 给定 → 单岗位看板（保留 owner/admin 鉴权）</li>
+     *   <li>未给定 jobId 时支持多维筛选：keyword / workType[] / level[] / departmentId /
+     *       location / salaryMin / salaryMax / tagSlugs[]；HR 自动限制为"自己名下岗位"</li>
+     * </ul>
+     */
     @GetMapping("/board")
     @PreAuthorize("hasAnyRole('HR', 'ADMIN')")
-    public ApiResponse<BoardVO> board(@RequestParam(required = false) Long jobId,
-                                      @RequestParam(required = false, defaultValue = "50") Integer itemsPerColumn) {
-        return ApiResponse.ok(applicationService.board(jobId, itemsPerColumn));
+    public ApiResponse<BoardVO> board(@Valid @ModelAttribute BoardQueryReq req) {
+        return ApiResponse.ok(applicationService.board(req));
     }
 
     @GetMapping("/{id}")

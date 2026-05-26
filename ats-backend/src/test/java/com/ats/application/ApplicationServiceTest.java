@@ -388,11 +388,12 @@ class ApplicationServiceTest {
         @DisplayName("Admin 全局看板（jobId=null）→ 8 列固定顺序，counts 来自 mapper")
         void adminAllBoard() {
             setAuth(1L, "ADMIN");
-            when(applicationMapper.countByStage(null, null)).thenReturn(List.of(
+            // 新签名：jobId=null + 无过滤 → jobIds=null（不限制） + hrUserId=null（admin）
+            when(applicationMapper.countByStageFiltered(null, null)).thenReturn(List.of(
                     Map.<String, Object>of("stage", "APPLIED", "cnt", 3),
                     Map.<String, Object>of("stage", "OFFER", "cnt", 1)
             ));
-            when(applicationMapper.listBoardItems(any(), any(), any(), any())).thenReturn(Collections.emptyList());
+            when(applicationMapper.listBoardItemsFiltered(any(), any(), any(), any())).thenReturn(Collections.emptyList());
 
             BoardVO board = applicationService.board(null, 50);
 

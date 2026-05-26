@@ -4,6 +4,7 @@ import com.ats.application.dto.ApplicationCreateReq;
 import com.ats.application.dto.ApplicationDetailVO;
 import com.ats.application.dto.ApplicationListItemVO;
 import com.ats.application.dto.BoardColumnVO;
+import com.ats.application.dto.BoardQueryReq;
 import com.ats.application.dto.BoardVO;
 import com.ats.application.dto.StageLogVO;
 import com.ats.common.exception.BizException;
@@ -15,6 +16,7 @@ import com.ats.entity.Job;
 import com.ats.entity.JobStatus;
 import com.ats.entity.StageLog;
 import com.ats.entity.User;
+import com.ats.job.dto.JobListReq;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.JobMapper;
 import com.ats.repository.StageLogMapper;
@@ -239,8 +241,31 @@ public class ApplicationService {
     //  BOARD：HR / Admin 看板
     // ─────────────────────────────────────────────────────────────
 
+    /** 看板候选岗位 IDs 求解上限：超过会被截断（前端的过滤越精准，越不会触顶）。 */
+    private static final int BOARD_JOB_IDS_LIMIT = 500;
+
+    /**
+     * 旧签名（保留向后兼容 + 测试覆盖）：单 jobId / 全局聚合（看 HR 名下 / Admin 全平台）。
+     * 内部委托新 {@link #board(BoardQueryReq)}。
+     */
     @Transactional(readOnly = true)
     public BoardVO board(Long jobId, int itemsPerColumn) {
+        BoardQueryReq req = new BoardQueryReq();
+        req.setJobId(jobId);
+        req.setItemsPerColumn(itemsPerColumn);
+        return board(req);
+    }
+
+    /**
+     * 多维筛选看板：
+     * <ul>
+     *   <li>{@code jobId} 给定 → 单岗位看板（保留 owner/admin 鉴权）</li>
+     *   <li>否则按 keyword / workType / level / departmentId / location / salary / tagSlugs 过滤岗位，
+     *       再聚合这些岗位下的投递。HR 自动限制为"自己名下岗位"；Admin 无限制</li>
+     * </ul>
+     */
+    @Transactional(readOnly = true)
+    public BoardVO board(BoardQueryReq req) {
         Long currentUserId = SecurityUtil.requireUserId();
         boolean isAdmin = SecurityUtil.isAdmin();
         boolean isHr = SecurityUtil.isHr();
@@ -248,29 +273,58 @@ public class ApplicationService {
             throw BizException.of(ErrorCode.FORBIDDEN);
         }
 
-        // 鉴权：单岗位看板要求 owner（HR）或 Admin
-        String jobTitle = null;
+        Long jobId = req.getJobId();
+        int itemsPerColumn = req.getItemsPerColumn() == null ? 50 : req.getItemsPerColumn();
+        int limit = itemsPerColumn <= 0 ? 50 : Math.min(itemsPerColumn, 200);
+        Long hrUserId = isAdmin ? null : currentUserId;
+
+        // ── 单岗位看板：复用旧鉴权 + 走单 jobId 通道 ──
         if (jobId != null) {
             Job job = jobMapper.selectById(jobId);
             if (job == null) throw BizException.of(ErrorCode.JOB_NOT_FOUND);
             if (!isAdmin && !Objects.equals(job.getCreatedBy(), currentUserId)) {
                 throw BizException.of(ErrorCode.JOB_ACCESS_DENIED);
             }
-            jobTitle = job.getTitle();
+            return buildBoard(List.of(jobId), hrUserId, jobId, job.getTitle(), limit);
         }
 
-        Long hrUserId = isAdmin ? null : currentUserId; // Admin 看全部；HR 只看自己名下岗位
+        // ── 多维筛选模式：先用 JobMapper 求出符合条件的 jobIds，再聚合投递 ──
+        boolean hasAnyFilter = hasAnyFilter(req);
+        List<Long> jobIds = null; // null = 不限制（即用 hrUserId 范围内全部岗位）
+        if (hasAnyFilter) {
+            JobListReq jobReq = toJobListReq(req);
+            // HR 默认只能聚合"自己名下"岗位；Admin 不限制（ownerOnlyUserId=null）。
+            Long ownerOnlyUserId = isAdmin ? null : currentUserId;
+            // 看板覆盖所有非删除的岗位状态（包含 DRAFT / ARCHIVED），让 HR 也能看自己废弃岗位上的投递长尾。
+            List<String> visibleStatuses = null;
+            jobIds = jobMapper.selectFilteredJobIds(jobReq, ownerOnlyUserId, visibleStatuses, BOARD_JOB_IDS_LIMIT);
+            log.info(
+                    "[BOARD] filter keyword={} location={} dept={} workType={} level={} tags={} salary=[{},{}] → matched jobIds count={} (hr={}, ownerOnly={})",
+                    req.getKeyword(), req.getLocation(), req.getDepartmentId(),
+                    req.getWorkType(), req.getLevel(), req.getTagSlugs(),
+                    req.getSalaryMin(), req.getSalaryMax(),
+                    jobIds.size(), hrUserId, ownerOnlyUserId);
+            // 没有任何岗位命中筛选 → 直接返回空看板（8 列，全 0）
+            if (jobIds.isEmpty()) {
+                return emptyBoard();
+            }
+        }
+        else {
+            log.info("[BOARD] no filter (hr={}, all jobs in scope)", hrUserId);
+        }
 
-        // 1) 计数
+        return buildBoard(jobIds, hrUserId, null, null, limit);
+    }
+
+    /** 公共看板组装：jobIds==null 表示"不限制"（HR 默认看自己；Admin 看全部）。 */
+    private BoardVO buildBoard(List<Long> jobIds, Long hrUserId, Long singleJobId, String singleJobTitle, int limit) {
         Map<ApplicationStage, Long> counts = new LinkedHashMap<>();
-        for (Map<String, Object> row : applicationMapper.countByStage(jobId, hrUserId)) {
+        for (Map<String, Object> row : applicationMapper.countByStageFiltered(jobIds, hrUserId)) {
             counts.put(
                     ApplicationStage.valueOf((String) row.get("stage")),
                     ((Number) row.get("cnt")).longValue());
         }
 
-        // 2) 每列前 N 个明细
-        int limit = itemsPerColumn <= 0 ? 50 : Math.min(itemsPerColumn, 200);
         List<BoardColumnVO> columns = new ArrayList<>(BOARD_ORDER.size());
         long total = 0;
         for (ApplicationStage st : BOARD_ORDER) {
@@ -278,7 +332,7 @@ public class ApplicationService {
             total += count;
             List<Map<String, Object>> rows = count == 0
                     ? List.of()
-                    : applicationMapper.listBoardItems(jobId, hrUserId, st.name(), limit);
+                    : applicationMapper.listBoardItemsFiltered(jobIds, hrUserId, st.name(), limit);
             List<ApplicationListItemVO> items = rows.stream()
                     .map(ApplicationService::toListItemVO)
                     .toList();
@@ -290,11 +344,54 @@ public class ApplicationService {
         }
 
         return BoardVO.builder()
-                .jobId(jobId)
-                .jobTitle(jobTitle)
+                .jobId(singleJobId)
+                .jobTitle(singleJobTitle)
                 .columns(columns)
                 .totalApplications(total)
                 .build();
+    }
+
+    /** 空看板：8 列固定顺序、count=0、items=[]。 */
+    private BoardVO emptyBoard() {
+        List<BoardColumnVO> columns = BOARD_ORDER.stream()
+                .map(st -> BoardColumnVO.builder().stage(st).count(0L).items(List.of()).build())
+                .toList();
+        return BoardVO.builder()
+                .jobId(null)
+                .jobTitle(null)
+                .columns(columns)
+                .totalApplications(0L)
+                .build();
+    }
+
+    /** 看板 query → JobListReq 子集映射（只用过滤字段，不涉及分页/排序）。 */
+    private static JobListReq toJobListReq(BoardQueryReq req) {
+        JobListReq j = new JobListReq();
+        j.setKeyword(req.getKeyword());
+        j.setWorkType(req.getWorkType());
+        j.setLevel(req.getLevel());
+        j.setTagSlugs(req.getTagSlugs());
+        j.setDepartmentId(req.getDepartmentId());
+        j.setLocation(req.getLocation());
+        j.setSalaryMin(req.getSalaryMin());
+        j.setSalaryMax(req.getSalaryMax());
+        return j;
+    }
+
+    /** 是否传了至少一个"筛选字段"（jobId 与 itemsPerColumn 不算）。 */
+    private static boolean hasAnyFilter(BoardQueryReq req) {
+        return isNotBlank(req.getKeyword())
+                || isNotBlank(req.getLocation())
+                || req.getDepartmentId() != null
+                || req.getSalaryMin() != null
+                || req.getSalaryMax() != null
+                || (req.getWorkType() != null && !req.getWorkType().isEmpty())
+                || (req.getLevel() != null && !req.getLevel().isEmpty())
+                || (req.getTagSlugs() != null && !req.getTagSlugs().isEmpty());
+    }
+
+    private static boolean isNotBlank(String s) {
+        return s != null && !s.trim().isEmpty();
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -72,4 +72,56 @@ public interface ApplicationMapper extends BaseMapper<Application> {
     /** 是否已投递过 (job_id, candidate_id) ；唯一约束在 DB 也兜底，但提前检查 UX 更友好。 */
     @Select("SELECT COUNT(1) FROM applications WHERE job_id = #{jobId} AND candidate_id = #{candidateId}")
     long countDuplicate(@Param("jobId") Long jobId, @Param("candidateId") Long candidateId);
+
+    // ─────────────────────────────────────────────────────────────
+    //  M2++：多维筛选版本（jobIds 集合）。原 countByStage / listBoardItems 给 stats 继续用，不动签名。
+    //  约定：jobIds 为 null → 不限制；为空集合 → 业务层应短路返回空（避免 SQL 报 syntax）。
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * 看板视图：按 stage 聚合一组岗位的投递数。jobIds == null 时不限制。
+     * 调用方必须保证 jobIds 非空（空集合应在 service 层短路返回）。
+     */
+    @Select({
+        "<script>",
+        "SELECT a.stage AS stage, COUNT(*) AS cnt",
+        "FROM applications a",
+        "JOIN jobs j ON j.id = a.job_id",
+        "WHERE j.deleted_at IS NULL",
+        "<if test='jobIds != null'>",
+        "  AND a.job_id IN <foreach collection='jobIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+        "</if>",
+        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "GROUP BY a.stage",
+        "</script>"
+    })
+    List<Map<String, Object>> countByStageFiltered(@Param("jobIds") List<Long> jobIds,
+                                                   @Param("hrUserId") Long hrUserId);
+
+    /**
+     * 看板每列明细：按 stage + jobIds 拉取候选人/岗位字段。
+     * 调用方必须保证 jobIds 非空（空集合应在 service 层短路返回）。
+     */
+    @Select({
+        "<script>",
+        "SELECT a.id, a.job_id, j.title AS job_title, a.candidate_id,",
+        "       u.full_name AS candidate_name, u.email AS candidate_email,",
+        "       a.stage, a.applied_at, a.updated_at, a.years_exp",
+        "FROM applications a",
+        "JOIN jobs j  ON j.id = a.job_id",
+        "JOIN users u ON u.id = a.candidate_id",
+        "WHERE j.deleted_at IS NULL",
+        "<if test='jobIds != null'>",
+        "  AND a.job_id IN <foreach collection='jobIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+        "</if>",
+        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "<if test='stage != null'> AND a.stage = #{stage}::application_stage </if>",
+        "ORDER BY a.updated_at DESC",
+        "<if test='limit != null'> LIMIT #{limit} </if>",
+        "</script>"
+    })
+    List<Map<String, Object>> listBoardItemsFiltered(@Param("jobIds") List<Long> jobIds,
+                                                     @Param("hrUserId") Long hrUserId,
+                                                     @Param("stage") String stage,
+                                                     @Param("limit") Integer limit);
 }

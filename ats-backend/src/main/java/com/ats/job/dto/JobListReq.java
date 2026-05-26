@@ -36,6 +36,15 @@ public class JobListReq {
 
     private Long departmentId;
 
+    /** 工作地点模糊匹配（ILIKE %x%） —— 与 keyword 解耦：keyword 只搜 title+description */
+    private String location;
+
+    /** 薪资下限过滤：jobs.salary_max >= salaryMin（即"上限 ≥ 该值"才能进入候选） */
+    private Integer salaryMin;
+
+    /** 薪资上限过滤：jobs.salary_min <= salaryMax（即"下限 ≤ 该值"才能进入候选） */
+    private Integer salaryMax;
+
     /** 仅查询当前用户自己创建的岗位（HR 后台用） */
     private Boolean mine;
 

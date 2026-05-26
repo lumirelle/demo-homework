@@ -2,6 +2,7 @@ package com.ats.web;
 
 import com.ats.application.ApplicationService;
 import com.ats.application.dto.ApplicationDetailVO;
+import com.ats.application.dto.BoardQueryReq;
 import com.ats.application.dto.BoardVO;
 import com.ats.auth.JwtAuthEntryPoint;
 import com.ats.auth.JwtAuthenticationFilter;
@@ -38,8 +39,8 @@ import java.util.Collections;
 import java.util.HashMap;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -244,8 +245,9 @@ class ApplicationControllerSecurityTest {
         @DisplayName("HR 全局看板 → 200")
         void hrAll_200() throws Exception {
             mockClaims("hr-tok", 10L, "HR");
-            when(applicationService.board(eq(null), anyInt())).thenReturn(
-                    BoardVO.builder().columns(Collections.emptyList()).totalApplications(0).build());
+            // controller 改用 @ModelAttribute BoardQueryReq，jobId 为空时 BoardQueryReq.jobId == null
+            when(applicationService.board(argThat((BoardQueryReq r) -> r != null && r.getJobId() == null)))
+                    .thenReturn(BoardVO.builder().columns(Collections.emptyList()).totalApplications(0).build());
 
             mvc.perform(MockMvcRequestBuilders.get("/applications/board")
                             .header("Authorization", "Bearer hr-tok"))
@@ -256,7 +258,7 @@ class ApplicationControllerSecurityTest {
         @DisplayName("HR 调他人岗位看板 → service 抛 JOB_ACCESS_DENIED → 403")
         void hrForeignJob_403() throws Exception {
             mockClaims("hr-tok", 20L, "HR");
-            when(applicationService.board(eq(1L), anyInt()))
+            when(applicationService.board(argThat((BoardQueryReq r) -> r != null && Long.valueOf(1L).equals(r.getJobId()))))
                     .thenThrow(new BizException(ErrorCode.JOB_ACCESS_DENIED));
 
             mvc.perform(MockMvcRequestBuilders.get("/applications/board?jobId=1")

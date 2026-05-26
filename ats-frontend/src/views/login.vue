@@ -301,11 +301,11 @@ function bringCardToTop(realIndex: number) {
         </NForm>
 
         <!-- demo account 提示卡 -->
-        <div class="demo-card mt-5 flex items-start gap-3">
+        <div class="demo-card mt-2 flex items-start gap-3">
           <span class="demo-icon">🔑</span>
           <div class="flex-1">
             <p class="text-[12px] font-semibold text-primary">
-              开发演示账号
+              管理员演示账号
             </p>
             <p class="mt-0.5 font-mono text-[11px] text-tertiary">
               admin@ats.local / Admin@123
@@ -315,6 +315,46 @@ function bringCardToTop(realIndex: number) {
             type="button"
             class="demo-fill"
             @click="model.email = 'admin@ats.local'; model.password = 'Admin@123'"
+          >
+            一键填充
+          </button>
+        </div>
+
+        <!-- demo account 提示卡 -->
+        <div class="demo-card mt-2 flex items-start gap-3">
+          <span class="demo-icon">🔑</span>
+          <div class="flex-1">
+            <p class="text-[12px] font-semibold text-primary">
+              HR 演示账号
+            </p>
+            <p class="mt-0.5 font-mono text-[11px] text-tertiary">
+              hr@ats.local / Admin@123
+            </p>
+          </div>
+          <button
+            type="button"
+            class="demo-fill"
+            @click="model.email = 'hr@ats.local'; model.password = 'Admin@123'"
+          >
+            一键填充
+          </button>
+        </div>
+
+        <!-- demo account 提示卡 -->
+        <div class="demo-card mt-2 flex items-start gap-3">
+          <span class="demo-icon">🔑</span>
+          <div class="flex-1">
+            <p class="text-[12px] font-semibold text-primary">
+              候选人演示账号
+            </p>
+            <p class="mt-0.5 font-mono text-[11px] text-tertiary">
+              candidate@ats.local / Admin@123
+            </p>
+          </div>
+          <button
+            type="button"
+            class="demo-fill"
+            @click="model.email = 'candidate@ats.local'; model.password = 'Admin@123'"
           >
             一键填充
           </button>

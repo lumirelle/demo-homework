@@ -1,4 +1,5 @@
-import type { JobStatus } from './jobs'
+import type { AxiosRequestConfig } from 'axios'
+import type { JobLevel, JobStatus, JobWorkType } from './jobs'
 import { get, post } from './request'
 
 // ─────────────────────────── 枚举：与后端 enum 对齐 ───────────────────────────
@@ -148,7 +149,39 @@ export interface BoardVO {
   totalApplications: number
 }
 
+/**
+ * 招聘看板 query 参数（与后端 BoardQueryReq 对齐）。
+ * - jobId 给定时走单岗位看板（保留 owner/admin 鉴权），其余 filter 字段被忽略
+ * - 否则按 keyword / workType[] / level[] / departmentId / location / salary / tagSlugs[] 过滤岗位，
+ *   再聚合这些岗位的投递
+ */
+export interface BoardQueryReq {
+  jobId?: number
+  keyword?: string
+  workType?: JobWorkType[]
+  level?: JobLevel[]
+  tagSlugs?: string[]
+  departmentId?: number
+  location?: string
+  salaryMin?: number
+  salaryMax?: number
+  itemsPerColumn?: number
+}
+
 // ─────────────────────────── API ───────────────────────────
+
+/**
+ * 与 jobs.ts 同样的 paramsSerializer：把数组展开为 `workType=A&workType=B`，
+ * 而不是 axios 默认的 `workType[]=A&workType[]=B`。Spring `@ModelAttribute` 才能正确绑定 List。
+ */
+function boardConfig(req: BoardQueryReq): AxiosRequestConfig {
+  return {
+    params: req,
+    paramsSerializer: {
+      indexes: null,
+    },
+  }
+}
 
 export const applicationsApi = {
   apply: (data: ApplicationCreateReq) =>
@@ -156,10 +189,9 @@ export const applicationsApi = {
 
   listMine: () => get<ApplicationListItemVO[]>('/applications/me'),
 
-  board: (jobId?: number, itemsPerColumn = 50) =>
-    get<BoardVO>('/applications/board', {
-      params: { jobId, itemsPerColumn },
-    }),
+  /** 招聘看板（多维筛选）。 */
+  board: (req: BoardQueryReq = {}) =>
+    get<BoardVO>('/applications/board', boardConfig(req)),
 
   detail: (id: number) => get<ApplicationDetailVO>(`/applications/${id}`),
 

@@ -312,7 +312,7 @@ export default defineConfig({
 
     // demo 账号卡（虚线 emerald）
     'demo-card':
-      'p-[14px] rounded-xl border border-dashed border-[rgba(16,185,129,.3)] '
+      'p-2 rounded-xl border border-dashed border-[rgba(16,185,129,.3)] '
       + 'bg-[linear-gradient(135deg,rgba(16,185,129,.06),rgba(6,182,212,.04))]',
     'demo-icon':
       'inline-flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-lg '

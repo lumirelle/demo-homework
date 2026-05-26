@@ -2,7 +2,7 @@
 
 > 3 天 AI 辅助开发的全栈 MVP · 候选人从投递到入职的完整漏斗 · **状态机看板 + 数据看板**为核心亮点。
 
-[![tests](https://img.shields.io/badge/backend--tests-282%20passing-brightgreen)]() [![lint](https://img.shields.io/badge/frontend-0%20error%20%2F%200%20warning-brightgreen)]() [![phase](https://img.shields.io/badge/phase-M5%20delivery-blue)]()
+[![tests](https://img.shields.io/badge/backend--tests-282%20passing-brightgreen)](?) [![lint](https://img.shields.io/badge/frontend-0%20error%20%2F%200%20warning-brightgreen)](?) [![phase](https://img.shields.io/badge/phase-M5%20delivery-blue)](?)
 
 ---
 

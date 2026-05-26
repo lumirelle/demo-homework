@@ -12,21 +12,22 @@
  *  其它一切 utility（text-gradient / spacing / typography ...）请用 UnoCSS atomic / shortcut。
  *  ───────────────────────────────────────────────────────────── */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
 html {
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box;
   height: 100%;
   /* 始终为滚动条预留宽度，防止过渡动画期间滚动条出现/消失引起布局抖动 */
   scrollbar-gutter: stable;
   /* 锚点滚动留出 fixed navbar (60px) 的偏移，避免目标元素被遮挡。
      同时作用于浏览器原生 <a href="#xxx"> 跳转和 vue-router scrollBehavior */
   scroll-padding-top: 76px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+  margin: 0;
+  padding: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
