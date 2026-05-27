@@ -120,6 +120,17 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/admin/departments',
+    name: 'AdminDepartments',
+    component: () => import('@/views/admin/departments.vue'),
+    meta: {
+      title: 'Admin · 部门管理',
+      requiresAuth: true,
+      roles: ['ADMIN'],
+      transition: 'fade-slide',
+    },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/not-found.vue'),

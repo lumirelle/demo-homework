@@ -37,10 +37,16 @@ public class BoardQueryReq {
     /** 标签 slug 多选（OR） */
     private List<String> tagSlugs;
 
-    /** 部门 id（单选） */
+    /**
+     * 按"上层部门"筛（M6 后语义：sub_departments.parent_department_id = ?）。
+     * 命中该部门下所有子部门的岗位。
+     */
     private Long departmentId;
 
-    /** 工作地点模糊（ILIKE %x%） */
+    /** 按"子部门"精确筛（叶子节点） */
+    private Long subDepartmentId;
+
+    /** 工作地点模糊（ILIKE %x%） —— M6 起从 sub_departments.location 取值 */
     private String location;
 
     /** 薪资过滤：jobs.salary_max >= salaryMin */

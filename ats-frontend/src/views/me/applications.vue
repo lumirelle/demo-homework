@@ -48,7 +48,8 @@ async function fetchList() {
   catch (e) {
     const err = e as { response?: { data?: { msg?: string } }, message?: string }
     errMsg.value = err.response?.data?.msg ?? err.message ?? '加载投递记录失败'
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
   }
   finally {
     loading.value = false
@@ -70,7 +71,8 @@ async function openDetail(id: number) {
   }
   catch (e) {
     drawerVisible.value = false
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -103,17 +105,22 @@ const STAGE_TIMELINE_TONE: Record<ApplicationStage, 'success' | 'warning' | 'err
 }
 
 function formatTime(iso: string | null) {
-  if (!iso) return ''
+  if (!iso)
+    return ''
   const d = new Date(iso)
   const diffH = (Date.now() - d.getTime()) / 36e5
-  if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
-  if (diffH < 24) return `${Math.floor(diffH)} 小时前`
-  if (diffH < 24 * 30) return `${Math.floor(diffH / 24)} 天前`
+  if (diffH < 1)
+    return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
+  if (diffH < 24)
+    return `${Math.floor(diffH)} 小时前`
+  if (diffH < 24 * 30)
+    return `${Math.floor(diffH / 24)} 天前`
   return d.toISOString().slice(0, 10)
 }
 
 function stageLogTitle(log: StageLogVO) {
-  if (!log.fromStage) return '候选人投递'
+  if (!log.fromStage)
+    return '候选人投递'
   return `${STAGE_LABEL[log.fromStage]} → ${STAGE_LABEL[log.toStage]}`
 }
 
@@ -122,10 +129,13 @@ function stageLogTitle(log: StageLogVO) {
  * 拒绝单独标红，不在进度条上推进；入职 100%；其余按位置 / 6 推算（HIRED 之前共 7 个非终态点）。
  */
 function progressOf(stage: ApplicationStage): number {
-  if (stage === 'REJECTED') return 100
-  if (stage === 'HIRED') return 100
+  if (stage === 'REJECTED')
+    return 100
+  if (stage === 'HIRED')
+    return 100
   const idx = STAGE_ORDER.indexOf(stage)
-  if (idx < 0) return 0
+  if (idx < 0)
+    return 0
   // APPLIED=0/6, SCREENING_PASS=1/6, ..., OFFER=5/6
   return Math.round((idx / 6) * 100)
 }
@@ -142,22 +152,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <main min-h-screen bg-app class="pt-[60px]">
-    <section max-w="[1100px]" mx-auto p="t-12 b-6 x-6">
+  <main min-h-screen bg-app pt-60px>
+    <section max-w-1100px mx-auto p="t-12 b-6 x-6">
       <p kicker mb-3>
         My Applications · 我的投递
       </p>
-      <h1 m-0 text-[clamp(28px,4vw,44px)] text-gray-900 font-black tracking="[-0.03em]" leading="[1.1]">
-        追踪你的<span class="text-gradient">每一次面试旅程</span>
+      <h1 m-0 text-gray-900 font-black tracking--0.03em leading="[1.1]" class="text-[clamp(28px,4vw,44px)]">
+        >
+        追踪你的<span text-gradient>每一次面试旅程</span>
       </h1>
-      <p mt-3 text-base text-secondary max-w="[640px]" leading="[1.65]">
+      <p mt-3 text-base text-secondary max-w-640px leading="[1.65]">
         共 <span text-primary font-semibold>{{ items.length }}</span> 个投递 ·
         进行中 <span text-primary font-semibold>{{ grouped.active.length }}</span> ·
         已完成 <span text-primary font-semibold>{{ grouped.closed.length }}</span>
       </p>
     </section>
 
-    <section max-w="[1100px]" mx-auto p="b-12 x-6">
+    <section max-w-1100px mx-auto p="b-12 x-6">
       <NSpin :show="loading">
         <!-- 错误 -->
         <ErrorBlock
@@ -183,7 +194,7 @@ onMounted(() => {
 
         <!-- 骨架 -->
         <div v-else-if="loading && items.length === 0" flex="~ col" gap-3>
-          <div v-for="i in 3" :key="i" class="card-base" p-5>
+          <div v-for="i in 3" :key="i" card-base p-5>
             <NSkeleton text :repeat="2" />
             <NSkeleton text style="width: 50%" />
           </div>
@@ -207,14 +218,14 @@ onMounted(() => {
               >
                 <div flex="~ items-start justify-between" gap-3 mb-2>
                   <div flex-1 min-w-0>
-                    <h3 m-0 font-bold text-lg text-primary leading="tight" class="truncate">
+                    <h3 m-0 font-bold text-lg text-primary leading="tight" truncate>
                       {{ item.jobTitle }}
                     </h3>
                     <p m="t-1 b-0" text-xs text-tertiary>
                       {{ formatTime(item.appliedAt) }}投递 · 最近更新 {{ formatTime(item.updatedAt) }}
                     </p>
                   </div>
-                  <NTag :type="STAGE_TONE[item.stage]" size="small" round :bordered="false" class="flex-shrink-0">
+                  <NTag :type="STAGE_TONE[item.stage]" size="small" round :bordered="false" shrink-0>
                     {{ STAGE_LABEL[item.stage] }}
                   </NTag>
                 </div>
@@ -243,14 +254,14 @@ onMounted(() => {
               >
                 <div flex="~ items-start justify-between" gap-3>
                   <div flex-1 min-w-0>
-                    <h3 m-0 font-bold text-lg text-primary leading="tight" class="truncate" :class="{ 'op-70': item.stage === 'REJECTED' }">
+                    <h3 m-0 font-bold text-lg text-primary leading="tight" truncate :class="{ 'op-70': item.stage === 'REJECTED' }">
                       {{ item.jobTitle }}
                     </h3>
                     <p m="t-1 b-0" text-xs text-tertiary>
                       {{ formatTime(item.appliedAt) }}投递 · 结果于 {{ formatTime(item.updatedAt) }}
                     </p>
                   </div>
-                  <NTag :type="STAGE_TONE[item.stage]" size="small" round :bordered="false" class="flex-shrink-0">
+                  <NTag :type="STAGE_TONE[item.stage]" size="small" round :bordered="false" shrink-0>
                     {{ STAGE_LABEL[item.stage] }}
                   </NTag>
                 </div>
@@ -289,7 +300,7 @@ onMounted(() => {
                 投递时间：{{ formatTime(detail.appliedAt) }} · 最近更新：{{ formatTime(detail.updatedAt) }}
               </p>
 
-              <!-- 投递时填的简历 / 联系方式（候选人自己回看）-->
+              <!-- 投递时填的简历 / 联系方式（候选人自己回看） -->
               <div mt-3 grid grid-cols-2 gap-3 p-3 rounded-md bg-muted text-xs text-secondary>
                 <div>
                   <span text-tertiary>工作年限 ·</span>
@@ -299,14 +310,14 @@ onMounted(() => {
                   <span text-tertiary>联系方式 ·</span>
                   <span text-primary font-medium ml-1 font-mono>{{ detail.phone ?? '—' }}</span>
                 </div>
-                <div v-if="detail.resumeUrl" col-span-2 class="truncate">
+                <div v-if="detail.resumeUrl" col-span-2 truncate>
                   <span text-tertiary>简历 ·</span>
                   <a
                     v-if="isResumeFile(detail.resumeUrl)"
                     :href="resumeDownloadUrl(detail.resumeUrl)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium"
+                    ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium
                   >
                     <span class="resume-pill">PDF</span> 在新标签页打开
                   </a>
@@ -315,7 +326,7 @@ onMounted(() => {
                     :href="detail.resumeUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 text-brand-700 hover:underline font-medium"
+                    ml-1 text-brand-700 hover:underline font-medium
                   >
                     {{ detail.resumeUrl }}
                   </a>
@@ -324,7 +335,7 @@ onMounted(() => {
 
               <p
                 v-if="detail.stage === 'REJECTED' && detail.rejectReason"
-                class="mt-3 p-3 rounded-md bg-danger-50 border border-(--danger-500) text-sm text-danger-700"
+                mt-3 p-3 rounded-md bg-danger-50 border border-danger-500 text-sm text-danger-700
               >
                 <strong>未通过原因：</strong>{{ detail.rejectReason }}
               </p>

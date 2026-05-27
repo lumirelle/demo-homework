@@ -7,7 +7,10 @@ import com.ats.auth.dto.CreateUserReq;
 import com.ats.auth.dto.MeVO;
 import com.ats.common.exception.BizException;
 import com.ats.common.exception.ErrorCode;
+import com.ats.entity.SubDepartment;
 import com.ats.entity.User;
+import com.ats.repository.HrSubDepartmentMapper;
+import com.ats.repository.SubDepartmentMapper;
 import com.ats.repository.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ import java.util.Set;
  *   先匹配先成功、后续记为 EMAIL_ALREADY_EXISTS；
  * - ADMIN 账号始终拒绝创建（防权限提升）—— Bean Validation 在 DTO 层
  *   已用 {@code @Pattern(regexp = "HR|CANDIDATE")} 拦下，service 层不再额外判断。
+ * - M6：HR 创建时必须绑定至少一个子部门（hr_sub_departments）。
  */
 @Slf4j
 @Service
@@ -41,6 +45,8 @@ public class AdminUserService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final SubDepartmentMapper subDepartmentMapper;
+    private final HrSubDepartmentMapper hrSubDepartmentMapper;
 
     /** 创建单个 HR / CANDIDATE 账号。 */
     @Transactional
@@ -51,7 +57,10 @@ public class AdminUserService {
                 new LambdaQueryWrapper<User>().eq(User::getEmail, email));
         if (count > 0) throw BizException.of(ErrorCode.EMAIL_ALREADY_EXISTS);
 
+        validateRoleBindings(req);
+
         User user = persist(email, req.getPassword(), req.getFullName(), req.getRole());
+        bindHrSubDepartments(user.getId(), req.getRole(), req.getSubDepartmentIds());
 
         log.info("[ADMIN] create user id={} email={} role={}", user.getId(), user.getEmail(), user.getRole());
         return MeVO.builder()
@@ -86,7 +95,10 @@ public class AdminUserService {
                         new LambdaQueryWrapper<User>().eq(User::getEmail, email));
                 if (count > 0) throw BizException.of(ErrorCode.EMAIL_ALREADY_EXISTS);
 
+                validateRoleBindings(item);
+
                 User user = persist(email, item.getPassword(), item.getFullName(), item.getRole());
+                bindHrSubDepartments(user.getId(), item.getRole(), item.getSubDepartmentIds());
 
                 items.add(BatchCreateItemVO.builder()
                         .rowIndex(i)
@@ -128,6 +140,37 @@ public class AdminUserService {
                 .failureCount(failure)
                 .items(items)
                 .build();
+    }
+
+    private void validateRoleBindings(CreateUserReq req) {
+        if (!"HR".equalsIgnoreCase(req.getRole())) {
+            return;
+        }
+        List<Long> ids = req.getSubDepartmentIds();
+        if (ids == null || ids.isEmpty()) {
+            throw new BizException(ErrorCode.VALIDATION_FAILED, "创建 HR 账号必须绑定至少一个子部门");
+        }
+        validateSubDepartmentIds(ids);
+    }
+
+    private void validateSubDepartmentIds(List<Long> ids) {
+        Set<Long> unique = new HashSet<>(ids);
+        if (unique.size() != ids.size()) {
+            throw new BizException(ErrorCode.VALIDATION_FAILED, "子部门 id 列表不能重复");
+        }
+        for (Long id : unique) {
+            SubDepartment sd = subDepartmentMapper.selectById(id);
+            if (sd == null) {
+                throw BizException.of(ErrorCode.SUB_DEPARTMENT_NOT_FOUND);
+            }
+        }
+    }
+
+    private void bindHrSubDepartments(Long userId, String role, List<Long> subDepartmentIds) {
+        if (!"HR".equalsIgnoreCase(role) || subDepartmentIds == null || subDepartmentIds.isEmpty()) {
+            return;
+        }
+        hrSubDepartmentMapper.batchInsert(userId, subDepartmentIds);
     }
 
     private User persist(String email, String password, String fullName, String role) {

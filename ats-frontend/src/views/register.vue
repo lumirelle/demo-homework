@@ -109,53 +109,53 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <div flex min-h-screen>
     <!-- ══ 左：品牌视觉面板 ══════════════════════════════════ -->
-    <div class="brand-pane w-[52%]">
-      <div class="aurora-bg-register" />
-      <div class="grid-overlay" />
+    <div brand-pane w="52%">
+      <div aurora-bg-register />
+      <div grid-overlay />
 
-      <div class="orb-base animate-orb-float-a right-[-100px] top-[-120px] bg-[radial-gradient(circle,rgba(6,182,212,.6),transparent_70%)]" />
-      <div class="orb-base animate-orb-float-b left-[-80px] bottom-[-140px] bg-[radial-gradient(circle,rgba(16,185,129,.5),transparent_70%)]" />
+      <div orb-base animate-orb-float-a right--100px top--120px class="bg-[radial-gradient(circle,rgba(6,182,212,.6),transparent_70%)]" />
+      <div orb-base animate-orb-float-b left--80px bottom--140px class="bg-[radial-gradient(circle,rgba(16,185,129,.5),transparent_70%)]" />
 
       <!-- 顶部 -->
-      <div class="absolute inset-x-12 top-12 z-20 between-flex">
-        <router-link to="/home" class="flex items-center gap-2.5 no-underline transition-opacity hover:opacity-75">
-          <span class="logo-mark-lg">
+      <div absolute inset-x-12 top-12 z-20 between-flex>
+        <router-link to="/home" flex items-center gap-2.5 no-underline transition-opacity hover:opacity-75>
+          <span logo-mark-lg>
             <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
               <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M4.5 10 L7 6.5 L9.5 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.45" />
             </svg>
           </span>
-          <span class="font-display text-base font-bold tracking-wide text-white">ATS</span>
+          <span font-display text-base font-bold tracking-wide text-white>ATS</span>
         </router-link>
 
-        <div class="flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 backdrop-blur-md">
-          <span class="text-base">🌱</span>
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-cyan-300">Candidate</span>
+        <div flex items-center gap-2 rounded-full border border-cyan="400/30" bg-cyan="400/10" px-3 py-1 backdrop-blur-md>
+          <span text-base>🌱</span>
+          <span text-11px font-semibold uppercase tracking-widest text-cyan-300>Candidate</span>
         </div>
       </div>
 
       <!-- 巨型 hero -->
-      <div class="absolute inset-0 z-10 col-flex justify-center px-12">
-        <p class="eyebrow mb-4 text-cyan-400">
-          <span class="h-px w-8 bg-cyan-400/50" />
+      <div absolute inset-0 z-10 col-flex justify-center px-12>
+        <p eyebrow mb-4 text-cyan-400>
+          <span h-px w-8 bg-cyan="400/50" />
           Start Your Journey
         </p>
 
-        <h1 class="hero-display">
-          <span class="hero-outline">Grow</span>
-          <span class="block text-white/95">into your</span>
-          <span class="hero-gradient-cyan">next step.</span>
+        <h1 hero-display>
+          <span hero-outline>Grow</span>
+          <span block class="text-white/95">into your</span>
+          <span hero-gradient-cyan>next step.</span>
         </h1>
 
-        <p class="mt-8 max-w-[380px] text-sm leading-relaxed text-white/45">
+        <p mt-8 max-w-380px text-sm leading-relaxed class="text-white/45">
           注册一个候选人账号，把你的简历投出去。<br>
           所有进展，一目了然。
         </p>
 
         <!-- 数据卡片 + 旋转标签 -->
-        <div class="mt-10 flex items-end gap-5">
+        <div mt-10 flex items-end gap-5>
           <div class="stat-block">
             <div class="stat-num">
               {{ coveredDepartmentsLabel }}
@@ -206,16 +206,16 @@ async function handleSubmit() {
       <!-- interests counter -->
       <Transition name="counter-fade">
         <div v-if="interests.size > 0" class="interests-counter">
-          <span class="text-[11px] uppercase tracking-widest text-emerald-300/80">已收藏</span>
-          <span class="font-display text-lg font-bold text-white tabular-nums">{{ interests.size }}</span>
-          <span class="text-xs text-white/40">/ {{ TAGS.length }}</span>
+          <span text-11px uppercase tracking-widest text-emerald="300/80">已收藏</span>
+          <span font-display text-lg font-bold text-white tabular-nums>{{ interests.size }}</span>
+          <span text-xs class="text-white/40">/ {{ TAGS.length }}</span>
         </div>
       </Transition>
 
       <!-- 底部 -->
-      <div class="absolute inset-x-12 bottom-10 z-10 flex items-center justify-between border-t border-white/[.06] pt-5 text-[11px] uppercase tracking-widest text-white/30">
-        <span class="flex items-center gap-2">
-          <span class="h-1 w-1 rounded-full bg-cyan-400" />
+      <div absolute inset-x-12 bottom-10 z-10 flex items-center justify-between border-t border="white/[.06]" pt-5 text-11px uppercase tracking-widest class="text-white/30">
+        <span flex items-center gap-2>
+          <span h-1 w-1 rounded-full bg-cyan-400 />
           Free Forever
         </span>
         <span>HR 账号请联系管理员创建</span>
@@ -223,21 +223,23 @@ async function handleSubmit() {
     </div>
 
     <!-- ══ 右：表单面板 ════════════════════════════════════== -->
-    <div class="flex flex-1 flex-col items-center justify-center bg-app px-6 py-12">
-      <div class="w-full max-w-[400px]">
+    <div flex flex-1 flex-col items-center justify-center bg-app px-6 py-12>
+      <div
+        w-full max-w-400px
+      >
         <!-- top bar: mobile logo + 返回首页 -->
-        <div class="mb-10 flex items-center justify-between">
-          <router-link to="/home" class="flex items-center gap-2 no-underline lg:hidden">
-            <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-emerald-400 to-teal-500">
+        <div mb-10 flex items-center justify-between>
+          <router-link to="/home" flex items-center gap-2 no-underline lg:hidden>
+            <span flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-emerald-400 to-teal-500>
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
                 <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            <span class="font-display text-lg font-bold text-primary">ATS</span>
+            <span font-display text-lg font-bold text-primary>ATS</span>
           </router-link>
           <router-link
             to="/home"
-            class="flex items-center gap-1 text-sm text-tertiary no-underline transition-colors hover:text-primary"
+            flex items-center gap-1 text-sm text-tertiary no-underline transition-colors hover:text-primary
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M8.5 3 L4 7 L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -247,17 +249,17 @@ async function handleSubmit() {
         </div>
 
         <!-- success state -->
-        <div v-if="done" class="success-state text-center">
-          <div class="success-check-wrap mx-auto mb-5">
+        <div v-if="done" class="success-state" text-center>
+          <div class="success-check-wrap" mx-auto mb-5>
             <svg class="success-check" width="32" height="32" viewBox="0 0 32 32" fill="none">
               <circle cx="16" cy="16" r="14" stroke="#10b981" stroke-width="2" stroke-dasharray="88" stroke-dashoffset="88" pathLength="88" />
               <path d="M9 16 L14 21 L23 11" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="22" stroke-dashoffset="22" pathLength="22" />
             </svg>
           </div>
-          <h2 class="mb-2 font-display text-2xl font-bold text-primary">
+          <h2 mb-2 font-display text-2xl font-bold text-primary>
             注册成功 ✨
           </h2>
-          <p class="text-sm text-tertiary">
+          <p text-sm text-tertiary>
             2 秒后自动跳转到登录页…
           </p>
         </div>
@@ -282,26 +284,26 @@ async function handleSubmit() {
           </div>
 
           <!-- heading -->
-          <div class="mb-7">
-            <h2 class="mb-2 flex items-center gap-2 font-display text-[28px] font-bold leading-tight text-primary">
+          <div mb-7>
+            <h2 mb-2 flex items-center gap-2 font-display text-28px font-bold leading-tight text-primary>
               创建账号
-              <span class="text-2xl">🌱</span>
+              <span text-2xl>🌱</span>
             </h2>
-            <p class="text-sm text-tertiary">
+            <p text-sm text-tertiary>
               候选人账号 · 免费 · 30 秒完成
             </p>
           </div>
 
           <!-- error -->
           <Transition name="fade">
-            <div v-if="errorMsg" class="error-banner mb-5">
-              <span class="error-icon">
+            <div v-if="errorMsg" error-banner mb-5>
+              <span error-icon>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5" />
                   <path d="M7 4 V8 M7 10 V10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                 </svg>
               </span>
-              <p class="flex-1 text-sm">
+              <p flex-1 text-sm>
                 {{ errorMsg }}
               </p>
             </div>
@@ -356,7 +358,7 @@ async function handleSubmit() {
             </NFormItem>
 
             <!-- password strength -->
-            <div v-if="model.password" class="strength-meter mb-3">
+            <div v-if="model.password" class="strength-meter" mb-3>
               <div class="strength-bars">
                 <span class="bar" :class="{ on: pwStrength >= 1, weak: pwStrength === 1 }" />
                 <span class="bar" :class="{ on: pwStrength >= 2, mid: pwStrength === 2 }" />
@@ -366,39 +368,39 @@ async function handleSubmit() {
             </div>
 
             <!-- submit -->
-            <button type="button" class="btn-primary" :disabled="loading" @click="handleSubmit">
-              <span v-if="!loading" class="relative z-10 center-flex gap-2">
+            <button type="button" btn-primary :disabled="loading" @click="handleSubmit">
+              <span v-if="!loading" relative z-10 center-flex gap-2>
                 立即注册
-                <kbd class="kbd-hint">⏎</kbd>
+                <kbd kbd-hint>⏎</kbd>
               </span>
-              <span v-else class="relative z-10 center-flex gap-2">
-                <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <span v-else relative z-10 center-flex gap-2>
+                <svg animate-spin width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity=".25" />
                   <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
                 </svg>
                 注册中…
               </span>
-              <span class="btn-shimmer" />
+              <span btn-shimmer />
             </button>
 
-            <p class="mt-3 text-center text-[11px] text-tertiary">
+            <p mt-3 text-center text-11px text-tertiary>
               注册即表示同意
-              <span class="text-brand-700 font-medium" title="演示项目，暂未提供独立条款页面">服务条款</span>
+              <span text-brand-700 font-medium title="演示项目，暂未提供独立条款页面">服务条款</span>
               与
-              <span class="text-brand-700 font-medium" title="演示项目，暂未提供独立条款页面">隐私政策</span>
-              <span class="ml-1 text-tertiary">· 演示版本</span>
+              <span text-brand-700 font-medium title="演示项目，暂未提供独立条款页面">隐私政策</span>
+              <span ml-1 text-tertiary>· 演示版本</span>
             </p>
           </NForm>
 
-          <div class="my-6 flex items-center gap-3">
-            <div class="h-px flex-1 bg-(--border-default)" />
-            <span class="text-[11px] uppercase tracking-widest text-tertiary">已有账号</span>
-            <div class="h-px flex-1 bg-(--border-default)" />
+          <div my-6 flex items-center gap-3>
+            <div h-px flex-1 class="bg-(--border-default)" />
+            <span text-11px uppercase tracking-widest text-tertiary>已有账号</span>
+            <div h-px flex-1 class="bg-(--border-default)" />
           </div>
 
-          <router-link to="/login" class="btn-secondary group">
+          <router-link to="/login" btn-secondary group>
             登录已有账号
-            <svg class="transition-transform group-hover:translate-x-0.5" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <svg transition-transform group-hover:translate-x-0.5 width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 7 H11 M7 3 L11 7 L7 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </router-link>

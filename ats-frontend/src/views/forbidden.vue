@@ -20,17 +20,17 @@ async function switchAccount() {
 </script>
 
 <template>
-  <main min-h-screen flex-col flex="~ items-center justify-center" bg-app class="px-4 pt-[60px] text-center">
+  <main min-h-screen flex-col flex="~ items-center justify-center" bg-app px-4 pt-60px text-center>
     <p kicker mb-4>
       403 · Forbidden
     </p>
-    <div class="text-[7rem] font-display font-bold leading-none text-gradient mb-4 select-none" aria-hidden="true">
+    <div text-7rem font-display font-bold leading-none text-gradient mb-4 select-none aria-hidden="true">
       403
     </div>
     <h1 text-2xl font-bold text-primary mb-3>
       无权访问
     </h1>
-    <p text-tertiary mb-8 class="max-w-[420px] leading-relaxed">
+    <p text-tertiary mb-8 max-w-420px leading-relaxed>
       您的角色 <strong text-primary>{{ auth.role ?? '未知' }}</strong> 没有访问此页面的权限。<br>
       可以返回上一页继续操作，或切换账号试试看。
     </p>

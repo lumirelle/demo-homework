@@ -11,6 +11,8 @@ export interface CreateUserReq {
   password: string
   fullName: string
   role: 'HR' | 'CANDIDATE'
+  /** HR 必填：绑定的子部门 id 列表（M6 多对多） */
+  subDepartmentIds?: number[]
 }
 
 /** 批量创建结果中的单行结果 */

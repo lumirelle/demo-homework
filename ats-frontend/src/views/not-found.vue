@@ -14,9 +14,11 @@ const paused = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 
 function startTimer() {
-  if (timer) return
+  if (timer)
+    return
   timer = setInterval(() => {
-    if (paused.value) return
+    if (paused.value)
+      return
     remaining.value -= 1
     if (remaining.value <= 0) {
       stopTimer()
@@ -26,7 +28,8 @@ function startTimer() {
 }
 
 function stopTimer() {
-  if (timer) clearInterval(timer)
+  if (timer)
+    clearInterval(timer)
   timer = null
 }
 
@@ -54,7 +57,7 @@ onBeforeUnmount(stopTimer)
 <template>
   <main
     min-h-screen flex-col flex="~ items-center justify-center"
-    bg-app class="px-4 pt-[60px] text-center"
+    bg-app px-4 pt-60px text-center
     @mouseenter="paused = true"
     @mouseleave="paused = false"
     @focusin="paused = true"
@@ -63,21 +66,21 @@ onBeforeUnmount(stopTimer)
     <p kicker mb-4>
       404 · Not Found
     </p>
-    <div class="text-[7rem] font-display font-bold leading-none text-gradient mb-4 select-none" aria-hidden="true">
+    <div text-7rem font-display font-bold leading-none text-gradient mb-4 select-none aria-hidden="true">
       404
     </div>
     <h1 text-2xl font-bold text-primary mb-3>
       Page Not Found
     </h1>
-    <p text-tertiary mb-2 class="max-w-[420px]">
+    <p text-tertiary mb-2 max-w-420px>
       你访问的页面不存在或还没建。
     </p>
-    <p text-tertiary mb-8 class="max-w-[420px] text-sm">
+    <p text-tertiary mb-8 max-w-420px text-sm>
       <template v-if="!paused">
         <span text-brand-500 text-mono aria-live="polite">{{ remaining }}s</span> 后自动回首页 ·
         <button
           type="button"
-          class="text-brand-700 hover:underline ml-1"
+          text-brand-700 hover:underline ml-1
           @click="togglePause"
         >
           暂停
@@ -87,7 +90,7 @@ onBeforeUnmount(stopTimer)
         <span text-tertiary>已暂停 ·</span>
         <button
           type="button"
-          class="text-brand-700 hover:underline ml-1"
+          text-brand-700 hover:underline ml-1
           @click="togglePause"
         >
           继续倒计时

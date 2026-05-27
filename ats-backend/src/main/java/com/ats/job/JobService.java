@@ -19,6 +19,7 @@ import com.ats.job.dto.TagVO;
 import com.ats.repository.JobMapper;
 import com.ats.repository.JobTagMapper;
 import com.ats.repository.JobTagRow;
+import com.ats.repository.SubDepartmentMapper;
 import com.ats.repository.TagMapper;
 import com.ats.repository.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -46,6 +47,7 @@ public class JobService {
     private final TagMapper tagMapper;
     private final JobTagMapper jobTagMapper;
     private final UserMapper userMapper;
+    private final SubDepartmentMapper subDepartmentMapper;
 
     /** sortBy 白名单：snake_case 列名 */
     private static final Map<String, String> SORT_COLUMNS = Map.of(
@@ -68,18 +70,18 @@ public class JobService {
         Long currentUserId = SecurityUtil.requireUserId();
         validateSalaryRange(req.getSalaryMin(), req.getSalaryMax());
         validateTagIds(req.getTagIds());
+        validateSubDepartmentExists(req.getSubDepartmentId());
 
         Job job = new Job();
         job.setCreatedBy(currentUserId);
         job.setTitle(req.getTitle().trim());
         job.setDescription(req.getDescription());
-        job.setLocation(req.getLocation());
         job.setWorkType(req.getWorkType().name());
         job.setLevel(req.getLevel().name());
         job.setSalaryMin(req.getSalaryMin());
         job.setSalaryMax(req.getSalaryMax());
         job.setHeadcount(req.getHeadcount() != null ? req.getHeadcount() : (short) 1);
-        job.setDepartmentId(req.getDepartmentId());
+        job.setSubDepartmentId(req.getSubDepartmentId());
         job.setStatus(JobStatus.DRAFT.name());
         job.setViewCount(0);
         jobMapper.insert(job);
@@ -107,13 +109,15 @@ public class JobService {
 
         if (req.getTitle() != null)       job.setTitle(req.getTitle().trim());
         if (req.getDescription() != null) job.setDescription(req.getDescription());
-        if (req.getLocation() != null)    job.setLocation(req.getLocation());
         if (req.getWorkType() != null)    job.setWorkType(req.getWorkType().name());
         if (req.getLevel() != null)       job.setLevel(req.getLevel().name());
         if (req.getSalaryMin() != null)   job.setSalaryMin(req.getSalaryMin());
         if (req.getSalaryMax() != null)   job.setSalaryMax(req.getSalaryMax());
         if (req.getHeadcount() != null)   job.setHeadcount(req.getHeadcount());
-        if (req.getDepartmentId() != null) job.setDepartmentId(req.getDepartmentId());
+        if (req.getSubDepartmentId() != null) {
+            validateSubDepartmentExists(req.getSubDepartmentId());
+            job.setSubDepartmentId(req.getSubDepartmentId());
+        }
 
         jobMapper.updateById(job);
 
@@ -196,10 +200,10 @@ public class JobService {
 
         Map<Long, List<TagVO>> tagMap = batchLoadTags(List.of(id));
         Map<Long, User> userMap = batchLoadUsers(List.of(job.getCreatedBy()));
-        Map<Long, String> deptMap = batchLoadDepartments(
-                job.getDepartmentId() == null ? List.of() : List.of(job.getDepartmentId()));
+        Map<Long, SubDepartmentExpanded> subDeptMap = batchLoadSubDepartments(
+                job.getSubDepartmentId() == null ? List.of() : List.of(job.getSubDepartmentId()));
 
-        return toDetailVO(job, tagMap, userMap, deptMap, isAdmin || isOwner);
+        return toDetailVO(job, tagMap, userMap, subDeptMap, isAdmin || isOwner);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -261,14 +265,14 @@ public class JobService {
         Map<Long, List<TagVO>> tagMap = batchLoadTags(jobIds);
 
         Set<Long> userIds = jobs.stream().map(Job::getCreatedBy).collect(Collectors.toSet());
-        Set<Long> deptIds = jobs.stream()
-                .map(Job::getDepartmentId).filter(java.util.Objects::nonNull)
+        Set<Long> subDeptIds = jobs.stream()
+                .map(Job::getSubDepartmentId).filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, User> userMap = batchLoadUsers(new ArrayList<>(userIds));
-        Map<Long, String> deptMap = batchLoadDepartments(new ArrayList<>(deptIds));
+        Map<Long, SubDepartmentExpanded> subDeptMap = batchLoadSubDepartments(new ArrayList<>(subDeptIds));
 
         List<JobListItemVO> items = jobs.stream()
-                .map(j -> toListItemVO(j, tagMap, userMap, deptMap))
+                .map(j -> toListItemVO(j, tagMap, userMap, subDeptMap))
                 .toList();
 
         return new PageResult<>(items, total, page, size);
@@ -329,26 +333,40 @@ public class JobService {
         return users.stream().collect(Collectors.toMap(User::getId, u -> u));
     }
 
-    /** 部门字典（id → name），借用 JobMapper.selectDepartmentNames 避免为只读字典建独立 Mapper。 */
-    private Map<Long, String> batchLoadDepartments(List<Long> deptIds) {
-        if (deptIds == null || deptIds.isEmpty()) return Collections.emptyMap();
-        return jobMapper.selectDepartmentNames(deptIds).stream()
+    /** 校验子部门存在；不存在时抛 DEPARTMENT_NOT_FOUND。 */
+    private void validateSubDepartmentExists(Long subDepartmentId) {
+        if (subDepartmentId == null) {
+            throw BizException.of(ErrorCode.DEPARTMENT_NOT_FOUND);
+        }
+        if (subDepartmentMapper.selectById(subDepartmentId) == null) {
+            throw BizException.of(ErrorCode.DEPARTMENT_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 批量加载子部门 + 上层部门 + 根组织 展示信息。
+     * 复用 SubDepartmentMapper.selectExpandedByIds 的 JOIN 结果。
+     */
+    private Map<Long, SubDepartmentExpanded> batchLoadSubDepartments(List<Long> subDeptIds) {
+        if (subDeptIds == null || subDeptIds.isEmpty()) return Collections.emptyMap();
+        return subDepartmentMapper.selectExpandedByIds(subDeptIds).stream()
                 .collect(Collectors.toMap(
                         m -> ((Number) m.get("id")).longValue(),
-                        m -> (String) m.get("name")));
+                        SubDepartmentExpanded::from));
     }
 
     private static JobListItemVO toListItemVO(Job j,
                                               Map<Long, List<TagVO>> tagMap,
                                               Map<Long, User> userMap,
-                                              Map<Long, String> deptMap) {
+                                              Map<Long, SubDepartmentExpanded> subDeptMap) {
         List<TagVO> tags = tagMap.getOrDefault(j.getId(), Collections.emptyList());
         if (tags.size() > 5) tags = tags.subList(0, 5);
         User creator = userMap.get(j.getCreatedBy());
+        SubDepartmentExpanded sd = j.getSubDepartmentId() == null ? null : subDeptMap.get(j.getSubDepartmentId());
         return JobListItemVO.builder()
                 .id(j.getId())
                 .title(j.getTitle())
-                .location(j.getLocation())
+                .location(sd == null ? null : sd.location)
                 .workType(JobWorkType.valueOf(j.getWorkType()))
                 .level(JobLevel.valueOf(j.getLevel()))
                 .salaryMin(j.getSalaryMin())
@@ -359,8 +377,12 @@ public class JobService {
                 .viewCount(j.getViewCount())
                 .publishedAt(j.getPublishedAt())
                 .updatedAt(j.getUpdatedAt())
-                .departmentId(j.getDepartmentId())
-                .departmentName(j.getDepartmentId() == null ? null : deptMap.get(j.getDepartmentId()))
+                .subDepartmentId(j.getSubDepartmentId())
+                .subDepartmentName(sd == null ? null : sd.name)
+                .departmentId(sd == null ? null : sd.parentDepartmentId)
+                .departmentName(sd == null ? null : sd.parentDepartmentName)
+                .rootOrgId(sd == null ? null : sd.rootOrgId)
+                .rootOrgName(sd == null ? null : sd.rootOrgName)
                 .createdBy(j.getCreatedBy())
                 .createdByName(creator == null ? null : creator.getFullName())
                 .tags(tags)
@@ -370,15 +392,16 @@ public class JobService {
     private static JobDetailVO toDetailVO(Job j,
                                           Map<Long, List<TagVO>> tagMap,
                                           Map<Long, User> userMap,
-                                          Map<Long, String> deptMap,
+                                          Map<Long, SubDepartmentExpanded> subDeptMap,
                                           boolean canManage) {
         User creator = userMap.get(j.getCreatedBy());
         JobStatus status = JobStatus.valueOf(j.getStatus());
+        SubDepartmentExpanded sd = j.getSubDepartmentId() == null ? null : subDeptMap.get(j.getSubDepartmentId());
         return JobDetailVO.builder()
                 .id(j.getId())
                 .title(j.getTitle())
                 .description(j.getDescription())
-                .location(j.getLocation())
+                .location(sd == null ? null : sd.location)
                 .workType(JobWorkType.valueOf(j.getWorkType()))
                 .level(JobLevel.valueOf(j.getLevel()))
                 .salaryMin(j.getSalaryMin())
@@ -391,13 +414,34 @@ public class JobService {
                 .closedAt(j.getClosedAt())
                 .createdAt(j.getCreatedAt())
                 .updatedAt(j.getUpdatedAt())
-                .departmentId(j.getDepartmentId())
-                .departmentName(j.getDepartmentId() == null ? null : deptMap.get(j.getDepartmentId()))
+                .subDepartmentId(j.getSubDepartmentId())
+                .subDepartmentName(sd == null ? null : sd.name)
+                .departmentId(sd == null ? null : sd.parentDepartmentId)
+                .departmentName(sd == null ? null : sd.parentDepartmentName)
+                .rootOrgId(sd == null ? null : sd.rootOrgId)
+                .rootOrgName(sd == null ? null : sd.rootOrgName)
                 .createdBy(j.getCreatedBy())
                 .createdByName(creator == null ? null : creator.getFullName())
                 .tags(tagMap.getOrDefault(j.getId(), Collections.emptyList()))
                 .allowedTransitions(canManage ? JobStatusMachine.nextStates(status) : null)
                 .build();
+    }
+
+    /** 内部容器：把 SubDepartmentMapper 返回的扁平行映射成可读字段，避免 Map 散落。 */
+    private record SubDepartmentExpanded(
+            Long id, String name, String location,
+            Long parentDepartmentId, String parentDepartmentName,
+            Long rootOrgId, String rootOrgName) {
+        static SubDepartmentExpanded from(Map<String, Object> row) {
+            return new SubDepartmentExpanded(
+                    ((Number) row.get("id")).longValue(),
+                    (String) row.get("name"),
+                    (String) row.get("location"),
+                    row.get("parent_department_id") == null ? null : ((Number) row.get("parent_department_id")).longValue(),
+                    (String) row.get("parent_department_name"),
+                    row.get("root_org_id") == null ? null : ((Number) row.get("root_org_id")).longValue(),
+                    (String) row.get("root_org_name"));
+        }
     }
 
     /** "30k-50k" / "30k 起" / "面议" */

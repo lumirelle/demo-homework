@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import type { AutoCompleteOption, SelectOption } from 'naive-ui'
 import type { ApplicationDetailVO, ApplicationListItemVO, ApplicationStage, BoardColumnVO, BoardQueryReq, BoardVO, StageLogVO } from '@/api/applications'
-import type { DepartmentVO } from '@/api/departments'
+import type { DepartmentVO, SubDepartmentVO } from '@/api/departments'
 import type { InterviewCreateReq, InterviewVO } from '@/api/interviews'
 import type { JobLevel, JobListItemVO, JobWorkType, TagVO } from '@/api/jobs'
-import type { SelectOption } from 'naive-ui'
 import {
   NAutoComplete,
   NButton,
@@ -22,9 +22,6 @@ import {
 } from 'naive-ui'
 import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import CopyButton from '@/components/CopyButton.vue'
-import EmptyState from '@/components/EmptyState.vue'
-import { isResumeFile, resumeDownloadUrl } from '@/utils/resume'
 import {
   applicationsApi,
   canTransition,
@@ -46,7 +43,10 @@ import {
   WORK_TYPE_LABEL,
 } from '@/api/jobs'
 import { BizError } from '@/api/request'
+import CopyButton from '@/components/CopyButton.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import { useAuthStore } from '@/stores/auth'
+import { isResumeFile, resumeDownloadUrl } from '@/utils/resume'
 
 const auth = useAuthStore()
 const message = useMessage()
@@ -56,7 +56,8 @@ const router = useRouter()
 /** 从 dashboard 跳来时携带的 stage（用于高亮 / 滚动到对应列） */
 const focusStage = computed<ApplicationStage | null>(() => {
   const s = route.query.stage
-  if (typeof s !== 'string') return null
+  if (typeof s !== 'string')
+    return null
   // 简单白名单校验，避免 URL 注入非法 stage
   const valid: ApplicationStage[] = ['APPLIED', 'SCREENING_PASS', 'PHONE_INTERVIEW', 'TECH_INTERVIEW', 'HR_INTERVIEW', 'OFFER', 'HIRED', 'REJECTED']
   return valid.includes(s as ApplicationStage) ? s as ApplicationStage : null
@@ -70,6 +71,7 @@ function jumpToJobs() {
 
 const myJobs = ref<JobListItemVO[]>([])
 const departments = ref<DepartmentVO[]>([])
+const subDepartments = ref<SubDepartmentVO[]>([])
 const tags = ref<TagVO[]>([])
 
 async function loadMyJobs() {
@@ -84,7 +86,8 @@ async function loadMyJobs() {
     myJobs.value = res.items
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
 }
@@ -94,8 +97,16 @@ async function loadDepartments() {
     departments.value = await departmentsApi.listAll()
   }
   catch (e) {
-    // 字典失败不阻塞看板加载，仅 fallback 为 NInputNumber 文本输入
     console.warn('load departments failed', e)
+  }
+}
+
+async function loadSubDepartments() {
+  try {
+    subDepartments.value = await departmentsApi.listAllSubDepartments()
+  }
+  catch (e) {
+    console.warn('load sub-departments failed', e)
   }
 }
 
@@ -125,6 +136,7 @@ const filter = reactive({
   level: [] as JobLevel[],
   tagSlugs: [] as string[],
   departmentId: null as number | null,
+  subDepartmentId: null as number | null,
   salaryMin: null as number | null,
   salaryMax: null as number | null,
 })
@@ -134,16 +146,27 @@ const isSingleJobMode = computed(() => filter.jobId !== ALL_JOBS_SENTINEL)
 
 /** 当前活跃的筛选条件数量（用于 UI 上的 badge 计数 + 一键清空开关） */
 const activeFilterCount = computed(() => {
-  if (isSingleJobMode.value) return 0
+  if (isSingleJobMode.value)
+    return 0
   let n = 0
-  if (filter.keyword.trim()) n++
-  if (filter.location.trim()) n++
-  if (filter.workType.length) n++
-  if (filter.level.length) n++
-  if (filter.tagSlugs.length) n++
-  if (filter.departmentId != null) n++
-  if (filter.salaryMin != null) n++
-  if (filter.salaryMax != null) n++
+  if (filter.keyword.trim())
+    n++
+  if (filter.location.trim())
+    n++
+  if (filter.workType.length)
+    n++
+  if (filter.level.length)
+    n++
+  if (filter.tagSlugs.length)
+    n++
+  if (filter.departmentId != null)
+    n++
+  if (filter.subDepartmentId != null)
+    n++
+  if (filter.salaryMin != null)
+    n++
+  if (filter.salaryMax != null)
+    n++
   return n
 })
 
@@ -153,14 +176,33 @@ const LEVEL_OPTIONS: SelectOption[] = (Object.keys(LEVEL_LABEL) as JobLevel[])
   .map(v => ({ label: LEVEL_LABEL[v], value: v }))
 
 const departmentOptions = computed<SelectOption[]>(() =>
-  departments.value.map(d => ({ label: `${d.name} · #${d.id}`, value: d.id })),
+  departments.value.map(d => ({ label: d.name, value: d.id })),
 )
+
+const subDepartmentOptionsGrouped = computed(() => {
+  const groups = new Map<number, { name: string, list: SubDepartmentVO[] }>()
+  subDepartments.value.forEach((sd) => {
+    if (!groups.has(sd.parentDepartmentId))
+      groups.set(sd.parentDepartmentId, { name: sd.parentDepartmentName, list: [] })
+    groups.get(sd.parentDepartmentId)!.list.push(sd)
+  })
+  return Array.from(groups.entries()).map(([deptId, { name, list }]) => ({
+    type: 'group' as const,
+    label: name,
+    key: `dept-${deptId}`,
+    children: list.map(sd => ({
+      label: `${sd.name} / ${sd.location}`,
+      value: sd.id,
+    })),
+  }))
+})
 
 /** 标签按 category 分组渲染（与 hr/jobs.vue 一致的选择器交互） */
 const tagOptionsGrouped = computed(() => {
   const groups = new Map<string, TagVO[]>()
   tags.value.forEach((t) => {
-    if (!groups.has(t.category)) groups.set(t.category, [])
+    if (!groups.has(t.category))
+      groups.set(t.category, [])
     groups.get(t.category)!.push(t)
   })
   return Array.from(groups.entries()).map(([cat, list]) => ({
@@ -187,14 +229,24 @@ function toBoardQuery(): BoardQueryReq {
     return { jobId: filter.jobId }
   }
   const req: BoardQueryReq = {}
-  if (filter.keyword.trim()) req.keyword = filter.keyword.trim()
-  if (filter.location.trim()) req.location = filter.location.trim()
-  if (filter.workType.length) req.workType = [...filter.workType]
-  if (filter.level.length) req.level = [...filter.level]
-  if (filter.tagSlugs.length) req.tagSlugs = [...filter.tagSlugs]
-  if (filter.departmentId != null) req.departmentId = filter.departmentId
-  if (filter.salaryMin != null) req.salaryMin = filter.salaryMin
-  if (filter.salaryMax != null) req.salaryMax = filter.salaryMax
+  if (filter.keyword.trim())
+    req.keyword = filter.keyword.trim()
+  if (filter.location.trim())
+    req.location = filter.location.trim()
+  if (filter.workType.length)
+    req.workType = [...filter.workType]
+  if (filter.level.length)
+    req.level = [...filter.level]
+  if (filter.tagSlugs.length)
+    req.tagSlugs = [...filter.tagSlugs]
+  if (filter.departmentId != null)
+    req.departmentId = filter.departmentId
+  if (filter.subDepartmentId != null)
+    req.subDepartmentId = filter.subDepartmentId
+  if (filter.salaryMin != null)
+    req.salaryMin = filter.salaryMin
+  if (filter.salaryMax != null)
+    req.salaryMax = filter.salaryMax
   return req
 }
 
@@ -204,7 +256,8 @@ async function fetchBoard() {
     board.value = await applicationsApi.board(toBoardQuery())
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -226,8 +279,10 @@ function clearFilters() {
   filter.level = []
   filter.tagSlugs = []
   filter.departmentId = null
+  filter.subDepartmentId = null
   filter.salaryMin = null
   filter.salaryMax = null
+  // oxlint-disable-next-line no-use-before-define
   searchInput.value = ''
   fetchBoard()
 }
@@ -252,7 +307,7 @@ const KW_VAL_PREFIX = 'kw:'
  * 装饰文案（"搜索 / 岗位"前缀、地点 meta）通过 renderSearchOption 渲染，不污染 label。
  * 这样 Enter 选中 / 点选 不会把装饰串塞回 input 框，杜绝循环嵌套。
  */
-interface SearchOption {
+interface SearchOption extends AutoCompleteOption {
   label: string
   value: string
   kind: 'kw' | 'job'
@@ -277,11 +332,11 @@ const searchOptions = computed<SearchOption[]>(() => {
   const matches = !ql
     ? myJobs.value.slice(0, 8)
     : myJobs.value
-      .filter(j =>
-        j.title.toLowerCase().includes(ql)
-        || (j.location ?? '').toLowerCase().includes(ql),
-      )
-      .slice(0, 8)
+        .filter(j =>
+          j.title.toLowerCase().includes(ql)
+          || (j.location ?? '').toLowerCase().includes(ql),
+        )
+        .slice(0, 8)
 
   for (const j of matches) {
     opts.push({
@@ -314,7 +369,9 @@ function renderSearchOption(option: SearchOption) {
 function setSearchInputDisplay(text: string) {
   suppressInputCommit = true
   searchInput.value = text
-  nextTick(() => { suppressInputCommit = false })
+  nextTick(() => {
+    suppressInputCommit = false
+  })
 }
 
 /** 反向同步：filter 变化（如 ?jobId=xxx 跳转、clear、外部 set）时更新输入框显示文案 */
@@ -340,7 +397,8 @@ function onSearchSelect(value: string | number) {
   if (v.startsWith(JOB_VAL_PREFIX)) {
     const jid = Number(v.slice(JOB_VAL_PREFIX.length))
     const job = myJobs.value.find(j => j.id === jid)
-    if (!job) return
+    if (!job)
+      return
     // 切到单岗位模式：清掉关键词（关键词在单岗位下无意义）
     filter.keyword = ''
     if (filter.jobId !== jid) {
@@ -358,34 +416,41 @@ function onSearchSelect(value: string | number) {
 
 /** 用户直接 Enter（NAutoComplete 在没匹配 option 时也会触发 keydown） */
 function onSearchEnter() {
-  if (suppressInputCommit) return
+  if (suppressInputCommit)
+    return
   // 如果有匹配 options，Enter 会先触发 @select（选中第一项）→ onSearchSelect 处理
   // 仅当无 options 时这里兜底
-  if (searchOptions.value.length > 0) return
+  if (searchOptions.value.length > 0)
+    return
   commitKeyword(searchInput.value.trim())
 }
 
 /** 失焦：若文本既不匹配当前 jobId 的岗位标题、也不等于当前 keyword，则默默 commit 为关键词 */
 function onSearchBlur() {
-  if (suppressInputCommit) return
+  if (suppressInputCommit)
+    return
   const text = searchInput.value.trim()
   // 当前单岗位模式：若文本仍等于岗位标题，不动；否则 commit 为关键词
   if (filter.jobId !== ALL_JOBS_SENTINEL) {
     const job = myJobs.value.find(j => j.id === filter.jobId)
-    if (job && text === job.title) return
+    if (job && text === job.title)
+      return
   }
-  if (text === (filter.keyword ?? '')) return
+  if (text === (filter.keyword ?? ''))
+    return
   commitKeyword(text)
 }
 
 function onSearchClear() {
   // 仅清空"搜索维度"（岗位 + 关键词），保留其他筛选项
-  if (filter.jobId === ALL_JOBS_SENTINEL && !filter.keyword) return
+  if (filter.jobId === ALL_JOBS_SENTINEL && !filter.keyword)
+    return
   const hadJob = filter.jobId !== ALL_JOBS_SENTINEL
   filter.keyword = ''
   filter.jobId = ALL_JOBS_SENTINEL
   // 若原本是单岗位模式，jobId watcher 会触发 fetchBoard；否则手动 fetch
-  if (!hadJob) fetchBoard()
+  if (!hadJob)
+    fetchBoard()
 }
 
 function commitKeyword(text: string) {
@@ -401,7 +466,8 @@ function commitKeyword(text: string) {
     return
   }
   // 同关键词不重复查；不同则触发一次
-  if (!sameKeyword) fetchBoard()
+  if (!sameKeyword)
+    fetchBoard()
 }
 
 // jobId 切换：立即重查
@@ -409,16 +475,18 @@ watch(() => filter.jobId, () => fetchBoard())
 
 // 多选 / 下拉 / 数字字段：立即重查（这些是显式选择，无打字节流）
 watch(
-  () => [filter.workType, filter.level, filter.tagSlugs, filter.departmentId, filter.salaryMin, filter.salaryMax],
+  () => [filter.workType, filter.level, filter.tagSlugs, filter.departmentId, filter.subDepartmentId, filter.salaryMin, filter.salaryMax],
   () => {
-    if (!isSingleJobMode.value) fetchBoard()
+    if (!isSingleJobMode.value)
+      fetchBoard()
   },
   { deep: true },
 )
 
 // location 是手输文本：只在显式触发（enter / 失焦 / 清除）时查
 function triggerTextSearch() {
-  if (!isSingleJobMode.value) fetchBoard()
+  if (!isSingleJobMode.value)
+    fetchBoard()
 }
 
 // ───────────────────────── 拖拽 ─────────────────────────
@@ -455,15 +523,19 @@ function onCardDragEnd() {
 }
 
 function onColumnDragOver(e: DragEvent, stage: ApplicationStage) {
-  if (!dragState.value) return
-  if (!canTransition(dragState.value.fromStage, stage)) return
+  if (!dragState.value)
+    return
+  if (!canTransition(dragState.value.fromStage, stage))
+    return
   e.preventDefault()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  if (e.dataTransfer)
+    e.dataTransfer.dropEffect = 'move'
   hoverStage.value = stage
 }
 
 function onColumnDragLeave(stage: ApplicationStage) {
-  if (hoverStage.value === stage) hoverStage.value = null
+  if (hoverStage.value === stage)
+    hoverStage.value = null
 }
 
 async function onColumnDrop(e: DragEvent, target: ApplicationStage) {
@@ -471,7 +543,8 @@ async function onColumnDrop(e: DragEvent, target: ApplicationStage) {
   hoverStage.value = null
   const drag = dragState.value
   dragState.value = null
-  if (!drag) return
+  if (!drag)
+    return
   if (!canTransition(drag.fromStage, target)) {
     message.warning(`不能从「${STAGE_LABEL[drag.fromStage]}」流转到「${STAGE_LABEL[target]}」`)
     return
@@ -496,13 +569,16 @@ async function commitTransition(
 ) {
   // 乐观更新：先把卡片从旧列搬到新列
   const board0 = board.value
-  if (!board0) return
+  if (!board0)
+    return
   const fromCol = board0.columns.find(c => c.stage === from)
   const toCol = board0.columns.find(c => c.stage === target)
-  if (!fromCol || !toCol) return
+  if (!fromCol || !toCol)
+    return
 
   const idx = fromCol.items.findIndex(i => i.id === id)
-  if (idx < 0) return
+  if (idx < 0)
+    return
   const moved = fromCol.items.splice(idx, 1)[0]
   moved.stage = target
   toCol.items.unshift(moved)
@@ -520,7 +596,8 @@ async function commitTransition(
     fromCol.items.splice(idx, 0, moved)
     fromCol.count += 1
     toCol.count -= 1
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
 }
@@ -528,7 +605,8 @@ async function commitTransition(
 // ───────────────────────── Reject 弹窗 ─────────────────────────
 
 async function submitReject() {
-  if (!pendingReject.value) return
+  if (!pendingReject.value)
+    return
   if (!rejectNote.value.trim()) {
     message.warning('请填写拒绝原因')
     return
@@ -589,7 +667,8 @@ async function openDetail(id: number) {
   }
   catch (e) {
     drawerVisible.value = false
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -631,7 +710,8 @@ function cancelInterviewForm() {
 }
 
 async function submitInterview() {
-  if (!detail.value) return
+  if (!detail.value)
+    return
   if (!interviewForm.value.round.trim()) {
     message.warning('请填写面试轮次')
     return
@@ -646,7 +726,8 @@ async function submitInterview() {
       const updated = await interviewsApi.update(editingInterview.value.id, interviewForm.value)
       // 就地替换：保持顺序
       const idx = interviews.value.findIndex(i => i.id === updated.id)
-      if (idx >= 0) interviews.value.splice(idx, 1, updated)
+      if (idx >= 0)
+        interviews.value.splice(idx, 1, updated)
       message.success('已更新面试评价')
     }
     else {
@@ -658,7 +739,8 @@ async function submitInterview() {
     editingInterview.value = null
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -669,7 +751,8 @@ async function submitInterview() {
 // 简历 URL 工具迁移到 @/utils/resume，避免与 me/applications.vue 重复实现。
 
 async function transitionFromDrawer(target: ApplicationStage) {
-  if (!detail.value) return
+  if (!detail.value)
+    return
   if (target === 'REJECTED') {
     pendingReject.value = { id: detail.value.id, fromStage: detail.value.stage }
     rejectNote.value = ''
@@ -706,17 +789,22 @@ const STAGE_TONE: Record<ApplicationStage, 'success' | 'warning' | 'error' | 'in
 }
 
 function formatTime(iso: string | null) {
-  if (!iso) return ''
+  if (!iso)
+    return ''
   const d = new Date(iso)
   const diffH = (Date.now() - d.getTime()) / 36e5
-  if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
-  if (diffH < 24) return `${Math.floor(diffH)} 小时前`
-  if (diffH < 24 * 30) return `${Math.floor(diffH / 24)} 天前`
+  if (diffH < 1)
+    return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
+  if (diffH < 24)
+    return `${Math.floor(diffH)} 小时前`
+  if (diffH < 24 * 30)
+    return `${Math.floor(diffH / 24)} 天前`
   return d.toISOString().slice(0, 10)
 }
 
 function stageLogTitle(log: StageLogVO) {
-  if (!log.fromStage) return '候选人投递'
+  if (!log.fromStage)
+    return '候选人投递'
   return `${STAGE_LABEL[log.fromStage]} → ${STAGE_LABEL[log.toStage]}`
 }
 
@@ -725,7 +813,8 @@ const isDragging = computed(() => dragState.value !== null)
 
 /** 当前正在拖的卡片，其合法目标列集合（用于高亮）。 */
 const allowedTargets = computed<Set<ApplicationStage>>(() => {
-  if (!dragState.value) return new Set()
+  if (!dragState.value)
+    return new Set()
   return new Set(STAGE_TRANSITIONS[dragState.value.fromStage])
 })
 
@@ -771,7 +860,8 @@ const MAIN_FLOW: ApplicationStage[] = [
 ]
 
 const mainColumns = computed<BoardColumnVO[]>(() => {
-  if (!board.value) return []
+  if (!board.value)
+    return []
   return MAIN_FLOW
     .map(stage => board.value!.columns.find(c => c.stage === stage))
     .filter((c): c is BoardColumnVO => Boolean(c))
@@ -794,9 +884,11 @@ function overflowCount(items: ApplicationListItemVO[]): number {
 
 /** 候选人首字头像：中文取首字，英文取首字母大写。 */
 function avatarChar(name: string | null): string {
-  if (!name) return '?'
+  if (!name)
+    return '?'
   const t = name.trim()
-  if (!t) return '?'
+  if (!t)
+    return '?'
   return t.charAt(0).toUpperCase()
 }
 
@@ -804,8 +896,18 @@ function avatarChar(name: string | null): string {
  * 岗位详情 URL（用于"新标签页打开"）。
  * 不用硬编码 '/jobs?jobId='，走 router.resolve 兼容 base / hash mode。
  */
+/** 投递详情 · 组织面包屑：集团 / 部门 / 子部门 · 地点 */
+function jobOrgBreadcrumb(d: ApplicationDetailVO): string | null {
+  const parts = [d.rootOrgName, d.departmentName, d.subDepartmentName].filter(Boolean)
+  if (parts.length === 0)
+    return null
+  const trail = parts.join(' / ')
+  return d.jobLocation ? `${trail} · ${d.jobLocation}` : trail
+}
+
 function jobDetailHref(jobId: number | null): string {
-  if (jobId == null) return '#'
+  if (jobId == null)
+    return '#'
   return router.resolve({ name: 'Jobs', query: { jobId: String(jobId) } }).href
 }
 
@@ -815,7 +917,8 @@ const stageDrawerVisible = ref(false)
 const stageDrawerStage = ref<ApplicationStage | null>(null)
 
 const stageDrawerItems = computed<ApplicationListItemVO[]>(() => {
-  if (!stageDrawerStage.value || !board.value) return []
+  if (!stageDrawerStage.value || !board.value)
+    return []
   return board.value.columns.find(c => c.stage === stageDrawerStage.value)?.items ?? []
 })
 
@@ -835,6 +938,7 @@ onMounted(async () => {
   await Promise.all([
     loadMyJobs(),
     loadDepartments(),
+    loadSubDepartments(),
     loadTags(),
   ])
   // 支持 /hr/board?jobId=xxx 跨页跳转：从 HR 岗位管理"看板"按钮带过来后自动选中
@@ -852,15 +956,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main min-h-screen bg-app class="pt-[60px]">
+  <main min-h-screen bg-app pt-60px>
     <!-- 顶部 -->
-    <header max-w="[1500px]" mx-auto p="t-8 b-4 x-6">
+    <header max-w-1500px mx-auto p="t-8 b-4 x-6">
       <div>
         <p kicker mb-2>
           Hiring Pipeline · 招聘看板
         </p>
         <h1 m-0 text-3xl text-gray-900 font-black tracking="[-0.03em]" leading="tight">
-          投递流转 · <span class="text-gradient">8 态状态机</span>
+          投递流转 · <span text-gradient>8 态状态机</span>
         </h1>
         <p mt-2 text-sm text-secondary leading="[1.6]">
           拖拽卡片到下一阶段即可推进 ·
@@ -870,7 +974,7 @@ onMounted(async () => {
     </header>
 
     <!-- ─────── 多维筛选面板（选定具体岗位时其他筛选项整体 disable + 半透明） ─────── -->
-    <section max-w="[1500px]" mx-auto p="x-6 b-4">
+    <section max-w-1500px mx-auto p="x-6 b-4">
       <div
         class="filter-panel"
       >
@@ -880,7 +984,7 @@ onMounted(async () => {
             <span v-if="activeFilterCount > 0" class="filter-badge">
               {{ activeFilterCount }} 项
             </span>
-            <span v-if="isSingleJobMode" text-[11px] text-tertiary>
+            <span v-if="isSingleJobMode" text-11px text-tertiary>
               · 选定具体岗位后其他维度自动锁定
             </span>
           </div>
@@ -910,7 +1014,7 @@ onMounted(async () => {
           <div class="filter-cell filter-cell-wide">
             <label class="filter-label">
               搜索
-              <span text-tertiary text-[10px] ml-1 normal-case font-normal tracking-normal>
+              <span text-tertiary text-10px ml-1 normal-case font-normal tracking-normal>
                 输入关键词全文检索；下拉精选具体岗位
               </span>
             </label>
@@ -936,12 +1040,12 @@ onMounted(async () => {
             </NAutoComplete>
           </div>
 
-          <!-- 工作地点：ILIKE 模糊 -->
+          <!-- 子部门地点：ILIKE 模糊（M6 从 sub_departments.location 取） -->
           <div class="filter-cell">
-            <label class="filter-label">工作地点</label>
+            <label class="filter-label">子部门地点</label>
             <NInput
               v-model:value="filter.location"
-              placeholder="北京 / 远程…"
+              placeholder="上海·浦东 / 远程…"
               clearable
               :disabled="isSingleJobMode || loading"
               @keydown.enter="triggerTextSearch"
@@ -950,15 +1054,28 @@ onMounted(async () => {
             />
           </div>
 
-          <!-- 部门：字典下拉 + filterable -->
+          <!-- 上层部门 -->
           <div class="filter-cell">
-            <label class="filter-label">部门</label>
+            <label class="filter-label">上层部门</label>
             <NSelect
               v-model:value="filter.departmentId"
               :options="departmentOptions"
               filterable
               clearable
               placeholder="全部部门"
+              :disabled="isSingleJobMode || loading"
+            />
+          </div>
+
+          <!-- 子部门：精确到叶子 -->
+          <div class="filter-cell">
+            <label class="filter-label">子部门</label>
+            <NSelect
+              v-model:value="filter.subDepartmentId"
+              :options="subDepartmentOptionsGrouped"
+              filterable
+              clearable
+              placeholder="全部子部门"
               :disabled="isSingleJobMode || loading"
             />
           </div>
@@ -1038,7 +1155,7 @@ onMounted(async () => {
     </section>
 
     <!-- 看板 -->
-    <section max-w="[1500px]" mx-auto p="b-8 x-6">
+    <section max-w-1500px mx-auto p="b-8 x-6">
       <NSpin :show="loading">
         <EmptyState
           v-if="!loading && (!board || board.totalApplications === 0)"
@@ -1098,8 +1215,10 @@ onMounted(async () => {
                     {{ avatarChar(item.candidateName) }}
                   </span>
                   <div class="mini-info">
-                    <p class="mini-name">{{ item.candidateName ?? '匿名' }}</p>
-                    <p v-if="!effectiveJobId" class="mini-job truncate" :title="item.jobTitle">
+                    <p class="mini-name">
+                      {{ item.candidateName ?? '匿名' }}
+                    </p>
+                    <p v-if="!effectiveJobId" class="mini-job" truncate :title="item.jobTitle">
                       {{ item.jobTitle }}
                     </p>
                     <p class="mini-meta font-mono">
@@ -1125,17 +1244,17 @@ onMounted(async () => {
           <!-- ─────── 终态：REJECTED 侧支 ─────── -->
           <div
             v-if="rejectColumn"
-            :class="[colClass(rejectColumn), 'flow-side', focusStage === 'REJECTED' ? 'is-focus-target' : '']"
+            class="flow-side" :class="[colClass(rejectColumn), focusStage === 'REJECTED' ? 'is-focus-target' : '']"
             :style="{ '--accent': STAGE_ACCENT.REJECTED }"
             @dragover="onColumnDragOver($event, 'REJECTED')"
             @dragleave="onColumnDragLeave('REJECTED')"
             @drop="onColumnDrop($event, 'REJECTED')"
           >
             <header class="node-header side-header">
-              <span class="node-index font-mono">✕</span>
+              <span class="node-index" font-mono>✕</span>
               <div class="node-title-wrap">
                 <span class="node-title">{{ STAGE_LABEL.REJECTED }}</span>
-                <span class="node-count font-mono">{{ rejectColumn.count }}</span>
+                <span class="node-count" font-mono>{{ rejectColumn.count }}</span>
               </div>
               <span class="side-tag">终态 · 不可流转</span>
             </header>
@@ -1159,11 +1278,13 @@ onMounted(async () => {
                   {{ avatarChar(item.candidateName) }}
                 </span>
                 <div class="mini-info">
-                  <p class="mini-name">{{ item.candidateName ?? '匿名' }}</p>
+                  <p class="mini-name">
+                    {{ item.candidateName ?? '匿名' }}
+                  </p>
                   <p v-if="!effectiveJobId" class="mini-job truncate" :title="item.jobTitle">
                     {{ item.jobTitle }}
                   </p>
-                  <p class="mini-meta font-mono">
+                  <p class="mini-meta" font-mono>
                     {{ formatTime(item.updatedAt) }}
                   </p>
                 </div>
@@ -1272,11 +1393,13 @@ onMounted(async () => {
               {{ avatarChar(item.candidateName) }}
             </span>
             <div class="mini-info">
-              <p class="mini-name">{{ item.candidateName ?? '匿名' }}</p>
+              <p class="mini-name">
+                {{ item.candidateName ?? '匿名' }}
+              </p>
               <p v-if="!effectiveJobId" class="mini-job truncate">
                 {{ item.jobTitle }}
               </p>
-              <p class="mini-meta font-mono">
+              <p class="mini-meta" font-mono>
                 <span v-if="item.yearsExp != null">{{ item.yearsExp }}y · </span>
                 {{ formatTime(item.updatedAt) }}
               </p>
@@ -1309,13 +1432,13 @@ onMounted(async () => {
                 <span text-xs text-tertiary>
                   投递于 {{ formatTime(detail.appliedAt) }}
                 </span>
-                <span class="op-40 text-xs">·</span>
+                <span op-40 text-xs>·</span>
                 <span text-xs text-tertiary>
                   最近更新 {{ formatTime(detail.updatedAt) }}
                 </span>
               </div>
 
-              <p m-0 text-lg font-bold class="truncate">
+              <p m-0 text-lg font-bold truncate>
                 <a
                   :href="jobDetailHref(detail.jobId)"
                   target="_blank"
@@ -1336,6 +1459,13 @@ onMounted(async () => {
                     <path d="M21 14v7H3V3h7" />
                   </svg>
                 </a>
+              </p>
+              <p
+                v-if="jobOrgBreadcrumb(detail)"
+                m-0 mt-1.5 text-sm text-secondary leading-snug
+              >
+                <span text-tertiary>所属组织 ·</span>
+                {{ jobOrgBreadcrumb(detail) }}
               </p>
 
               <div mt-3 grid grid-cols-2 gap-3 p-3 rounded-md bg-muted text-xs text-secondary>
@@ -1372,7 +1502,7 @@ onMounted(async () => {
                     :href="resumeDownloadUrl(detail.resumeUrl)"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium"
+                    ml-1 inline-flex items-center gap-1 text-brand-700 hover:underline font-medium
                   >
                     <span class="resume-pill">PDF</span> 在新标签页打开
                   </a>
@@ -1381,7 +1511,7 @@ onMounted(async () => {
                     :href="detail.resumeUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="ml-1 text-brand-700 hover:underline font-medium"
+                    ml-1 text-brand-700 hover:underline font-medium
                   >
                     {{ detail.resumeUrl }}
                   </a>
@@ -1390,14 +1520,14 @@ onMounted(async () => {
 
               <p
                 v-if="detail.stage === 'REJECTED' && detail.rejectReason"
-                class="mt-3 p-3 rounded-md bg-danger-50 border border-(--danger-500) text-sm text-danger-700"
+                mt-3 p-3 rounded-md bg-danger-50 border border-danger-500 text-sm text-danger-700
               >
                 <strong>未通过原因：</strong>{{ detail.rejectReason }}
               </p>
             </div>
 
             <!-- 时间线 -->
-            <h3 text-[10px] text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
+            <h3 text-10px text-tertiary text-uppercase tracking-widest m="0 b-3" font-bold>
               阶段时间线
             </h3>
             <NTimeline>
@@ -1408,7 +1538,7 @@ onMounted(async () => {
                 :title="stageLogTitle(log)"
                 :time="formatTime(log.operatedAt)"
               >
-                <p m-0 text-sm v-if="log.operatedByName">
+                <p v-if="log.operatedByName" m-0 text-sm>
                   操作人：<span text-primary>{{ log.operatedByName }}</span>
                   <span v-if="log.operatedByRole" text-tertiary text-xs ml-1>· {{ log.operatedByRole }}</span>
                 </p>
@@ -1421,7 +1551,7 @@ onMounted(async () => {
             <!-- ─────────── 面试评价（M4） ─────────── -->
             <div mt-8>
               <header flex="~ items-center justify-between" mb-3>
-                <h3 m-0 text-[10px] text-tertiary text-uppercase tracking-widest font-bold>
+                <h3 m-0 text-10px text-tertiary text-uppercase tracking-widest font-bold>
                   面试评价 · {{ interviews.length }}
                 </h3>
                 <NButton
@@ -1443,7 +1573,7 @@ onMounted(async () => {
                 </p>
                 <div flex flex-col gap-3>
                   <div>
-                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                    <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       面试轮次
                     </label>
                     <NInput
@@ -1454,13 +1584,13 @@ onMounted(async () => {
                   </div>
                   <div flex="~ items-center wrap" gap-4>
                     <div>
-                      <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                      <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                         评分
                       </label>
                       <NRate v-model:value="interviewForm.rating" :count="5" />
                     </div>
-                    <div flex-1 min-w="[180px]">
-                      <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                    <div flex-1 min-w-180px>
+                      <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                         结论
                       </label>
                       <NSelect
@@ -1470,7 +1600,7 @@ onMounted(async () => {
                     </div>
                   </div>
                   <div>
-                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                    <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       优势
                     </label>
                     <NInput
@@ -1483,7 +1613,7 @@ onMounted(async () => {
                     />
                   </div>
                   <div>
-                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                    <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       不足
                     </label>
                     <NInput
@@ -1496,7 +1626,7 @@ onMounted(async () => {
                     />
                   </div>
                   <div>
-                    <label text-[11px] text-tertiary font-medium mb-1 block uppercase tracking-wider>
+                    <label text-11px text-tertiary font-medium mb-1 block uppercase tracking-wider>
                       备注（可选）
                     </label>
                     <NInput
@@ -1570,7 +1700,7 @@ onMounted(async () => {
                   <p v-if="iv.notes" m="0 b-1" text-sm text-secondary leading="[1.6]">
                     <strong text-primary>备注 ·</strong> {{ iv.notes }}
                   </p>
-                  <footer flex="~ items-center justify-between wrap" gap-2 mt-2 text-[11px] text-tertiary>
+                  <footer flex="~ items-center justify-between wrap" gap-2 mt-2 text-11px text-tertiary>
                     <span>
                       面试官 · <span text-primary font-medium>{{ iv.interviewerName ?? '—' }}</span>
                       <span v-if="iv.interviewerRole" ml-1>· {{ iv.interviewerRole }}</span>

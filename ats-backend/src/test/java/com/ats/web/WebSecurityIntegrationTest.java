@@ -90,6 +90,12 @@ class WebSecurityIntegrationTest {
     @MockitoBean com.ats.repository.InterviewMapper interviewMapper;
     @MockitoBean com.ats.repository.StatsMapper statsMapper;
 
+    // M6 新增组织树 mapper（root_orgs / departments / sub_departments / hr_sub_departments）
+    @MockitoBean com.ats.repository.RootOrgMapper rootOrgMapper;
+    @MockitoBean com.ats.repository.DepartmentMapper departmentMapper;
+    @MockitoBean com.ats.repository.SubDepartmentMapper subDepartmentMapper;
+    @MockitoBean com.ats.repository.HrSubDepartmentMapper hrSubDepartmentMapper;
+
     // ════════════════════════════════════════════════════════════
     //                    401 · JWT 过滤器链
     // ════════════════════════════════════════════════════════════

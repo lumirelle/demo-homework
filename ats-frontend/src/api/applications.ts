@@ -117,6 +117,15 @@ export interface ApplicationDetailVO {
   jobTitle: string
   jobStatus: JobStatus | null
 
+  /** M6：岗位组织信息 */
+  subDepartmentId?: number | null
+  subDepartmentName?: string | null
+  departmentId?: number | null
+  departmentName?: string | null
+  rootOrgId?: number | null
+  rootOrgName?: string | null
+  jobLocation?: string | null
+
   candidateId: number | null
   candidateName: string | null
   candidateEmail: string | null
@@ -161,7 +170,11 @@ export interface BoardQueryReq {
   workType?: JobWorkType[]
   level?: JobLevel[]
   tagSlugs?: string[]
+  /** 按"上层部门"筛（命中该部门下所有子部门的岗位） */
   departmentId?: number
+  /** M6：按"子部门"精确筛（叶子节点） */
+  subDepartmentId?: number
+  /** 工作地点模糊（M6 起从 sub_departments.location 取） */
   location?: string
   salaryMin?: number
   salaryMax?: number

@@ -80,6 +80,10 @@ class StatsControllerSecurityTest {
     @MockitoBean StageLogMapper stageLogMapper;
     @MockitoBean InterviewMapper interviewMapper;
     @MockitoBean StatsMapper statsMapper;
+    @MockitoBean com.ats.repository.RootOrgMapper rootOrgMapper;
+    @MockitoBean com.ats.repository.DepartmentMapper departmentMapper;
+    @MockitoBean com.ats.repository.SubDepartmentMapper subDepartmentMapper;
+    @MockitoBean com.ats.repository.HrSubDepartmentMapper hrSubDepartmentMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Nested

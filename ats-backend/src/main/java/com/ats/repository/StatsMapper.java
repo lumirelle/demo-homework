@@ -67,16 +67,18 @@ public interface StatsMapper {
     long countActiveJobs(@Param("hrUserId") Long hrUserId);
 
     /**
-     * 已被在招岗位覆盖的部门数 —— "至少有 1 个 PUBLISHED 岗位"的 distinct department 数。
+     * 已被在招岗位覆盖的部门数 —— "至少有 1 个 PUBLISHED 岗位的子部门，所归属的上层部门"。
      * <p>
+     * M6：jobs 不再直接挂部门 id，需穿透 sub_departments → departments.parent_department_id？
+     * 实际"上层部门"指的是 sub_departments.parent_department_id 这一层（中间部门）。
      * 比单纯 count(*) FROM departments 更有业务意义：避免出现"5 个部门 0 个岗位"的尴尬展示。
      */
     @Select("""
-            SELECT COUNT(DISTINCT j.department_id)
+            SELECT COUNT(DISTINCT sd.parent_department_id)
             FROM jobs j
+            JOIN sub_departments sd ON sd.id = j.sub_department_id
             WHERE j.deleted_at IS NULL
               AND j.status = 'PUBLISHED'::job_status
-              AND j.department_id IS NOT NULL
             """)
     long countCoveredDepartments();
 }

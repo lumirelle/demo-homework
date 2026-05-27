@@ -81,8 +81,10 @@ const dotClass = computed(() => ({
 }[healthState.value]))
 
 const primaryCta = computed(() => {
-  if (!auth.isLoggedIn) return { label: '浏览岗位市场', target: '/jobs' }
-  if (auth.isCandidate) return { label: '我的投递', target: '/me/applications' }
+  if (!auth.isLoggedIn)
+    return { label: '浏览岗位市场', target: '/jobs' }
+  if (auth.isCandidate)
+    return { label: '我的投递', target: '/me/applications' }
   return { label: '进入数据看板', target: '/hr/dashboard' }
 })
 
@@ -132,11 +134,11 @@ onUnmounted(() => io?.disconnect())
 </script>
 
 <template>
-  <main min-h-screen bg-app class="pt-[60px]">
+  <main min-h-screen bg-app pt-60px>
     <!-- ════════════ HERO ════════════ -->
     <section
       ref="heroRef"
-      class="bg-hero with-noise"
+      bg-hero with-noise
       relative
       min-h-screen
       p-6
@@ -163,9 +165,7 @@ onUnmounted(() => io?.disconnect())
             ]"
             :key="idx"
             :href="item.href"
-            :target="item.target"
-            :rel="item.target ? 'noreferrer' : undefined"
-            class="after:transition-[right] after:duration-base after:ease-out"
+            after:transition-right after:duration-base after:ease-out
             relative
             text-secondary
             transition-colors duration-base ease-out
@@ -179,14 +179,15 @@ onUnmounted(() => io?.disconnect())
         <!-- status-chip · 点击进 /health 详情页 -->
         <router-link
           to="/health"
-          class="group text-xs text-secondary no-underline transition-[color,border-color,transform,box-shadow] hover:(-translate-y-[1px] shadow-md border-default) focus-visible:(outline-none ring-2 ring-brand-300 ring-offset-2)"
+          group text-xs text-secondary no-underline
+          class="transition-[color,border-color,transform,box-shadow] hover:(-translate-y-1px shadow-md border-default) focus-visible:(outline-none ring-2 ring-brand-300 ring-offset-2)"
           absolute
           top="1/2"
           translate-y="-1/2"
           right-4
           inline-flex items-center
           gap-2
-          p="y-[6px] x-3"
+          p="y-6px x-3"
           rounded-full
           bg-elevated
           border="~ subtle"
@@ -199,7 +200,7 @@ onUnmounted(() => io?.disconnect())
         >
           <span w-2 h-2 rounded-full :class="dotClass" />
           <span>{{ healthLabel }}</span>
-          <span class="text-tertiary opacity-60 transition-transform duration-base ease-out group-hover:translate-x-[2px]" aria-hidden="true">→</span>
+          <span text-tertiary opacity-60 transition-transform duration-base ease-out group-hover:translate-x-2px aria-hidden="true">→</span>
         </router-link>
       </header>
 
@@ -207,28 +208,28 @@ onUnmounted(() => io?.disconnect())
       <div
         relative
         z-1
-        max-w="[1200px]"
+        max-w-1200px
         mx-auto
-        p="t-[8vh] b-[4vh] x-3"
+        p="t-8vh b-4vh x-3"
         text-center
       >
         <h1
-          class="text-display-lg text-gray-900"
+          text-display-lg text-gray-900
           m-0
           font-black
           tracking="[-0.05em]"
           leading="[0.95]"
         >
           <span inline-block>Grow&nbsp;</span>
-          <span class="text-gradient" inline-block>talent.</span>
+          <span text-gradient inline-block>talent.</span>
           <span inline-block text-gray-600>Hire every</span>
-          <span class="text-gradient-bloom" inline-block pb-8>good seed.</span>
+          <span text-gradient-bloom inline-block pb-8>good seed.</span>
         </h1>
 
         <p
-          class="text-lg text-secondary"
+          text-lg text-secondary
           m="t-6 x-auto"
-          max-w="[600px]"
+          max-w-600px
           leading="[1.6]"
         >
           一条流水线把候选人从投递追到入职 —— <br>
@@ -242,11 +243,12 @@ onUnmounted(() => io?.disconnect())
         <!-- CTA -->
         <div inline-flex gap-3 mt-8>
           <button
-            class="group transition-[transform,box-shadow] hover:-translate-y-[2px] text-md text-white"
+            class="transition-[transform,box-shadow]"
+            group hover:-translate-y-2px text-md text-white
             relative
             inline-flex items-center
-            gap="[10px]"
-            p="y-[14px] x-7"
+            gap-10px
+            p="y-14px x-7"
             font="sans semibold"
             rounded-full
             border-none
@@ -270,10 +272,11 @@ onUnmounted(() => io?.disconnect())
           </button>
 
           <a
-            class="transition-[color,background-color,border-color,transform] hover:-translate-y-[2px]"
+            class="transition-[color,background-color,border-color,transform]"
+            hover:-translate-y-2px
             inline-flex items-center
-            p="y-[14px] x-6"
-            text-md 
+            p="y-14px x-6"
+            text-md
             text-primary
             font-medium
             rounded-full
@@ -293,17 +296,17 @@ onUnmounted(() => io?.disconnect())
           list-none
           p="0 t-6"
           m="t-12 x-auto"
-          max-w="[760px]"
+          max-w-760px
           grid="~ cols-4"
           gap-2
           border="t subtle"
           max-sm="grid-cols-2 gap-4"
         >
           <li v-for="s in stats" :key="s.label" text-center>
-            <span class="num text-[36px] text-primary" block font-bold tracking="[-0.03em]">
-              {{ s.value }}<small class="text-[14px] text-tertiary" ml="[2px]" font-medium>{{ s.unit }}</small>
+            <span class="num" text-36px text-primary block font-bold tracking="[-0.03em]">
+              {{ s.value }}<small text-14px text-tertiary ml-2px font-medium>{{ s.unit }}</small>
             </span>
-            <span class="text-xs text-tertiary uppercase" block mt-1 tracking="[0.5px]">
+            <span text-xs text-tertiary uppercase block mt-1 tracking-0.5px>
               {{ s.label }}
             </span>
           </li>
@@ -312,7 +315,7 @@ onUnmounted(() => io?.disconnect())
     </section>
 
     <!-- ════════════ FEATURES ════════════ -->
-    <section id="features" max-w="[1200px]" mx-auto p="y-16 x-6">
+    <section id="features" max-w-1200px mx-auto p="y-16 x-6">
       <div class="reveal" text-center mb-12>
         <p kicker mb-3>
           Capabilities
@@ -325,9 +328,9 @@ onUnmounted(() => io?.disconnect())
           leading="[1.05]"
         >
           每一块都
-          <span class="text-gradient">能跑、能演示</span>
+          <span text-gradient>能跑、能演示</span>
         </h2>
-        <p m="t-4 x-auto" max-w="[560px]" text-secondary>
+        <p m="t-4 x-auto" max-w-560px text-secondary>
           MVP 不是切片，是闭环。从候选人投递到 HR 入职决策，所有动作均有审计记录与权限边界。
         </p>
       </div>
@@ -336,9 +339,9 @@ onUnmounted(() => io?.disconnect())
         <article
           v-for="(f, i) in features"
           :key="f.id"
-          class="reveal group transition-[transform,border-color,box-shadow]
-                 hover:-translate-y-[4px]
-                 before:transition-transform before:duration-260 before:ease-out"
+          class="reveal group transition-[transform,border-color,box-shadow]"
+          hover:-translate-y-4px
+          before:transition-transform before:duration-260 before:ease-out
           relative
           p-6
           rounded-lg
@@ -349,7 +352,7 @@ onUnmounted(() => io?.disconnect())
           shadow-sm
           duration-260
           ease-out
-          before="absolute top-0 left-0 right-0 h-3px content-empty origin-left scale-x-[0.15]
+          before="absolute top-0 left-0 right-0 h-3px content-empty origin-left scale-x-0.15
                   bg-(--accent-color)"
           hover="border-transparent shadow-lg before:scale-x-100"
           :style="{
@@ -359,16 +362,16 @@ onUnmounted(() => io?.disconnect())
         >
           <div flex="~ items-center justify-between" mb-4>
             <span
-              class="text-[20px]"
+              text-20px
               font="mono bold"
               tracking="[-0.02em]"
               :style="{ color: 'var(--accent-color)' }"
             >{{ f.id }}</span>
           </div>
-          <h3 class="text-[20px]" m="0 b-2" font-bold tracking="[-0.02em]">
+          <h3 text-20px m="0 b-2" font-bold tracking="[-0.02em]">
             {{ f.name }}
           </h3>
-          <p class="text-sm text-secondary" m-0 leading="[1.55]">
+          <p text-sm text-secondary m-0 leading="[1.55]">
             {{ f.desc }}
           </p>
         </article>
@@ -376,16 +379,17 @@ onUnmounted(() => io?.disconnect())
 
       <!-- secondary CTA · 让用户读完特性后能直接入口 -->
       <div class="reveal" text-center mt-12>
-        <p class="text-sm text-tertiary" mb-4>
+        <p text-sm text-tertiary mb-4>
           想直接体验？三个角色任你切换：
         </p>
         <div inline-flex gap-3 flex-wrap justify-center>
           <router-link
             to="/jobs"
-            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            class="transition-[color,background,border,transform]"
+            hover:-translate-y-1px text-sm text-primary
             inline-flex items-center
             gap-2
-            p="y-[10px] x-5"
+            p="y-10px x-5"
             font-medium
             rounded-full
             bg-elevated
@@ -400,10 +404,11 @@ onUnmounted(() => io?.disconnect())
           </router-link>
           <router-link
             to="/hr/board"
-            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            class="transition-[color,background,border,transform]"
+            hover:-translate-y-1px text-sm text-primary
             inline-flex items-center
             gap-2
-            p="y-[10px] x-5"
+            p="y-10px x-5"
             font-medium
             rounded-full
             bg-elevated
@@ -418,10 +423,11 @@ onUnmounted(() => io?.disconnect())
           </router-link>
           <router-link
             to="/hr/dashboard"
-            class="transition-[color,background,border,transform] hover:-translate-y-[1px] text-sm text-primary"
+            class="transition-[color,background,border,transform]"
+            hover:-translate-y-1px text-sm text-primary
             inline-flex items-center
             gap-2
-            p="y-[10px] x-5"            font-medium
+            p="y-10px x-5" font-medium
             rounded-full
             bg-elevated
             border="~ subtle"
@@ -438,9 +444,9 @@ onUnmounted(() => io?.disconnect())
     </section>
 
     <!-- ════════════ FOOTER ════════════ -->
-    <footer class="reveal text-center text-sm text-tertiary" p="y-8 x-6" border="t subtle">
+    <footer class="reveal" text-center text-sm text-tertiary p="y-8 x-6" border="t subtle">
       <p>
-        <span class="text-gradient">ATS · 招聘管理系统</span>
+        <span text-gradient>ATS · 招聘管理系统</span>
         · 2026 · Built with Claude in Cursor
       </p>
     </footer>

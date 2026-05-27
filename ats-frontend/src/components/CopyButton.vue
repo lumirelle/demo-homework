@@ -47,7 +47,7 @@ async function onClick(e: MouseEvent) {
         :quaternary="variant === 'quaternary'"
         :tertiary="variant === 'tertiary'"
         :ghost="variant === 'ghost'"
-        class="transition-colors duration-fast ease-out"
+        transition-colors duration-fast ease-out
         :class="justCopied ? 'text-success-700' : 'text-tertiary hover:text-primary'"
         @click="onClick"
       >

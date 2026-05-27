@@ -24,12 +24,12 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="flex flex-col items-center justify-center text-center py-14 px-6"
+    flex flex-col items-center justify-center text-center py-14 px-6
     role="alert"
   >
     <!-- 警示图标 · 红色渐变 -->
     <div
-      class="relative mb-5 flex items-center justify-center w-[72px] h-[72px] rounded-full"
+      relative mb-5 flex items-center justify-center w-72px h-72px rounded-full
       :style="{
         background: 'linear-gradient(135deg, var(--danger-50), rgba(239,68,68,.18))',
         boxShadow: '0 0 0 6px rgba(239,68,68,.08)',
@@ -46,14 +46,14 @@ const emit = defineEmits<{
       </svg>
     </div>
 
-    <h3 class="m-0 mb-1 text-lg font-semibold text-primary tracking-tight">
+    <h3 m-0 mb-1 text-lg font-semibold text-primary tracking-tight>
       {{ title }}
     </h3>
-    <p class="m-0 mb-5 max-w-[480px] text-sm text-secondary leading-relaxed">
+    <p m-0 mb-5 max-w-480px text-sm text-secondary leading-relaxed>
       {{ description }}
     </p>
 
-    <div class="flex items-center gap-3">
+    <div flex items-center gap-3>
       <NButton
         v-if="showRetry"
         type="primary"

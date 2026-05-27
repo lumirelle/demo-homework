@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 /** Admin 创建 HR / CANDIDATE 账号用的请求体 */
 @Data
 public class CreateUserReq {
@@ -26,4 +28,10 @@ public class CreateUserReq {
     @NotBlank
     @Pattern(regexp = "HR|CANDIDATE", message = "role 只能是 HR 或 CANDIDATE")
     private String role;
+
+    /**
+     * HR 绑定的子部门 id 列表（M6 多对多）。
+     * role=HR 时 service 层校验至少 1 个；CANDIDATE 忽略。
+     */
+    private List<Long> subDepartmentIds;
 }

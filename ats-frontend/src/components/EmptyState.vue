@@ -18,12 +18,12 @@ withDefaults(defineProps<{
 
 <template>
   <div
-    class="flex flex-col items-center justify-center text-center"
+    flex flex-col items-center justify-center text-center
     :class="compact ? 'py-10 px-6' : 'py-16 px-6'"
   >
     <!-- 装饰性图标 · 走品牌渐变背景 + 单色描边 SVG -->
     <div
-      class="relative mb-5 flex items-center justify-center w-[72px] h-[72px] rounded-full"
+      relative mb-5 flex items-center justify-center w-72px h-72px rounded-full
       :style="{
         background: 'linear-gradient(135deg, var(--brand-50), var(--accent-mint) 200%)',
         boxShadow: '0 0 0 6px rgba(16,185,129,.08)',
@@ -55,15 +55,15 @@ withDefaults(defineProps<{
       </svg>
     </div>
 
-    <h3 class="m-0 mb-1 text-lg font-semibold text-primary tracking-tight">
+    <h3 m-0 mb-1 text-lg font-semibold text-primary tracking-tight>
       {{ title }}
     </h3>
-    <p v-if="description" class="m-0 max-w-[420px] text-sm text-secondary leading-relaxed">
+    <p v-if="description" m-0 max-w-420px text-sm text-secondary leading-relaxed>
       {{ description }}
     </p>
 
     <!-- action slot · 放置 CTA 按钮 -->
-    <div v-if="$slots.action" class="mt-5">
+    <div v-if="$slots.action" mt-5>
       <slot name="action" />
     </div>
   </div>

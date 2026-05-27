@@ -62,6 +62,11 @@ const navLinks = computed(() => {
       icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21a8 8 0 0 1 16 0 M19 8 V14 M16 11 H22',
     })
     links.push({
+      to: '/admin/departments',
+      label: '部门管理',
+      icon: 'M12 3 L4 9 V21 H20 V9 Z M12 3 V9 H20 M8 13 H16 M8 17 H13',
+    })
+    links.push({
       to: '/health',
       label: '系统健康',
       icon: 'M3 12 H7 L9 5 L13 19 L15 12 H21',
@@ -95,7 +100,7 @@ const menuOptions = computed(() => [
     key: 'header',
     type: 'render',
     render: () => h('div', { class: 'px-3 py-2.5 border-b border-default' }, [
-      h('p', { class: 'text-[11px] uppercase tracking-widest text-tertiary mb-0.5' }, '当前账户'),
+      h('p', { class: 'text-11px uppercase tracking-widest text-tertiary mb-0.5' }, '当前账户'),
       h('p', { class: 'text-sm font-semibold text-primary truncate' }, auth.user?.email ?? ''),
     ]),
   },
@@ -130,38 +135,38 @@ function isActive(path: string) {
 </script>
 
 <template>
-  <header class="group fixed inset-x-0 top-0 z-50 h-[60px]">
+  <header group fixed inset-x-0 top-0 z-50 h-60px>
     <!-- 玻璃背景 -->
-    <div class="navbar-glass absolute inset-0" />
+    <div navbar-glass absolute inset-0 />
     <!-- 顶部 1px 发光分隔条（hover navbar 出现） -->
-    <div class="navbar-glow-line group-hover:opacity-100" />
+    <div navbar-glow-line group-hover:opacity-100 />
 
-    <div class="relative flex h-full items-center justify-between px-6">
+    <div relative flex h-full items-center justify-between px-6>
       <!-- ── Logo ───────────────────────────────── -->
-      <router-link to="/home" class="group/logo flex items-center gap-2.5 no-underline" aria-label="ATS · 返回首页">
-        <span class="logo-mark group-hover/logo:(rotate-[-8deg] scale-106 shadow-[0_0_24px_rgba(16,185,129,.6),inset_0_1px_0_rgba(255,255,255,.3)])">
+      <router-link to="/home" class="group/logo" flex items-center gap-2.5 no-underline aria-label="ATS · 返回首页">
+        <span class="group-hover/logo:rotate-[-8deg] group-hover/logo:scale-106 group-hover/logo:shadow-[0_0_24px_rgba(16,185,129,.6),inset_0_1px_0_rgba(255,255,255,.3)]" logo-mark>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M4.5 10 L7 6.5 L9.5 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.5" />
           </svg>
         </span>
-        <span class="font-display text-base font-bold tracking-wide text-primary transition-opacity group-hover/logo:opacity-75">
+        <span font-display text-base font-bold tracking-wide text-primary transition-opacity class="group-hover/logo:opacity-75">
           ATS
         </span>
-        <span class="version-pill ml-1">v0.1</span>
+        <span version-pill ml-1>v0.1</span>
       </router-link>
 
       <!-- ── Center nav ─────────────────────────── -->
       <nav
         aria-label="主导航"
-        class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-default bg-elevated/40 p-1 backdrop-blur-sm"
+        absolute left="1/2" flex translate-x="-1/2" items-center gap-1 rounded-xl border border-default bg="elevated/40" p-1 backdrop-blur-sm
       >
         <router-link
           v-for="item in navLinks"
           :key="item.to"
           :to="item.to"
           :aria-current="isActive(item.to) ? 'page' : undefined"
-          class="relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium no-underline transition-all"
+          relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium no-underline transition-all
           :class="isActive(item.to)
             ? 'text-primary bg-elevated shadow-[0_1px_2px_rgba(0,0,0,.05),inset_0_0_0_1px_var(--border)]'
             : 'text-tertiary hover:(text-secondary bg-hover)'"
@@ -174,7 +179,7 @@ function isActive(path: string) {
       </nav>
 
       <!-- ── Right ──────────────────────────────── -->
-      <div class="flex items-center gap-3">
+      <div flex items-center gap-3>
         <template v-if="auth.isLoggedIn">
           <NDropdown
             :options="menuOptions"
@@ -185,23 +190,24 @@ function isActive(path: string) {
           >
             <button
               type="button"
-              class="user-trigger group/user"
+              user-trigger
+              class="group/user"
               aria-haspopup="menu"
               :aria-label="`账户菜单 · ${auth.user?.fullName ?? ''}（${ROLE_LABEL[auth.role ?? ''] ?? ''}）`"
             >
-              <span class="avatar" :style="`background:${avatarBg}`" aria-hidden="true">{{ initial }}</span>
-              <div class="hidden flex-col items-start leading-none sm:flex">
-                <span class="text-[13px] font-semibold text-primary">{{ auth.user?.fullName }}</span>
-                <span class="mt-0.5 inline-flex items-center gap-1">
+              <span avatar :style="`background:${avatarBg}`" aria-hidden="true">{{ initial }}</span>
+              <div hidden flex-col items-start leading-none sm:flex>
+                <span text-13px font-semibold text-primary>{{ auth.user?.fullName }}</span>
+                <span mt-0.5 inline-flex items-center gap-1>
                   <span
-                    class="inline-block px-[5px] py-px text-[10px] font-semibold leading-tight rounded-[3px]"
+                    inline-block px-5px py-px text-10px font-semibold leading-tight rounded-3px
                     :class="ROLE_BADGE[auth.role ?? '']"
                   >
                     {{ ROLE_LABEL[auth.role ?? ''] ?? auth.role }}
                   </span>
                 </span>
               </div>
-              <svg class="ml-0.5 text-tertiary opacity-60 transition-transform group-hover/user:rotate-180" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <svg ml-0.5 text-tertiary opacity-60 transition-transform class="group-hover/user:rotate-180" width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M3 4.5 L6 7.5 L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </button>
@@ -211,16 +217,16 @@ function isActive(path: string) {
         <template v-else>
           <router-link
             to="/login"
-            class="px-[14px] py-2 text-[13px] font-medium rounded-[10px] no-underline text-secondary transition-all duration-base ease-out hover:(text-primary bg-hover)"
+            px-14px py-2 text-13px font-medium rounded-10px no-underline text-secondary transition-all duration-base ease-out hover:text-primary hover:bg-hover
           >
             登录
           </router-link>
-          <router-link to="/register" class="btn-cta group/cta">
-            <span class="relative z-10">免费注册</span>
-            <svg class="relative z-10 transition-transform group-hover/cta:translate-x-0.5" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <router-link to="/register" btn-cta class="group/cta">
+            <span relative z-10>免费注册</span>
+            <svg relative z-10 transition-transform class="group-hover/cta:translate-x-0.5" width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 7 H11 M7 3 L11 7 L7 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span class="cta-glow" />
+            <span cta-glow />
           </router-link>
         </template>
       </div>

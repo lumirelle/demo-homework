@@ -49,21 +49,5 @@ public interface JobMapper extends BaseMapper<Job> {
                                     @Param("visibleStatuses") List<String> visibleStatuses,
                                     @Param("limit") int limit);
 
-    /**
-     * 部门字典查询（id → name），用于列表/详情显示部门名。
-     * 单独写 SQL 避免为 departments 表新建独立 Mapper / Entity（M2 暂不需要 CRUD 部门）。
-     */
-    @org.apache.ibatis.annotations.Select({
-        "<script>",
-        "SELECT id, name FROM departments WHERE id IN",
-        "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
-        "</script>"
-    })
-    List<java.util.Map<String, Object>> selectDepartmentNames(@Param("ids") List<Long> ids);
-
-    /** 全量部门字典（按 id 升序），用于前端筛选下拉。 */
-    @org.apache.ibatis.annotations.Select(
-        "SELECT id, name FROM departments ORDER BY id ASC"
-    )
-    List<java.util.Map<String, Object>> selectAllDepartments();
+    // M6: 部门字典查询已迁出至 DepartmentMapper / SubDepartmentMapper（独立 entity 后语义更清晰）。
 }

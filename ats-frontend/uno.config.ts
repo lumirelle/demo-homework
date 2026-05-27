@@ -256,8 +256,8 @@ export default defineConfig({
     // ─ Typography ─
     'heading-1': 'text-3xl font-bold tracking-tight',
     'heading-2': 'text-2xl font-bold tracking-tight',
-    'kicker': 'font-mono text-xs font-semibold uppercase tracking-[1.5px] text-accent-emerald',
-    'eyebrow': 'flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.25em]',
+    'kicker': 'font-mono text-xs font-semibold uppercase tracking-1.5px text-accent-emerald',
+    'eyebrow': 'flex items-center gap-3 text-11px font-semibold uppercase tracking-.25em',
 
     // ─ Surface（玻璃质感容器）─
     'surface-glass': 'border border-default bg-app/70 backdrop-blur-xl backdrop-saturate-180',
@@ -266,7 +266,7 @@ export default defineConfig({
 
     // ─ Buttons ─
     'btn-primary':
-      'relative w-full overflow-hidden rounded-xl px-[18px] py-[14px] text-sm font-semibold text-white border-none cursor-pointer '
+      'relative w-full overflow-hidden rounded-xl px-18px py-14px text-sm font-semibold text-white border-none cursor-pointer '
       + 'bg-[linear-gradient(135deg,#10b981_0%,#059669_50%,#14b8a6_100%)] '
       + 'shadow-[0_0_0_1px_rgba(255,255,255,.08)_inset,0_2px_4px_rgba(0,0,0,.08),0_8px_24px_rgba(16,185,129,.4)] '
       + 'transition-[transform,box-shadow] duration-150 ease-out '
@@ -274,12 +274,12 @@ export default defineConfig({
       + 'active:(translate-y-0 scale-98) '
       + 'disabled:(opacity-65 cursor-not-allowed)',
     'btn-secondary':
-      'flex items-center justify-center gap-1.5 w-full px-[18px] py-3 text-sm font-semibold rounded-xl no-underline '
+      'flex items-center justify-center gap-1.5 w-full px-18px py-3 text-sm font-semibold rounded-xl no-underline '
       + 'text-secondary bg-elevated border border-default '
       + 'transition-all duration-260 ease-out '
       + 'hover:(text-brand-700 border-brand-300 bg-[rgba(16,185,129,.04)] -translate-y-px)',
     'btn-cta':
-      'relative inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white rounded-[10px] overflow-hidden no-underline '
+      'relative inline-flex items-center gap-1.5 px-4 py-2 text-13px font-semibold text-white rounded-10px overflow-hidden no-underline '
       + 'bg-[linear-gradient(135deg,#10b981_0%,#059669_60%,#14b8a6_100%)] '
       + 'shadow-[0_0_0_1px_rgba(255,255,255,.08)_inset,0_1px_2px_rgba(0,0,0,.1),0_4px_16px_rgba(16,185,129,.35)] '
       + 'transition-[transform,box-shadow] duration-260 ease-out '
@@ -293,17 +293,17 @@ export default defineConfig({
 
     // CTA hover 流光（配合 group 使用）
     'cta-glow':
-      'absolute inset-0 -translate-x-full transition-transform duration-[600ms] ease-out '
+      'absolute inset-0 -translate-x-full transition-transform duration-600ms ease-out '
       + 'bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent)] '
       + 'group-hover:translate-x-full',
 
     // ─ Form fields ─
     'kbd-hint':
-      'inline-flex items-center justify-center min-w-[20px] h-[18px] px-[5px] font-mono text-[11px] font-semibold '
-      + 'text-white/70 bg-white/15 border border-white/20 rounded-[4px]',
+      'inline-flex items-center justify-center min-w-20px h-18px px-5px font-mono text-11px font-semibold '
+      + 'text-white/70 bg-white/15 border border-white/20 rounded-4px',
 
     'error-banner':
-      'flex items-start gap-2.5 px-[14px] py-3 rounded-xl text-sm '
+      'flex items-start gap-2.5 px-14px py-3 rounded-xl text-sm '
       + 'text-[#dc2626] bg-[linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04))] '
       + 'border border-[rgba(239,68,68,.25)]',
     'error-icon':
@@ -318,7 +318,7 @@ export default defineConfig({
       'inline-flex items-center justify-center flex-shrink-0 w-7 h-7 rounded-lg '
       + 'bg-[rgba(16,185,129,.12)] text-sm',
     'demo-fill':
-      'flex-shrink-0 px-2.5 py-1 text-[11px] font-semibold rounded-md cursor-pointer '
+      'flex-shrink-0 px-2.5 py-1 text-11px font-semibold rounded-md cursor-pointer '
       + 'text-brand-700 bg-[rgba(16,185,129,.12)] border border-[rgba(16,185,129,.25)] '
       + 'transition-all duration-150 ease-out hover:(bg-[rgba(16,185,129,.18)] border-[rgba(16,185,129,.4)])',
 
@@ -326,7 +326,7 @@ export default defineConfig({
     'navbar-glass':
       'border-b border-default bg-app/75 backdrop-blur-xl backdrop-saturate-180',
     'navbar-glow-line':
-      'pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-0 transition-opacity duration-[400ms] ease-out '
+      'pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-0 transition-opacity duration-400ms ease-out '
       + 'bg-[linear-gradient(90deg,transparent_0%,rgba(16,185,129,.3)_25%,rgba(6,182,212,.4)_50%,rgba(16,185,129,.3)_75%,transparent_100%)]',
     'logo-mark':
       'inline-flex items-center justify-center w-7 h-7 rounded-lg '
@@ -334,18 +334,18 @@ export default defineConfig({
       + 'shadow-[0_0_16px_rgba(16,185,129,.4),inset_0_1px_0_rgba(255,255,255,.2)] '
       + 'transition-[transform,box-shadow] duration-260 ease-out',
     'logo-mark-lg':
-      'inline-flex items-center justify-center w-8 h-8 rounded-[10px] '
+      'inline-flex items-center justify-center w-8 h-8 rounded-10px '
       + 'bg-[linear-gradient(135deg,#34d399,#14b8a6)] '
       + 'shadow-[0_0_24px_rgba(16,185,129,.55),inset_0_1px_0_rgba(255,255,255,.25)]',
     'version-pill':
-      'text-[10px] font-semibold tracking-wide tabular-nums '
+      'text-10px font-semibold tracking-wide tabular-nums '
       + 'px-1.5 py-px rounded text-tertiary bg-hover',
     'user-trigger':
-      'flex items-center gap-2.5 pr-3 pl-[5px] py-[5px] rounded-xl border border-transparent cursor-pointer bg-transparent '
+      'flex items-center gap-2.5 pr-3 pl-5px py-5px rounded-xl border border-transparent cursor-pointer bg-transparent '
       + 'transition-all duration-260 ease-out '
       + 'hover:(border-default bg-hover)',
     'avatar':
-      'inline-flex items-center justify-center flex-shrink-0 w-[30px] h-[30px] rounded-[10px] text-xs font-bold text-white '
+      'inline-flex items-center justify-center flex-shrink-0 w-30px h-30px rounded-10px text-xs font-bold text-white '
       + 'shadow-[0_2px_8px_rgba(0,0,0,.15),inset_0_1px_0_rgba(255,255,255,.2)]',
 
     // ─ Brand visual（认证页左侧）─
@@ -355,7 +355,7 @@ export default defineConfig({
     'hero-display':
       'font-display font-black leading-[.85] tracking-tight text-[clamp(3.5rem,6.5vw,5.5rem)]',
     'hero-outline':
-      'block text-stroke-[1.5] text-stroke-[rgba(255,255,255,.85)] '
+      'block text-stroke-1.5 text-stroke-[rgba(255,255,255,.85)] '
       + '[text-shadow:0_0_60px_rgba(255,255,255,.08)]',
     // 渐变描边大标题（流光 + drop-shadow）
     'hero-gradient':
@@ -377,13 +377,13 @@ export default defineConfig({
 
     // 网格 overlay（深色面板上）
     'grid-overlay':
-      'pointer-events-none absolute inset-0 opacity-[.045] '
+      'pointer-events-none absolute inset-0 opacity-.045 '
       + '[background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] '
       + '[background-size:56px_56px] [mask-image:radial-gradient(ellipse_80%_70%_at_50%_40%,#000_40%,transparent_100%)]',
 
     // 光球（颜色 + 位置由各页传入 attribute；这里只给共享基线）
     'orb-base':
-      'pointer-events-none absolute w-[360px] h-[360px] rounded-full [filter:blur(80px)] will-change-transform',
+      'pointer-events-none absolute w-360px h-360px rounded-full [filter:blur(80px)] will-change-transform',
   },
 
   /** 安全名单：动态拼接的 class 必须放进来，否则会被 purge */

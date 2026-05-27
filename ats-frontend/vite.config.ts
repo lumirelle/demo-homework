@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      host: true, // 0.0.0.0，局域网设备可通过本机 IP:5173 访问
       port: 5173,
       strictPort: false,
       proxy: {

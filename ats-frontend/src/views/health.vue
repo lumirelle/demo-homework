@@ -42,10 +42,9 @@ onMounted(() => fetch())
 
 <template>
   <main
-    max-w="[760px]"
+    max-w-760px
     mx-auto
-    p="x-6"
-    class="pb-12 pt-[calc(60px+2rem)]"
+    p="x-6 b-12 t-92px"
   >
     <header
       flex="~ items-end justify-between wrap"
@@ -93,7 +92,7 @@ onMounted(() => fetch())
         <template v-else-if="err">
           <ErrorBlock
             title="无法连接到后端"
-            :description="err + '。请确认后端已启动（bun run be:dev）。'"
+            :description="`${err}。请确认后端已启动（bun run be:dev）。`"
             :retrying="loading"
             @retry="manualRefetch"
           />

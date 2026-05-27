@@ -23,6 +23,16 @@ public class ApplicationDetailVO {
     private String jobTitle;
     private JobStatus jobStatus;
 
+    /** M6：岗位所属组织（经 sub_department join 得到） */
+    private Long subDepartmentId;
+    private String subDepartmentName;
+    private Long departmentId;
+    private String departmentName;
+    private Long rootOrgId;
+    private String rootOrgName;
+    /** 工作地点，来自 sub_departments.location */
+    private String jobLocation;
+
     private Long candidateId;
     private String candidateName;
     private String candidateEmail;

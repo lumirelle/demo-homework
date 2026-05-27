@@ -34,6 +34,10 @@ public enum ErrorCode {
     JOB_NOT_PUBLISHED(20013, "岗位未发布，候选人不可查看"),
     JOB_SALARY_RANGE_INVALID(20014, "薪资下限不能大于上限"),
     TAG_NOT_FOUND(20015, "标签不存在或已被删除"),
+    DEPARTMENT_NOT_FOUND(20016, "部门不存在或已被删除"),
+    SUB_DEPARTMENT_NOT_FOUND(20017, "子部门不存在或已被删除"),
+    SUB_DEPARTMENT_HAS_JOBS(20018, "子部门下仍有岗位，不可删除"),
+    DEPARTMENT_HAS_CHILDREN(20019, "部门下仍有子部门或下级部门，不可删除"),
 
     APPLICATION_NOT_FOUND(20021, "投递记录不存在"),
     APPLICATION_ACCESS_DENIED(20022, "无权操作此投递（仅本人候选人或对应岗位 HR / 管理员可访问）"),

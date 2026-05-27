@@ -37,8 +37,13 @@ public class JobDetailVO {
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
+    /** M6：组织三段式（root / department / sub_department），便于前端面包屑展示 */
+    private Long subDepartmentId;
+    private String subDepartmentName;
     private Long departmentId;
     private String departmentName;
+    private Long rootOrgId;
+    private String rootOrgName;
     private Long createdBy;
     private String createdByName;
 

@@ -17,12 +17,15 @@ public class Job {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long departmentId;
+    /**
+     * M6 起岗位必须挂在子部门（叶子节点），不再持有 location / 旧 department_id。
+     * 工作地点通过 join sub_departments.location 取得。
+     */
+    private Long subDepartmentId;
     private Long createdBy;
 
     private String title;
     private String description;
-    private String location;
 
     /** FULL_TIME / PART_TIME / CONTRACT / INTERN / REMOTE — 映射 PG job_work_type enum */
     @TableField(typeHandler = PgEnumTypeHandler.class)

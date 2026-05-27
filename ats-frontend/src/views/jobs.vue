@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { UploadVO } from '@/api/files'
 import type {
   JobDetailVO,
   JobLevel,
@@ -8,7 +9,6 @@ import type {
   TagCategory,
   TagVO,
 } from '@/api/jobs'
-import type { UploadVO } from '@/api/files'
 import {
   NButton,
   NDrawer,
@@ -31,8 +31,8 @@ import {
   jobsApi,
   LEVEL_LABEL,
   STATUS_LABEL,
-  tagsApi,
   TAG_CATEGORY_LABEL,
+  tagsApi,
   WORK_TYPE_LABEL,
 } from '@/api/jobs'
 import { BizError } from '@/api/request'
@@ -83,7 +83,8 @@ async function fetchList() {
     total.value = res.total
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -127,7 +128,8 @@ async function loadTags() {
 const tagsByCategory = computed(() => {
   const groups = new Map<TagCategory, TagVO[]>()
   tags.value.forEach((t) => {
-    if (!groups.has(t.category)) groups.set(t.category, [])
+    if (!groups.has(t.category))
+      groups.set(t.category, [])
     groups.get(t.category)!.push(t)
   })
   return Array.from(groups.entries())
@@ -135,7 +137,8 @@ const tagsByCategory = computed(() => {
 
 function toggleTag(slug: string) {
   const idx = filter.tagSlugs.indexOf(slug)
-  if (idx >= 0) filter.tagSlugs.splice(idx, 1)
+  if (idx >= 0)
+    filter.tagSlugs.splice(idx, 1)
   else filter.tagSlugs.push(slug)
   resetAndFetch()
 }
@@ -157,7 +160,8 @@ async function openDetail(id: number) {
   }
   catch (e) {
     drawerVisible.value = false
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -179,7 +183,8 @@ const uploadingResume = ref(false)
 const resumeInputRef = ref<HTMLInputElement | null>(null)
 
 function openApplyDialog() {
-  if (!detail.value) return
+  if (!detail.value)
+    return
   if (!auth.isLoggedIn) {
     message.warning('请先登录后再投递')
     router.push({ name: 'Login', query: { redirect: '/jobs' } })
@@ -205,7 +210,8 @@ async function onResumeChange(e: Event) {
   const file = input.files?.[0]
   // 重置 input value 让用户能重新选同一个文件
   input.value = ''
-  if (!file) return
+  if (!file)
+    return
   uploadingResume.value = true
   try {
     const vo: UploadVO = await filesApi.upload(file, 'RESUME')
@@ -214,8 +220,10 @@ async function onResumeChange(e: Event) {
     message.success('简历上传成功')
   }
   catch (err) {
-    if (err instanceof FileValidationError) message.warning(err.message)
-    else if (err instanceof BizError) message.error(err.message)
+    if (err instanceof FileValidationError)
+      message.warning(err.message)
+    else if (err instanceof BizError)
+      message.error(err.message)
     else message.error('上传失败，请重试')
   }
   finally {
@@ -229,13 +237,16 @@ function removeResume() {
 }
 
 function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024)
+    return `${bytes} B`
+  if (bytes < 1024 * 1024)
+    return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
 async function submitApply() {
-  if (!detail.value) return
+  if (!detail.value)
+    return
   applying.value = true
   try {
     await applicationsApi.apply({
@@ -250,7 +261,8 @@ async function submitApply() {
     setTimeout(() => router.push('/me/applications'), 400)
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -277,13 +289,18 @@ const TAG_CATEGORY_ACCENT: Record<TagCategory, string> = {
 }
 
 function formatPublishedAt(iso: string | null) {
-  if (!iso) return '近期'
+  if (!iso)
+    return '近期'
   const d = new Date(iso)
   const diffH = (Date.now() - d.getTime()) / 36e5
-  if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
-  if (diffH < 24) return `${Math.floor(diffH)} 小时前`
-  if (diffH < 24 * 7) return `${Math.floor(diffH / 24)} 天前`
-  if (diffH < 24 * 30) return `${Math.floor(diffH / (24 * 7))} 周前`
+  if (diffH < 1)
+    return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
+  if (diffH < 24)
+    return `${Math.floor(diffH)} 小时前`
+  if (diffH < 24 * 7)
+    return `${Math.floor(diffH / 24)} 天前`
+  if (diffH < 24 * 30)
+    return `${Math.floor(diffH / (24 * 7))} 周前`
   return d.toISOString().slice(0, 10)
 }
 
@@ -300,7 +317,8 @@ function escapeHtml(s: string) {
 }
 
 function renderMarkdown(md: string | null | undefined): string {
-  if (!md) return ''
+  if (!md)
+    return ''
   const lines = escapeHtml(md).split('\n')
   const out: string[] = []
   let para: string[] = []
@@ -308,20 +326,24 @@ function renderMarkdown(md: string | null | undefined): string {
 
   function flushPara() {
     if (para.length) {
-      out.push(`<p>${para.join(' ').replace(/`([^`]+?)`/g, '<code>$1</code>')}</p>`)
+      out.push(`<p>${para.join(' ').replace(/`([^`]+)`/g, '<code>$1</code>')}</p>`)
       para = []
     }
   }
   function flushList() {
     if (list.length) {
-      out.push(`<ul>${list.map(li => `<li>${li.replace(/`([^`]+?)`/g, '<code>$1</code>')}</li>`).join('')}</ul>`)
+      out.push(`<ul>${list.map(li => `<li>${li.replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`).join('')}</ul>`)
       list = []
     }
   }
 
   for (const raw of lines) {
     const line = raw.trim()
-    if (!line) { flushPara(); flushList(); continue }
+    if (!line) {
+      flushPara()
+      flushList()
+      continue
+    }
     const h = line.match(/^(#{1,4})\s+(.*)/)
     if (h) {
       flushPara()
@@ -368,13 +390,15 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 </script>
 
 <template>
-  <main min-h-screen bg-app class="pt-[60px]">
+  <main
+    min-h-screen bg-app pt-60px
+  >
     <!-- ──────────────── Hero ──────────────── -->
-    <section relative max-w="[1200px]" mx-auto p="t-12 b-6 x-6" overflow-hidden>
+    <section relative max-w-1200px mx-auto p="t-12 b-6 x-6" overflow-hidden>
       <!-- 背景 aurora 装饰，仅在大屏显示 -->
       <div
         aria-hidden="true"
-        class="pointer-events-none absolute inset-0 -z-1 op-60"
+        pointer-events-none absolute inset-0 z--1 op-60
         :style="{
           background: 'radial-gradient(60% 40% at 80% 0%, rgba(110,231,183,.18), transparent 60%), radial-gradient(50% 35% at 10% 30%, rgba(20,184,166,.12), transparent 65%)',
         }"
@@ -383,22 +407,22 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
       <p kicker mb-3>
         Job Market · 岗位市场
       </p>
-      <h1 m-0 text-[clamp(36px,5vw,60px)] text-gray-900 font-black tracking="[-0.04em]" leading="[1.05]">
-        遇见<span class="text-gradient">下一份机会</span>
+      <h1 m-0 class="text-[clamp(36px,5vw,60px)]" text-gray-900 font-black tracking="[-0.04em]" leading="[1.05]">
+        遇见<span text-gradient>下一份机会</span>
       </h1>
-      <p mt-3 text-lg text-secondary max-w="[640px]" leading="[1.6]">
+      <p mt-3 text-lg text-secondary max-w-640px leading="[1.6]">
         共 <span text-primary font-semibold>{{ total }}</span> 个公开岗位 ·
         覆盖技术研发、产品设计、HR Tech 等领域 · 支持全文搜索 + 标签精筛
       </p>
     </section>
 
     <!-- ──────────────── Search + Quick Filter ──────────────── -->
-    <section class="sticky top-[60px] z-20" bg-app backdrop-blur-md border="b subtle">
-      <div max-w="[1200px]" mx-auto p="y-4 x-6" flex="~ items-center wrap" gap-3>
+    <section sticky top-60px z-20 bg-app backdrop-blur-md border="b subtle">
+      <div max-w-1200px mx-auto p="y-4 x-6" flex="~ items-center wrap" gap-3>
         <!-- 搜索框 -->
         <div
           flex="~ items-center"
-          class="flex-1 min-w-[220px] max-w-[480px]"
+          flex-1 min-w-220px max-w-480px
           gap-2
           p="y-2.5 x-4"
           rounded-full
@@ -408,9 +432,10 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           transition="[border-color,box-shadow]"
           duration-260
           ease-out
-          focus-within:(border-brand-300 shadow-glow-mint)
+          focus-within:border-brand-300
+          focus-within:shadow-glow-mint
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="op-60 flex-shrink-0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" op-60 shrink-0>
             <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8" />
             <path d="M20 20l-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
           </svg>
@@ -418,12 +443,12 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             v-model="filter.keyword"
             type="text"
             placeholder="搜索岗位名称 / 职责描述…"
-            class="flex-1 outline-none border-none bg-transparent text-sm text-primary"
+            flex-1 outline-none border-none bg-transparent text-sm text-primary
             @keydown.enter="resetAndFetch"
           >
           <button
             v-if="filter.keyword"
-            class="op-60 hover:op-100 transition-opacity cursor-pointer bg-transparent border-none text-tertiary"
+            op-60 hover:op-100 transition-opacity cursor-pointer bg-transparent border-none text-tertiary
             type="button"
             aria-label="清空"
             @click="filter.keyword = ''; resetAndFetch()"
@@ -432,7 +457,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               <path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
-          <span class="kbd-hint" max-sm="hidden">⏎</span>
+          <span kbd-hint max-sm="hidden">⏎</span>
         </div>
 
         <!-- 工作类型 chip -->
@@ -444,7 +469,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             :class="filter.workType.includes(opt.value)
               ? 'bg-brand-500 text-white border-brand-500 shadow-glow-mint'
               : 'bg-elevated text-secondary border-subtle hover:(border-brand-300 text-primary)'"
-            class="px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out"
+            px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out
             @click="filter.workType.includes(opt.value)
               ? filter.workType = filter.workType.filter(v => v !== opt.value)
               : filter.workType.push(opt.value)"
@@ -462,7 +487,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             :class="filter.level.includes(opt.value)
               ? 'bg-accent-teal text-white border-accent-teal shadow-glow-teal'
               : 'bg-elevated text-secondary border-subtle hover:(border-accent-teal/40 text-primary)'"
-            class="px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out"
+            px-3 py-1 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out
             @click="filter.level.includes(opt.value)
               ? filter.level = filter.level.filter(v => v !== opt.value)
               : filter.level.push(opt.value)"
@@ -474,7 +499,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
         <!-- 标签按钮（打开下方面板） -->
         <button
           type="button"
-          class="px-3 py-1.5 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out flex items-center gap-1.5"
+          px-3 py-1.5 text-xs font-medium rounded-full border cursor-pointer transition-all duration-260 ease-out flex items-center gap-1.5
           :class="tagPanelOpen || tagSelectedCount > 0
             ? 'bg-accent-emerald/10 text-brand-700 border-brand-300'
             : 'bg-elevated text-secondary border-subtle hover:(border-brand-300 text-primary)'"
@@ -484,7 +509,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             <path d="M3 7 H21 M6 12 H18 M9 17 H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
           标签
-          <span v-if="tagSelectedCount" class="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-brand-500 text-white text-[10px] font-bold">
+          <span v-if="tagSelectedCount" class="ml-0.5 inline-flex items-center justify-center min-w-16px h-16px px-1 rounded-full bg-brand-500 text-white text-10px font-bold">
             {{ tagSelectedCount }}
           </span>
         </button>
@@ -493,7 +518,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
         <button
           v-if="hasActiveFilter"
           type="button"
-          class="text-xs text-tertiary hover:text-danger-700 transition-colors cursor-pointer bg-transparent border-none px-2 py-1"
+          text-xs text-tertiary hover:text-danger-700 transition-colors cursor-pointer bg-transparent border-none px-2 py-1
           @click="clearFilters"
         >
           清空筛选
@@ -502,10 +527,10 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 
       <!-- 标签下拉面板 -->
       <Transition name="tag-panel">
-        <div v-if="tagPanelOpen" max-w="[1200px]" mx-auto p="b-4 x-6">
-          <div class="card-base" p-4>
-            <div v-for="[cat, list] in tagsByCategory" :key="cat" class="mb-3 last:mb-0">
-              <p class="text-[11px] uppercase tracking-widest text-tertiary mb-2 font-semibold">
+        <div v-if="tagPanelOpen" max-w-1200px mx-auto p="b-4 x-6">
+          <div card-base p-4>
+            <div v-for="[cat, list] in tagsByCategory" :key="cat" mb-3 last:mb-0>
+              <p text-11px uppercase tracking-widest text-tertiary mb-2 font-semibold>
                 {{ TAG_CATEGORY_LABEL[cat] }}
               </p>
               <div flex="~ wrap" gap-1.5>
@@ -516,7 +541,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                   :class="filter.tagSlugs.includes(t.slug)
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-app text-secondary border-subtle hover:(border-brand-300 text-primary bg-elevated)'"
-                  class="px-2.5 py-1 text-xs rounded-md border cursor-pointer transition-all duration-260 ease-out"
+                  px-2.5 py-1 text-xs rounded-md border cursor-pointer transition-all duration-260 ease-out
                   @click="toggleTag(t.slug)"
                 >
                   {{ t.name }}
@@ -529,7 +554,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
     </section>
 
     <!-- ──────────────── 列表 ──────────────── -->
-    <section max-w="[1200px]" mx-auto p="y-6 x-6">
+    <section max-w-1200px mx-auto p="y-6 x-6">
       <NSpin :show="loading">
         <!-- 空状态 -->
         <div v-if="!loading && items.length === 0" py-16>
@@ -549,7 +574,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           gap-4
           grid-cols="[repeat(auto-fill,minmax(320px,1fr))]"
         >
-          <div v-for="i in 6" :key="i" class="card-base" p-5>
+          <div v-for="i in 6" :key="i" card-base p-5>
             <NSkeleton text :repeat="2" />
             <NSkeleton text style="width: 60%" :repeat="1" />
             <NSkeleton text style="width: 40%" :repeat="1" />
@@ -587,7 +612,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             />
 
             <header flex="~ items-start justify-between" gap-3 mb-3>
-              <h3 m-0 font-bold text-lg text-primary leading="tight" class="line-clamp-2 flex-1">
+              <h3 m-0 font-bold text-lg text-primary leading="tight" line-clamp-2 flex-1>
                 {{ item.title }}
               </h3>
               <NTag
@@ -596,7 +621,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                 size="small"
                 round
                 :bordered="false"
-                class="flex-shrink-0"
+                shrink-0
               >
                 {{ STATUS_LABEL[item.status] }}
               </NTag>
@@ -611,25 +636,25 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                 </svg>
                 {{ WORK_TYPE_LABEL[item.workType] }}
               </span>
-              <span class="op-40">·</span>
+              <span op-40>·</span>
               <span flex="~ items-center" gap-1>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path d="M4 18 L10 12 L14 16 L20 8 M20 8 H15 M20 8 V13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 {{ LEVEL_LABEL[item.level] }}
               </span>
-              <span class="op-40">·</span>
-              <span class="font-mono font-semibold text-brand-700">
+              <span op-40>·</span>
+              <span font-mono font-semibold text-brand-700>
                 {{ item.salaryRange }}
               </span>
             </div>
 
             <!-- 标签条 -->
-            <div flex="~ wrap" gap-1.5 mb-4 min-h-[24px]>
+            <div flex="~ wrap" gap-1.5 mb-4 min-h-24px>
               <span
                 v-for="t in item.tags.slice(0, 4)"
                 :key="t.id"
-                class="px-2 py-0.5 text-[11px] font-medium rounded border"
+                px-2 py-0.5 text-11px font-medium rounded border
                 :style="{
                   color: TAG_CATEGORY_ACCENT[t.category],
                   borderColor: 'var(--border-subtle)',
@@ -638,19 +663,19 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               >
                 {{ t.name }}
               </span>
-              <span v-if="item.tags.length > 4" class="text-[11px] text-tertiary self-center font-mono">
+              <span v-if="item.tags.length > 4" text-11px text-tertiary self-center font-mono>
                 +{{ item.tags.length - 4 }}
               </span>
             </div>
 
             <!-- 底部 footer -->
             <div flex="~ items-center justify-between" text-xs text-tertiary>
-              <span class="truncate">
+              <span truncate>
                 {{ item.departmentName ?? '未设部门' }}<template v-if="item.location"> · {{ item.location }}</template>
               </span>
-              <span class="font-mono flex-shrink-0">
+              <span font-mono shrink-0>
                 <span>{{ formatPublishedAt(item.publishedAt) }}</span>
-                <span class="mx-1.5 op-50">·</span>
+                <span mx-1.5 op-50>·</span>
                 <span>{{ item.viewCount }} 浏览</span>
               </span>
             </div>
@@ -693,7 +718,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                 <span text-xs text-tertiary>
                   发布于 {{ formatPublishedAt(detail.publishedAt) }}
                 </span>
-                <span class="op-40 text-xs">·</span>
+                <span op-40 text-xs>·</span>
                 <span text-xs text-tertiary text-font-mono>
                   {{ detail.viewCount }} 浏览
                 </span>
@@ -702,7 +727,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               <!-- 关键属性 -->
               <div grid grid-cols-2 gap-3 mb-4>
                 <div>
-                  <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
+                  <p text-10px text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
                     薪资范围
                   </p>
                   <p m-0 text-2xl text-font-mono text-primary font-bold>
@@ -710,7 +735,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
                   </p>
                 </div>
                 <div>
-                  <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
+                  <p text-10px text-tertiary text-uppercase text-tracking-widest m="0 b-1" font-semibold>
                     招聘人数
                   </p>
                   <p m-0 text-2xl text-primary font-bold>
@@ -745,14 +770,14 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 
             <!-- 标签 -->
             <div v-if="detail.tags.length" mb-6>
-              <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-2" font-semibold>
+              <p text-10px text-tertiary text-uppercase text-tracking-widest m="0 b-2" font-semibold>
                 技能 / 领域
               </p>
               <div flex="~ wrap" gap-2>
                 <span
                   v-for="t in detail.tags"
                   :key="t.id"
-                  class="px-2.5 py-1 text-xs font-medium rounded-md border"
+                  px-2.5 py-1 text-xs font-medium rounded-md border
                   :style="{
                     color: TAG_CATEGORY_ACCENT[t.category],
                     borderColor: 'var(--border-subtle)',
@@ -766,7 +791,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
 
             <!-- 描述（Markdown 渲染） -->
             <div mb-8>
-              <p text-[10px] text-tertiary text-uppercase text-tracking-widest m="0 b-3" font-semibold>
+              <p text-10px text-tertiary text-uppercase text-tracking-widest m="0 b-3" font-semibold>
                 岗位描述
               </p>
               <div
@@ -786,7 +811,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
           <div flex="~ items-center justify-between" w-full>
             <div text-xs text-tertiary>
               <template v-if="detail?.status === 'PUBLISHED'">
-                <span class="inline-block w-2 h-2 rounded-full bg-success-500 mr-1.5 animate-pulse-ring" />
+                <span inline-block w-2 h-2 rounded-full bg-success-500 mr-1.5 animate-pulse-ring />
                 正在招聘
               </template>
               <template v-else-if="detail?.status === 'PAUSED'">
@@ -845,7 +870,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             :min="0"
             :max="40"
             placeholder="如 3"
-            class="w-full"
+            w-full
           />
         </div>
         <div>
@@ -863,7 +888,7 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
             ref="resumeInputRef"
             type="file"
             :accept="UPLOAD_LIMITS.RESUME.accept"
-            class="hidden"
+            hidden
             @change="onResumeChange"
           >
           <div v-if="!resumeFile" class="resume-uploader" :class="{ 'is-loading': uploadingResume }" @click="pickResume">
@@ -882,10 +907,10 @@ const tagSelectedCount = computed(() => filter.tagSlugs.length)
               PDF
             </div>
             <div flex-1 min-w-0>
-              <p m="0" text-sm text-primary font-semibold class="truncate">
+              <p m="0" text-sm text-primary font-semibold truncate>
                 {{ resumeFile.name }}
               </p>
-              <p m="t-0.5 b-0" text-[11px] text-tertiary text-font-mono>
+              <p m="t-0.5 b-0" text-11px text-tertiary text-font-mono>
                 {{ formatFileSize(resumeFile.size) }} · 已上传
               </p>
             </div>

@@ -11,8 +11,10 @@ import com.ats.job.dto.JobCreateReq;
 import com.ats.job.dto.JobDetailVO;
 import com.ats.job.dto.JobTransitionReq;
 import com.ats.job.dto.JobUpdateReq;
+import com.ats.entity.SubDepartment;
 import com.ats.repository.JobMapper;
 import com.ats.repository.JobTagMapper;
+import com.ats.repository.SubDepartmentMapper;
 import com.ats.repository.TagMapper;
 import com.ats.repository.UserMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -63,16 +65,19 @@ class JobServiceTest {
     @Mock TagMapper tagMapper;
     @Mock JobTagMapper jobTagMapper;
     @Mock UserMapper userMapper;
+    @Mock SubDepartmentMapper subDepartmentMapper;
 
     @InjectMocks JobService jobService;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
-        // 默认 stub：dept / user / tagRow batch 查回空，简化 toVO 路径
-        when(jobMapper.selectDepartmentNames(anyList())).thenReturn(Collections.emptyList());
+        // 默认 stub：subDept / user / tagRow batch 查回空，简化 toVO 路径
+        when(subDepartmentMapper.selectExpandedByIds(anyList())).thenReturn(Collections.emptyList());
         when(userMapper.selectByIds(anyList())).thenReturn(Collections.emptyList());
         when(tagMapper.findTagsByJobIds(anyList())).thenReturn(Collections.emptyList());
+        // M6: validateSubDepartmentExists 走 subDepartmentMapper.selectById；create/update 路径默认放行
+        when(subDepartmentMapper.selectById(anyLong())).thenReturn(new SubDepartment());
         // 注意：tagMapper.selectCount 不设默认 → 各 case 按需 stub（避免与 validateTagIds 隐式冲突）
     }
 
@@ -385,7 +390,8 @@ class JobServiceTest {
         JobCreateReq req = new JobCreateReq();
         req.setTitle("Test Engineer");
         req.setDescription("desc");
-        req.setLocation("Beijing");
+        // M6: location 字段已从 jobs 表迁出，改通过 subDepartment 关联；测试用一个 stub id
+        req.setSubDepartmentId(1L);
         req.setWorkType(JobWorkType.FULL_TIME);
         req.setLevel(JobLevel.MID);
         req.setSalaryMin(20000);
@@ -400,7 +406,7 @@ class JobServiceTest {
         j.setCreatedBy(createdBy);
         j.setTitle("title-" + id);
         j.setDescription("desc-" + id);
-        j.setLocation("loc");
+        j.setSubDepartmentId(1L);
         j.setWorkType(JobWorkType.FULL_TIME.name());
         j.setLevel(JobLevel.MID.name());
         j.setSalaryMin(20000);

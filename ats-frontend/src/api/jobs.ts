@@ -53,6 +53,7 @@ export interface TagVO {
 export interface JobListItemVO {
   id: number
   title: string
+  /** M6：location 从 sub_department.location 派生，依然在 VO 中暴露便于现有 UI 展示 */
   location: string | null
   workType: JobWorkType
   level: JobLevel
@@ -64,8 +65,13 @@ export interface JobListItemVO {
   viewCount: number
   publishedAt: string | null
   updatedAt: string
+  /** M6：组织三段（root / department / sub_department） */
+  subDepartmentId: number | null
+  subDepartmentName: string | null
   departmentId: number | null
   departmentName: string | null
+  rootOrgId: number | null
+  rootOrgName: string | null
   createdBy: number
   createdByName: string | null
   tags: TagVO[]
@@ -82,13 +88,13 @@ export interface JobDetailVO extends Omit<JobListItemVO, 'tags'> {
 export interface JobCreateReq {
   title: string
   description?: string
-  location?: string
   workType?: JobWorkType
   level?: JobLevel
   salaryMin?: number | null
   salaryMax?: number | null
   headcount?: number
-  departmentId?: number | null
+  /** M6：岗位必须挂在子部门（叶子节点）；location 由子部门继承，不再单独传 */
+  subDepartmentId: number
   tagIds?: number[]
 }
 
@@ -100,7 +106,12 @@ export interface JobListReq {
   workType?: JobWorkType[]
   level?: JobLevel[]
   tagSlugs?: string[]
+  /** 上层部门筛 */
   departmentId?: number
+  /** M6 新增：子部门精确筛 */
+  subDepartmentId?: number
+  /** 工作地点模糊（M6 起从 sub_departments.location 取） */
+  location?: string
   mine?: boolean
   includeArchived?: boolean
   page?: number

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
+import type { SubDepartmentVO } from '@/api/departments'
 import type {
   JobCreateReq,
   JobDetailVO,
@@ -29,12 +30,13 @@ import {
 } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { departmentsApi } from '@/api/departments'
 import {
   jobsApi,
   LEVEL_LABEL,
   STATUS_LABEL,
-  tagsApi,
   TAG_CATEGORY_LABEL,
+  tagsApi,
   WORK_TYPE_LABEL,
 } from '@/api/jobs'
 import { BizError } from '@/api/request'
@@ -86,7 +88,8 @@ async function fetchList() {
     total.value = res.total
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -111,11 +114,47 @@ async function loadTags() {
   }
 }
 
+// ────────────────────────── 子部门字典（M6 新增，岗位下拉用）──────────────────────────
+
+const subDepartments = ref<SubDepartmentVO[]>([])
+async function loadSubDepartments() {
+  try {
+    subDepartments.value = await departmentsApi.listAllSubDepartments()
+  }
+  catch (e) {
+    console.warn('load sub-departments failed', e)
+  }
+}
+
+/**
+ * 子部门下拉选项：按上层部门分组，label = 「{子部门名} / {工作地点}」。
+ * 一目了然让 HR 在创建岗位时同时挑团队和地点。
+ */
+const subDepartmentOptionsGrouped = computed(() => {
+  const groups = new Map<number, { name: string, list: SubDepartmentVO[] }>()
+  subDepartments.value.forEach((sd) => {
+    if (!groups.has(sd.parentDepartmentId)) {
+      groups.set(sd.parentDepartmentId, { name: sd.parentDepartmentName, list: [] })
+    }
+    groups.get(sd.parentDepartmentId)!.list.push(sd)
+  })
+  return Array.from(groups.entries()).map(([deptId, { name, list }]) => ({
+    type: 'group' as const,
+    label: name,
+    key: `dept-${deptId}`,
+    children: list.map(sd => ({
+      label: `${sd.name} / ${sd.location}`,
+      value: sd.id,
+    })),
+  }))
+})
+
 /** 标签按 category 分组渲染（drawer 中复用） */
 const tagOptionsGrouped = computed(() => {
   const groups = new Map<string, TagVO[]>()
   tags.value.forEach((t) => {
-    if (!groups.has(t.category)) groups.set(t.category, [])
+    if (!groups.has(t.category))
+      groups.set(t.category, [])
     groups.get(t.category)!.push(t)
   })
   return Array.from(groups.entries()).map(([cat, list]) => ({
@@ -151,7 +190,8 @@ const StatusTransitionButton = {
 
     /** 懒加载 detail.allowedTransitions（避免列表请求时额外往返） */
     async function loadAllowed() {
-      if (allowed.value.length) return
+      if (allowed.value.length)
+        return
       try {
         loadingT.value = true
         const d = await jobsApi.detail(props.row.id)
@@ -172,7 +212,7 @@ const StatusTransitionButton = {
       options: options.value,
       onClickoutside: () => null,
       onSelect: (key: JobStatus) => emit('transition', key),
-      'placement': 'bottom-end',
+      placement: 'bottom-end',
     }, {
       default: () => h(NButton, {
         size: 'tiny',
@@ -198,6 +238,7 @@ const columns: DataTableColumns<JobListItemVO> = [
       h('span', { class: 'text-sm font-semibold text-primary' }, row.title),
       h('span', { class: 'text-xs text-tertiary' }, [
         row.departmentName ?? '未设部门',
+        row.subDepartmentName ? ` / ${row.subDepartmentName}` : '',
         row.location ? ` · ${row.location}` : '',
       ]),
     ]),
@@ -278,11 +319,11 @@ const columns: DataTableColumns<JobListItemVO> = [
         }),
         auth.isAdmin
           ? h(NButton, {
-            size: 'tiny',
-            tertiary: true,
-            type: 'error',
-            onClick: () => confirmDelete(row),
-          }, { default: () => '删除' })
+              size: 'tiny',
+              tertiary: true,
+              type: 'error',
+              onClick: () => confirmDelete(row),
+            }, { default: () => '删除' })
           : null,
       ],
     }),
@@ -322,7 +363,8 @@ async function transitionJob(row: JobListItemVO, to: JobStatus) {
         fetchList()
       }
       catch (e) {
-        if (e instanceof BizError) message.error(e.message)
+        if (e instanceof BizError)
+          message.error(e.message)
         else throw e
       }
     },
@@ -342,7 +384,8 @@ function confirmDelete(row: JobListItemVO) {
         fetchList()
       }
       catch (e) {
-        if (e instanceof BizError) message.error(e.message)
+        if (e instanceof BizError)
+          message.error(e.message)
       }
     },
   })
@@ -356,18 +399,20 @@ const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref<FormInst | null>(null)
 
-const emptyForm = (): JobCreateReq => ({
-  title: '',
-  description: '',
-  location: '',
-  workType: 'FULL_TIME',
-  level: 'MID',
-  salaryMin: null,
-  salaryMax: null,
-  headcount: 1,
-  departmentId: null,
-  tagIds: [],
-})
+function emptyForm(): JobCreateReq {
+  return {
+    title: '',
+    description: '',
+    workType: 'FULL_TIME',
+    level: 'MID',
+    salaryMin: null,
+    salaryMax: null,
+    headcount: 1,
+    // M6：必填 subDepartmentId；undefined 时校验失败，提示选择子部门
+    subDepartmentId: undefined as unknown as number,
+    tagIds: [],
+  }
+}
 
 const form = reactive<JobCreateReq>(emptyForm())
 
@@ -375,6 +420,12 @@ const rules: FormRules = {
   title: [{ required: true, message: '岗位名称必填', trigger: 'blur' }],
   workType: [{ required: true, message: '请选择工作类型', trigger: 'change' }],
   level: [{ required: true, message: '请选择级别', trigger: 'change' }],
+  subDepartmentId: [{
+    required: true,
+    type: 'number',
+    message: '请选择所属子部门（工作地点由子部门决定）',
+    trigger: 'change',
+  }],
 }
 
 function openCreate() {
@@ -393,18 +444,18 @@ async function openEdit(id: number) {
     Object.assign(form, {
       title: d.title,
       description: d.description ?? '',
-      location: d.location ?? '',
       workType: d.workType,
       level: d.level,
       salaryMin: d.salaryMin,
       salaryMax: d.salaryMax,
       headcount: d.headcount,
-      departmentId: d.departmentId,
+      subDepartmentId: d.subDepartmentId as number,
       tagIds: d.tags.map(t => t.id),
     })
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     drawerVisible.value = false
   }
 }
@@ -437,7 +488,8 @@ async function submitForm() {
     fetchList()
   }
   catch (e) {
-    if (e instanceof BizError) message.error(e.message)
+    if (e instanceof BizError)
+      message.error(e.message)
     else throw e
   }
   finally {
@@ -448,13 +500,17 @@ async function submitForm() {
 // ────────────────────────── helpers ──────────────────────────
 
 function formatTime(iso: string | null) {
-  if (!iso) return '—'
+  if (!iso)
+    return '—'
   const d = new Date(iso)
   const now = new Date()
   const diffH = (now.getTime() - d.getTime()) / 36e5
-  if (diffH < 1) return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
-  if (diffH < 24) return `${Math.floor(diffH)} 小时前`
-  if (diffH < 24 * 30) return `${Math.floor(diffH / 24)} 天前`
+  if (diffH < 1)
+    return `${Math.max(1, Math.floor(diffH * 60))} 分钟前`
+  if (diffH < 24)
+    return `${Math.floor(diffH)} 小时前`
+  if (diffH < 24 * 30)
+    return `${Math.floor(diffH / 24)} 天前`
   return d.toISOString().slice(0, 10)
 }
 
@@ -467,6 +523,7 @@ watch(
 
 onMounted(async () => {
   loadTags()
+  loadSubDepartments()
   await fetchList()
   // 支持 /hr/jobs?editJobId=xxx 跨页跳转 ——
   // 例如从「岗位市场」HR 视角点"到管理台编辑"过来时自动 open edit drawer
@@ -478,14 +535,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main min-h-screen bg-app class="pt-[60px]">
+  <main min-h-screen bg-app pt-60px>
     <!-- ──────────────── 顶部标题区 ──────────────── -->
-    <section max-w="[1400px]" mx-auto p="t-10 b-6 x-6">
+    <section max-w-1400px mx-auto p="t-10 b-6 x-6">
       <div flex="~ items-center justify-between wrap" gap-4>
         <div>
           <p
             inline-block
-            p="y-[5px] x-[12px]"
+            p="y-5px x-12px"
             mb-3
             rounded-full
             bg-elevated
@@ -495,8 +552,8 @@ onMounted(async () => {
           >
             Jobs Management · 岗位管理
           </p>
-          <h1 m-0 text-[36px] text-gray-900 font="display black" tracking="[-0.03em]" leading="[1.05]">
-            岗位<span class="text-gradient">管理台</span>
+          <h1 m-0 text-36px text-gray-900 font="display black" tracking="[-0.03em]" leading="[1.05]">
+            岗位<span text-gradient>管理台</span>
           </h1>
           <p mt-2 text-secondary>
             共 <span text-primary font-semibold>{{ total }}</span> 条记录。{{ auth.isAdmin ? '管理员视角：可见所有岗位 + 软删权限。' : 'HR 视角：默认只看自己创建的岗位，支持全字段过滤。' }}
@@ -515,7 +572,7 @@ onMounted(async () => {
     </section>
 
     <!-- ──────────────── 过滤条 ──────────────── -->
-    <section max-w="[1400px]" mx-auto p="x-6">
+    <section max-w-1400px mx-auto p="x-6">
       <div
         p-4
         rounded-xl
@@ -583,7 +640,7 @@ onMounted(async () => {
     </section>
 
     <!-- ──────────────── 数据表格 ──────────────── -->
-    <section max-w="[1400px]" mx-auto p="y-4 x-6">
+    <section max-w-1400px mx-auto p="y-4 x-6">
       <!-- 空表格 + 无筛选条件：给"新建岗位"引导 -->
       <EmptyState
         v-if="!loading && items.length === 0 && !filter.keyword && filter.status.length === 0 && filter.workType.length === 0 && filter.level.length === 0"
@@ -659,15 +716,18 @@ onMounted(async () => {
             </NFormItem>
           </div>
 
-          <div grid grid-cols-3 gap-4>
-            <NFormItem label="工作地点" path="location">
-              <NInput v-model:value="form.location" placeholder="北京 / 远程" />
+          <div grid grid-cols-2 gap-4>
+            <NFormItem label="所属子部门 / 工作地点" path="subDepartmentId">
+              <NSelect
+                v-model:value="form.subDepartmentId"
+                :options="subDepartmentOptionsGrouped"
+                placeholder="选择子部门，地点由子部门继承"
+                filterable
+                clearable
+              />
             </NFormItem>
             <NFormItem label="招聘人数" path="headcount">
               <NInputNumber v-model:value="form.headcount" :min="1" :max="999" w-full />
-            </NFormItem>
-            <NFormItem label="部门 ID" path="departmentId">
-              <NInputNumber v-model:value="form.departmentId" :min="1" placeholder="可选" w-full />
             </NFormItem>
           </div>
 

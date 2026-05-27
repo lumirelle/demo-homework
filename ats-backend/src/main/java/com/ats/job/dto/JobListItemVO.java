@@ -33,8 +33,16 @@ public class JobListItemVO {
     private OffsetDateTime publishedAt;
     private OffsetDateTime updatedAt;
 
+    /**
+     * M6：jobs 改挂子部门。VO 仍同时暴露 departmentId（上层部门 id）+ subDepartmentId，
+     * 方便前端按需展示 "技术研发 / 技术研发-上海浦东 / 上海·浦东" 三段式。
+     */
+    private Long subDepartmentId;
+    private String subDepartmentName;
     private Long departmentId;
     private String departmentName;
+    private Long rootOrgId;
+    private String rootOrgName;
     private Long createdBy;
     private String createdByName;
 

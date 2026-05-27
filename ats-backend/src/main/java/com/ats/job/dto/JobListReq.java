@@ -34,9 +34,16 @@ public class JobListReq {
     /** 按标签 slug 过滤（多选），命中任一即可（OR） */
     private List<String> tagSlugs;
 
+    /**
+     * 按"上层部门"筛（命中该部门下所有子部门的岗位）。
+     * M6 改造：departments 现在是中间节点，jobs 实际挂在 sub_departments 上，SQL 走 sd.parent_department_id = ?。
+     */
     private Long departmentId;
 
-    /** 工作地点模糊匹配（ILIKE %x%） —— 与 keyword 解耦：keyword 只搜 title+description */
+    /** 按"子部门"精确筛（叶子节点） */
+    private Long subDepartmentId;
+
+    /** 工作地点模糊匹配（ILIKE %x%） —— M6 起从 sub_departments.location 取值 */
     private String location;
 
     /** 薪资下限过滤：jobs.salary_max >= salaryMin（即"上限 ≥ 该值"才能进入候选） */

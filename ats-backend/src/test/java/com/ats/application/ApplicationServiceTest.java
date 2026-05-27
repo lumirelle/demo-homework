@@ -16,6 +16,7 @@ import com.ats.entity.User;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.JobMapper;
 import com.ats.repository.StageLogMapper;
+import com.ats.repository.SubDepartmentMapper;
 import com.ats.repository.UserMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +65,7 @@ class ApplicationServiceTest {
     @Mock StageLogMapper stageLogMapper;
     @Mock JobMapper jobMapper;
     @Mock UserMapper userMapper;
+    @Mock SubDepartmentMapper subDepartmentMapper;
 
     @InjectMocks ApplicationService applicationService;
 
@@ -73,6 +75,7 @@ class ApplicationServiceTest {
         // 默认 stage logs / users 查空，避免 toDetailVO 路径出错
         when(stageLogMapper.findByApplicationId(anyLong())).thenReturn(Collections.emptyList());
         when(userMapper.selectById(anyLong())).thenReturn(makeUser(99L, "Candidate Cathy", "cathy@example.com", "CANDIDATE"));
+        when(subDepartmentMapper.selectExpandedByIds(any())).thenReturn(Collections.emptyList());
     }
 
     @AfterEach
@@ -441,6 +444,7 @@ class ApplicationServiceTest {
         Job j = new Job();
         j.setId(id);
         j.setCreatedBy(createdBy);
+        j.setSubDepartmentId(1L);
         j.setTitle("title-" + id);
         j.setWorkType(JobWorkType.FULL_TIME.name());
         j.setLevel(JobLevel.MID.name());

@@ -84,6 +84,11 @@ class JobControllerSecurityTest {
     @MockitoBean com.ats.repository.StageLogMapper stageLogMapper;
     @MockitoBean com.ats.repository.InterviewMapper interviewMapper;
     @MockitoBean com.ats.repository.StatsMapper statsMapper;
+    // M6: 新增组织树相关 mapper，@MapperScan 会扫到必须 mock
+    @MockitoBean com.ats.repository.RootOrgMapper rootOrgMapper;
+    @MockitoBean com.ats.repository.DepartmentMapper departmentMapper;
+    @MockitoBean com.ats.repository.SubDepartmentMapper subDepartmentMapper;
+    @MockitoBean com.ats.repository.HrSubDepartmentMapper hrSubDepartmentMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     // ═════════════════════════════ 公开放行 ═════════════════════════════
@@ -154,8 +159,9 @@ class JobControllerSecurityTest {
     @DisplayName("POST /jobs · 创建岗位 · HR / ADMIN only")
     class CreateAuth {
 
+        /** M6 起 subDepartmentId 必填，否则 @Valid 在鉴权前即 400 */
         private static final String BODY = """
-                {"title":"Java","description":"d","workType":"FULL_TIME","level":"MID"}
+                {"title":"Java","description":"d","workType":"FULL_TIME","level":"MID","subDepartmentId":1}
                 """;
 
         @Test

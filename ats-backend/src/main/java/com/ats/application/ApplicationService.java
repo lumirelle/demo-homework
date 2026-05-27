@@ -20,6 +20,7 @@ import com.ats.job.dto.JobListReq;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.JobMapper;
 import com.ats.repository.StageLogMapper;
+import com.ats.repository.SubDepartmentMapper;
 import com.ats.repository.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,7 @@ public class ApplicationService {
     private final StageLogMapper stageLogMapper;
     private final JobMapper jobMapper;
     private final UserMapper userMapper;
+    private final SubDepartmentMapper subDepartmentMapper;
 
     /**
      * 看板列固定按状态机顺序输出（即使某列计数为 0 也要返回空列），
@@ -188,11 +190,14 @@ public class ApplicationService {
 
         ApplicationStage stage = ApplicationStage.valueOf(app.getStage());
 
-        return ApplicationDetailVO.builder()
+        ApplicationDetailVO.ApplicationDetailVOBuilder voBuilder = ApplicationDetailVO.builder()
                 .id(app.getId())
                 .jobId(job.getId())
                 .jobTitle(job.getTitle())
-                .jobStatus(JobStatus.valueOf(job.getStatus()))
+                .jobStatus(JobStatus.valueOf(job.getStatus()));
+        enrichJobOrganization(job, voBuilder);
+
+        return voBuilder
                 .candidateId(app.getCandidateId())
                 .candidateName(candidateName)
                 .candidateEmail(candidateEmail)
@@ -299,8 +304,8 @@ public class ApplicationService {
             List<String> visibleStatuses = null;
             jobIds = jobMapper.selectFilteredJobIds(jobReq, ownerOnlyUserId, visibleStatuses, BOARD_JOB_IDS_LIMIT);
             log.info(
-                    "[BOARD] filter keyword={} location={} dept={} workType={} level={} tags={} salary=[{},{}] → matched jobIds count={} (hr={}, ownerOnly={})",
-                    req.getKeyword(), req.getLocation(), req.getDepartmentId(),
+                    "[BOARD] filter keyword={} location={} dept={} subDept={} workType={} level={} tags={} salary=[{},{}] → matched jobIds count={} (hr={}, ownerOnly={})",
+                    req.getKeyword(), req.getLocation(), req.getDepartmentId(), req.getSubDepartmentId(),
                     req.getWorkType(), req.getLevel(), req.getTagSlugs(),
                     req.getSalaryMin(), req.getSalaryMax(),
                     jobIds.size(), hrUserId, ownerOnlyUserId);
@@ -372,6 +377,7 @@ public class ApplicationService {
         j.setLevel(req.getLevel());
         j.setTagSlugs(req.getTagSlugs());
         j.setDepartmentId(req.getDepartmentId());
+        j.setSubDepartmentId(req.getSubDepartmentId());
         j.setLocation(req.getLocation());
         j.setSalaryMin(req.getSalaryMin());
         j.setSalaryMax(req.getSalaryMax());
@@ -383,6 +389,7 @@ public class ApplicationService {
         return isNotBlank(req.getKeyword())
                 || isNotBlank(req.getLocation())
                 || req.getDepartmentId() != null
+                || req.getSubDepartmentId() != null
                 || req.getSalaryMin() != null
                 || req.getSalaryMax() != null
                 || (req.getWorkType() != null && !req.getWorkType().isEmpty())
@@ -392,6 +399,29 @@ public class ApplicationService {
 
     private static boolean isNotBlank(String s) {
         return s != null && !s.trim().isEmpty();
+    }
+
+    /** 从 sub_department 展开行填充组织三段 + 工作地点（与 JobDetailVO 语义对齐）。 */
+    private void enrichJobOrganization(Job job, ApplicationDetailVO.ApplicationDetailVOBuilder builder) {
+        if (job.getSubDepartmentId() == null) {
+            return;
+        }
+        List<Map<String, Object>> rows = subDepartmentMapper.selectExpandedByIds(List.of(job.getSubDepartmentId()));
+        if (rows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> row = rows.get(0);
+        builder.subDepartmentId(((Number) row.get("id")).longValue())
+                .subDepartmentName((String) row.get("name"))
+                .jobLocation((String) row.get("location"));
+        if (row.get("parent_department_id") != null) {
+            builder.departmentId(((Number) row.get("parent_department_id")).longValue())
+                    .departmentName((String) row.get("parent_department_name"));
+        }
+        if (row.get("root_org_id") != null) {
+            builder.rootOrgId(((Number) row.get("root_org_id")).longValue())
+                    .rootOrgName((String) row.get("root_org_name"));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

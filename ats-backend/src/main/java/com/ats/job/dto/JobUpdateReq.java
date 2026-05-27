@@ -22,9 +22,6 @@ public class JobUpdateReq {
     @Size(max = 50_000)
     private String description;
 
-    @Size(max = 200)
-    private String location;
-
     private JobWorkType workType;
 
     private JobLevel level;
@@ -38,7 +35,8 @@ public class JobUpdateReq {
     @Min(1)
     private Short headcount;
 
-    private Long departmentId;
+    /** M6：改为子部门 id；location 由子部门继承，不再单独传。 */
+    private Long subDepartmentId;
 
     /** null=不动，[]=清空，非空=全量替换 */
     private List<Long> tagIds;

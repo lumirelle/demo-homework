@@ -78,6 +78,10 @@ class FileControllerSecurityTest {
     @MockitoBean StageLogMapper stageLogMapper;
     @MockitoBean InterviewMapper interviewMapper;
     @MockitoBean com.ats.repository.StatsMapper statsMapper;
+    @MockitoBean com.ats.repository.RootOrgMapper rootOrgMapper;
+    @MockitoBean com.ats.repository.DepartmentMapper departmentMapper;
+    @MockitoBean com.ats.repository.SubDepartmentMapper subDepartmentMapper;
+    @MockitoBean com.ats.repository.HrSubDepartmentMapper hrSubDepartmentMapper;
     @MockitoBean org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Nested

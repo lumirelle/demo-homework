@@ -3,6 +3,17 @@
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ats.repository.JobMapper">
 
+  <!--
+    M6 改造说明：
+    - jobs 已 DROP location 列；工作地点改从 sub_departments.location 取
+    - jobs.department_id 改为 jobs.sub_department_id（指向叶子节点）
+    - 所有 list / count / id 查询都需要 join sub_departments + departments 拿展示和过滤字段
+    - 过滤语义：
+        q.subDepartmentId 单选 → AND j.sub_department_id = ?         （精确叶子）
+        q.departmentId    单选 → AND sd.parent_department_id = ?     （按"上层部门"筛，命中该部门下所有子部门的岗位）
+        q.location  非空模糊  → AND sd.location ILIKE '%x%'         （从子部门 location 取，语义不变）
+  -->
+
   <!-- 公共 WHERE 条件：用 <sql>+<include> 在 list/count 复用 -->
   <sql id="conditions">
     j.deleted_at IS NULL
@@ -32,11 +43,14 @@
       AND j.level::text IN
       <foreach collection="q.level" item="l" open="(" separator="," close=")">#{l}</foreach>
     </if>
+    <if test="q.subDepartmentId != null">
+      AND j.sub_department_id = #{q.subDepartmentId}
+    </if>
     <if test="q.departmentId != null">
-      AND j.department_id = #{q.departmentId}
+      AND sd.parent_department_id = #{q.departmentId}
     </if>
     <if test="q.location != null and q.location != ''">
-      AND j.location ILIKE '%' || #{q.location} || '%'
+      AND sd.location ILIKE '%' || #{q.location} || '%'
     </if>
     <!--
       薪资过滤语义（"区间相交"，而非"完全落在区间内"）：
@@ -63,8 +77,8 @@
 
   <select id="listJobs" resultType="com.ats.entity.Job">
     SELECT
-      j.id, j.department_id, j.created_by,
-      j.title, j.description, j.location,
+      j.id, j.sub_department_id, j.created_by,
+      j.title, j.description,
       j.work_type::text AS work_type,
       j.level::text     AS level,
       j.salary_min, j.salary_max, j.headcount,
@@ -72,6 +86,7 @@
       j.view_count, j.published_at, j.closed_at,
       j.created_at, j.updated_at, j.deleted_at
     FROM jobs j
+    JOIN sub_departments sd ON sd.id = j.sub_department_id
     WHERE
       <include refid="conditions"/>
     ORDER BY ${sortColumn} ${sortDir} NULLS LAST, j.id DESC
@@ -80,6 +95,7 @@
 
   <select id="countJobs" resultType="long">
     SELECT count(*) FROM jobs j
+    JOIN sub_departments sd ON sd.id = j.sub_department_id
     WHERE
       <include refid="conditions"/>
   </select>
@@ -90,6 +106,7 @@
   -->
   <select id="selectFilteredJobIds" resultType="long">
     SELECT j.id FROM jobs j
+    JOIN sub_departments sd ON sd.id = j.sub_department_id
     WHERE
       <include refid="conditions"/>
     ORDER BY j.published_at DESC NULLS LAST, j.id DESC

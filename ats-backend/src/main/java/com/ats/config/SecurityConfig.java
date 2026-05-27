@@ -23,7 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * <ul>
  *   <li><strong>无状态</strong>：SessionCreationPolicy.STATELESS</li>
  *   <li><strong>CSRF disable</strong>：JWT + SameSite=Lax 防御已足够，关闭可简化前端</li>
- *   <li><strong>CORS</strong>：由 {@link CorsConfig#corsFilter} 提供，{@code allowCredentials=true}
+ *   <li><strong>CORS</strong>：由 {@link CorsConfig#corsFilter} 提供，{@code allowCredentials=true}，支持 localhost 与局域网私网 Origin
  *       让前端 axios {@code withCredentials} 能携带 refresh cookie</li>
  *   <li><strong>放行清单</strong>：/health、/auth/(register|login|refresh)、GET /jobs(/*)
  *       —— 其余全部 .authenticated()，由 method-level {@code @PreAuthorize} 做细粒度</li>
@@ -58,8 +58,8 @@ public class SecurityConfig {
                         .requestMatchers("/health").permitAll()
                         // /auth/register · /auth/login 公开；/auth/refresh · /auth/logout 只凭 cookie 操作
                         .requestMatchers("/auth/register", "/auth/login", "/auth/refresh", "/auth/logout").permitAll()
-                        // 候选人可未登录浏览岗位 + 标签 + 部门字典
-                        .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*", "/tags", "/departments").permitAll()
+                        // 候选人可未登录浏览岗位 + 标签 + 部门字典（M6 增加 /sub-departments 给岗位创建下拉）
+                        .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/*", "/tags", "/departments", "/sub-departments").permitAll()
                         // 登录 / 注册页"水位"展示用的聚合统计（仅 GET，仅返回不可识别个体的聚合数字）
                         .requestMatchers(HttpMethod.GET, "/stats/public").permitAll()
                         // 其他全部需要登录

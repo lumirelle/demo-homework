@@ -111,57 +111,57 @@ function bringCardToTop(realIndex: number) {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <div flex min-h-screen>
     <!-- ══ 左：品牌视觉面板 ══════════════════════════════════ -->
-    <div class="brand-pane w-[52%]">
-      <div class="aurora-bg-login" />
-      <div class="grid-overlay" />
+    <div brand-pane w="[52%]">
+      <div aurora-bg-login />
+      <div grid-overlay />
 
       <!-- 流动光球（颜色由 inline 渐变控制，动画走 shortcuts） -->
-      <div class="orb-base animate-orb-float-a left-[-100px] top-[-120px] bg-[radial-gradient(circle,rgba(16,185,129,.55),transparent_70%)]" />
-      <div class="orb-base animate-orb-float-b right-[-80px] bottom-[-140px] bg-[radial-gradient(circle,rgba(6,182,212,.5),transparent_70%)]" />
+      <div orb-base animate-orb-float-a class="left-[-100px] top-[-120px] bg-[radial-gradient(circle,rgba(16,185,129,.55),transparent_70%)]" />
+      <div orb-base animate-orb-float-b class=" right-[-80px] bottom-[-140px] bg-[radial-gradient(circle,rgba(6,182,212,.5),transparent_70%)]" />
 
       <!-- 顶部导航条 -->
-      <div class="absolute inset-x-12 top-12 z-20 between-flex">
-        <router-link to="/home" class="flex items-center gap-2.5 no-underline transition-opacity hover:opacity-75">
-          <span class="logo-mark-lg">
+      <div absolute inset-x-12 top-12 z-20 between-flex>
+        <router-link to="/home" flex items-center gap-2.5 no-underline transition-opacity hover:opacity-75>
+          <span logo-mark-lg>
             <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
               <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M4.5 10 L7 6.5 L9.5 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.45" />
             </svg>
           </span>
-          <span class="font-display text-base font-bold tracking-wide text-white">ATS</span>
+          <span font-display text-base font-bold tracking-wide text-white>ATS</span>
         </router-link>
 
-        <div class="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 backdrop-blur-md">
-          <span class="relative flex h-1.5 w-1.5">
-            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <div flex items-center gap-2 rounded-full border border-emerald="400/30" bg-emerald="400/10" px-3 py-1 backdrop-blur-md>
+          <span relative flex h-1.5 w-1.5>
+            <span absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75 />
+            <span relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 />
           </span>
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-emerald-300">Live · v0.1</span>
+          <span text-11px font-semibold uppercase tracking-widest text-emerald-300>Live · v0.1</span>
         </div>
       </div>
 
       <!-- 巨型 hero typography（绝对居中） -->
-      <div class="absolute inset-0 z-10 col-flex justify-center px-12">
-        <p class="eyebrow mb-4 text-emerald-400">
-          <span class="h-px w-8 bg-emerald-400/50" />
+      <div absolute inset-0 z-10 col-flex justify-center px-12>
+        <p eyebrow mb-4 text-emerald-400>
+          <span h-px w-8 bg-emerald="400/50" />
           Applicant Tracking
         </p>
 
-        <h1 class="hero-display">
-          <span class="block text-white/95">Find the</span>
-          <span class="hero-outline">good</span>
-          <span class="hero-gradient pb-4">seedlings.</span>
+        <h1 hero-display>
+          <span block class="text-white/95">Find the</span>
+          <span hero-outline>good</span>
+          <span hero-gradient pb-4>seedlings.</span>
         </h1>
 
-        <p class="mt-8 max-w-[380px] text-sm leading-relaxed text-white/45">
+        <p mt-8 max-w-380px text-sm leading-relaxed class="text-white/45">
           公司内部招聘追踪系统。让 HR 与候选人，<br>
           沿同一根时间线，把每一位人才送到合适的位置。
         </p>
 
         <!-- 浮动招聘卡片堆叠（点击下层洗到顶部，点顶层切下一张） -->
-        <div class="floating-stack mt-10">
+        <div class="floating-stack" mt-10>
           <button
             v-for="(c, i) in PIPELINE"
             :key="c.stage"
@@ -172,11 +172,11 @@ function bringCardToTop(realIndex: number) {
             @click="bringCardToTop(i)"
           >
             <span class="float-card-dot" />
-            <div class="min-w-0 flex-1 text-left">
-              <p class="text-[13px] font-semibold text-white">
+            <div min-w-0 flex-1 text-left>
+              <p text-13px font-semibold text-white>
                 {{ c.stage }}
               </p>
-              <p class="text-[11px] text-white/40">
+              <p text-11px class="text-white/40">
                 {{ c.desc }}
               </p>
             </div>
@@ -186,9 +186,9 @@ function bringCardToTop(realIndex: number) {
       </div>
 
       <!-- 底部数据条 -->
-      <div class="absolute inset-x-12 bottom-10 z-10 between-flex border-t border-white/[.06] pt-5 text-[11px] uppercase tracking-widest text-white/30">
-        <span class="flex items-center gap-2">
-          <span class="h-1 w-1 rounded-full bg-emerald-400" />
+      <div absolute inset-x-12 bottom-10 z-10 between-flex border-t border="white/[.06]" pt-5 text-11px uppercase tracking-widest class="text-white/30">
+        <span flex items-center gap-2>
+          <span h-1 w-1 rounded-full bg-emerald-400 />
           Realtime Sync
         </span>
         <span>Powered by Spring × Vue</span>
@@ -196,21 +196,21 @@ function bringCardToTop(realIndex: number) {
     </div>
 
     <!-- ══ 右：表单面板 ════════════════════════════════════== -->
-    <div class="flex flex-1 flex-col items-center justify-center bg-app px-6 py-12">
-      <div class="w-full max-w-[400px]">
+    <div flex="~ 1 col" items-center justify-center bg-app px-6 py-12>
+      <div w-full max-w-400px>
         <!-- top bar: mobile logo + 返回首页 -->
-        <div class="mb-10 flex items-center justify-between">
-          <router-link to="/home" class="flex items-center gap-2 no-underline lg:hidden">
-            <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-emerald-400 to-teal-500">
+        <div mb-10 flex items-center justify-between>
+          <router-link to="/home" flex items-center gap-2 no-underline lg:hidden>
+            <span flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-br from-emerald-400 to-teal-500>
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
                 <path d="M2 10 L7 3 L12 10" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            <span class="font-display text-lg font-bold text-primary">ATS</span>
+            <span font-display text-lg font-bold text-primary>ATS</span>
           </router-link>
           <router-link
             to="/home"
-            class="flex items-center gap-1 text-sm text-tertiary no-underline transition-colors hover:text-primary"
+            flex items-center gap-1 text-sm text-tertiary no-underline transition-colors hover:text-primary
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M8.5 3 L4 7 L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -220,12 +220,12 @@ function bringCardToTop(realIndex: number) {
         </div>
 
         <!-- heading -->
-        <div class="mb-8">
-          <h2 class="mb-2 flex items-center gap-2 font-display text-[28px] font-bold leading-tight text-primary">
+        <div mb-8>
+          <h2 mb-2 flex items-center gap-2 font-display text-28px font-bold leading-tight text-primary>
             欢迎回来
-            <span class="text-2xl">👋</span>
+            <span text-2xl>👋</span>
           </h2>
-          <p class="text-sm text-tertiary">
+          <p text-sm text-tertiary>
             登录以继续使用公司招聘追踪系统
           </p>
         </div>
@@ -234,15 +234,15 @@ function bringCardToTop(realIndex: number) {
         <Transition name="fade">
           <div
             v-if="errorMsg"
-            class="error-banner mb-5"
+            error-banner mb-5
           >
-            <span class="error-icon">
+            <span error-icon>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5" />
                 <path d="M7 4 V8 M7 10 V10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
               </svg>
             </span>
-            <p class="flex-1 text-sm">
+            <p flex-1 text-sm>
               {{ errorMsg }}
             </p>
           </div>
@@ -284,13 +284,13 @@ function bringCardToTop(realIndex: number) {
           </NFormItem>
 
           <!-- submit -->
-          <button type="button" class="btn-primary" :disabled="loading" @click="handleSubmit">
-            <span v-if="!loading" class="relative z-10 center-flex gap-2">
+          <button type="button" btn-primary :disabled="loading" @click="handleSubmit">
+            <span v-if="!loading" relative z-10 center-flex gap-2>
               登录
-              <kbd class="kbd-hint">⏎</kbd>
+              <kbd kbd-hint>⏎</kbd>
             </span>
-            <span v-else class="relative z-10 center-flex gap-2">
-              <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <span v-else relative z-10 center-flex gap-2>
+              <svg animate-spin width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" opacity=".25" />
                 <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
               </svg>
@@ -301,19 +301,19 @@ function bringCardToTop(realIndex: number) {
         </NForm>
 
         <!-- demo account 提示卡 -->
-        <div class="demo-card mt-2 flex items-start gap-3">
-          <span class="demo-icon">🔑</span>
-          <div class="flex-1">
-            <p class="text-[12px] font-semibold text-primary">
+        <div demo-card mt-2 flex items-start gap-3>
+          <span demo-icon>🔑</span>
+          <div flex-1>
+            <p text-12px font-semibold text-primary>
               管理员演示账号
             </p>
-            <p class="mt-0.5 font-mono text-[11px] text-tertiary">
+            <p mt-0.5 font-mono text-11px text-tertiary>
               admin@ats.local / Admin@123
             </p>
           </div>
           <button
             type="button"
-            class="demo-fill"
+            demo-fill
             @click="model.email = 'admin@ats.local'; model.password = 'Admin@123'"
           >
             一键填充
@@ -321,19 +321,19 @@ function bringCardToTop(realIndex: number) {
         </div>
 
         <!-- demo account 提示卡 -->
-        <div class="demo-card mt-2 flex items-start gap-3">
-          <span class="demo-icon">🔑</span>
-          <div class="flex-1">
-            <p class="text-[12px] font-semibold text-primary">
+        <div demo-card mt-2 flex items-start gap-3>
+          <span demo-icon>🔑</span>
+          <div flex-1>
+            <p text-12px font-semibold text-primary>
               HR 演示账号
             </p>
-            <p class="mt-0.5 font-mono text-[11px] text-tertiary">
+            <p mt-0.5 font-mono text-11px text-tertiary>
               hr@ats.local / Admin@123
             </p>
           </div>
           <button
             type="button"
-            class="demo-fill"
+            demo-fill
             @click="model.email = 'hr@ats.local'; model.password = 'Admin@123'"
           >
             一键填充
@@ -341,19 +341,19 @@ function bringCardToTop(realIndex: number) {
         </div>
 
         <!-- demo account 提示卡 -->
-        <div class="demo-card mt-2 flex items-start gap-3">
-          <span class="demo-icon">🔑</span>
-          <div class="flex-1">
-            <p class="text-[12px] font-semibold text-primary">
+        <div demo-card mt-2 flex items-start gap-3>
+          <span demo-icon>🔑</span>
+          <div flex-1>
+            <p text-12px font-semibold text-primary>
               候选人演示账号
             </p>
-            <p class="mt-0.5 font-mono text-[11px] text-tertiary">
+            <p mt-0.5 font-mono text-11px text-tertiary>
               candidate@ats.local / Admin@123
             </p>
           </div>
           <button
             type="button"
-            class="demo-fill"
+            demo-fill
             @click="model.email = 'candidate@ats.local'; model.password = 'Admin@123'"
           >
             一键填充
@@ -361,28 +361,28 @@ function bringCardToTop(realIndex: number) {
         </div>
 
         <!-- divider -->
-        <div class="my-6 flex items-center gap-3">
-          <div class="h-px flex-1 bg-(--border-default)" />
-          <span class="text-[11px] uppercase tracking-widest text-tertiary">还没有账号？</span>
-          <div class="h-px flex-1 bg-(--border-default)" />
+        <div my-6 flex items-center gap-3>
+          <div h-px flex-1 class="bg-(--border-default)" />
+          <span text-11px uppercase tracking-widest text-tertiary>还没有账号？</span>
+          <div h-px flex-1 class="bg-(--border-default)" />
         </div>
 
-        <router-link to="/register" class="btn-secondary group">
+        <router-link to="/register" btn-secondary group>
           创建候选人账号
-          <svg class="transition-transform group-hover:translate-x-0.5" width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <svg transition-transform group-hover:translate-x-0.5 width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M3 7 H11 M7 3 L11 7 L7 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </router-link>
 
         <!-- 底部信任标识 -->
-        <div class="mt-8 flex items-center justify-center gap-4 text-[11px] text-tertiary">
-          <span class="flex items-center gap-1">
+        <div mt-8 flex items-center justify-center gap-4 text-11px text-tertiary>
+          <span flex items-center gap-1>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M6 1 L10 3 V6.5 C10 8.5 8 10.5 6 11 C4 10.5 2 8.5 2 6.5 V3 Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
             </svg>
             JWT + HttpOnly Cookie
           </span>
-          <span class="h-3 w-px bg-(--border-default)" />
+          <span h-3 w-px class="bg-(--border-default)" />
           <span>密码 BCrypt 加密</span>
         </div>
       </div>

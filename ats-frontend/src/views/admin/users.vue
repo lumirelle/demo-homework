@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { FormInst, FormRules } from 'naive-ui'
+import type { BatchCreateItem, BatchCreateResult, CreateUserReq } from '@/api/admin'
+import type { SubDepartmentVO } from '@/api/departments'
+import { departmentsApi } from '@/api/departments'
 import {
   NButton,
   NForm,
@@ -14,8 +17,7 @@ import {
   NTooltip,
   useMessage,
 } from 'naive-ui'
-import type { BatchCreateItem, BatchCreateResult, CreateUserReq } from '@/api/admin'
-import { computed, h, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { BizError } from '@/api/request'
 import CopyButton from '@/components/CopyButton.vue'
@@ -43,6 +45,36 @@ const singleForm = reactive<CreateUserReq>({
   password: '',
   fullName: '',
   role: 'HR',
+  subDepartmentIds: [],
+})
+
+const subDepartments = ref<SubDepartmentVO[]>([])
+
+onMounted(async () => {
+  try {
+    subDepartments.value = await departmentsApi.listAllSubDepartments()
+  }
+  catch (e) {
+    console.warn('load sub-departments failed', e)
+  }
+})
+
+const subDepartmentOptionsGrouped = computed(() => {
+  const groups = new Map<number, { name: string, list: SubDepartmentVO[] }>()
+  subDepartments.value.forEach((sd) => {
+    if (!groups.has(sd.parentDepartmentId))
+      groups.set(sd.parentDepartmentId, { name: sd.parentDepartmentName, list: [] })
+    groups.get(sd.parentDepartmentId)!.list.push(sd)
+  })
+  return Array.from(groups.entries()).map(([deptId, { name, list }]) => ({
+    type: 'group' as const,
+    label: name,
+    key: `dept-${deptId}`,
+    children: list.map(sd => ({
+      label: `${sd.name} / ${sd.location}`,
+      value: sd.id,
+    })),
+  }))
 })
 
 const singleFormRef = ref<FormInst | null>(null)
@@ -64,6 +96,16 @@ const singleRules: FormRules = {
     { max: 100, message: '姓名最多 100 字符', trigger: ['blur'] },
   ],
   role: [{ required: true, message: '角色必选', trigger: ['blur', 'change'] }],
+  subDepartmentIds: [{
+    validator: (_r, value: number[] | undefined) => {
+      if (singleForm.role !== 'HR')
+        return true
+      if (value && value.length > 0)
+        return true
+      return new Error('HR 账号必须绑定至少一个子部门')
+    },
+    trigger: ['blur', 'change'],
+  }],
 }
 
 const roleOptions = [
@@ -78,7 +120,8 @@ function genSinglePassword() {
 }
 
 async function submitSingle() {
-  if (!singleFormRef.value) return
+  if (!singleFormRef.value)
+    return
   try {
     await singleFormRef.value.validate()
   }
@@ -100,7 +143,8 @@ async function submitSingle() {
     singleForm.fullName = ''
   }
   catch (e) {
-    if (e instanceof BizError) msg.error(e.message)
+    if (e instanceof BizError)
+      msg.error(e.message)
     else msg.error('创建失败，请重试')
   }
   finally {
@@ -113,7 +157,7 @@ async function submitSingle() {
 // ════════════════════════════════════════════════════════════════
 const batchInput = ref('')
 const batchPlaceholder
-  = `# 每行 1 条，逗号分隔：email,password,fullName,role(HR|CANDIDATE)\n# 注释行（# 开头）和空行会被忽略。例：\nhr.alice@company.com,InitPass2026!,Alice Wang,HR\nhr.bob@company.com,InitPass2026!,Bob Liu,HR\n`
+  = `# 每行 1 条，逗号分隔：email,password,fullName,role,subDepartmentIds(可选)\n# HR 第 5 列为子部门 id，多个用分号分隔，如 1;2;14\n# 例：\nhr.alice@company.com,InitPass2026!,Alice Wang,HR,1;2\n`
 
 interface ParsedRow {
   rowIndex: number
@@ -135,16 +179,29 @@ function parseBatchInput() {
   const rows: ParsedRow[] = []
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (line.length === 0 || line.startsWith('#')) continue
+    if (line.length === 0 || line.startsWith('#'))
+      continue
     const parts = line.split(',').map(s => s.trim())
     if (parts.length < 4) {
-      rows.push({ rowIndex: i, raw: line, error: '格式错误：需要 4 列（email,password,fullName,role）' })
+      rows.push({ rowIndex: i, raw: line, error: '格式错误：至少 4 列（email,password,fullName,role[,subDepartmentIds]）' })
       continue
     }
-    const [email, password, fullName, roleRaw] = parts
+    const [email, password, fullName, roleRaw, subDeptRaw] = parts
     const role = roleRaw.toUpperCase()
     if (role !== 'HR' && role !== 'CANDIDATE') {
       rows.push({ rowIndex: i, raw: line, error: `role 只能是 HR 或 CANDIDATE，当前：${roleRaw}` })
+      continue
+    }
+    let subDepartmentIds: number[] | undefined
+    if (subDeptRaw) {
+      subDepartmentIds = subDeptRaw.split(';').map(s => Number(s.trim())).filter(n => !Number.isNaN(n))
+      if (subDepartmentIds.length === 0) {
+        rows.push({ rowIndex: i, raw: line, error: 'subDepartmentIds 格式错误，示例：1;2;14' })
+        continue
+      }
+    }
+    if (role === 'HR' && (!subDepartmentIds || subDepartmentIds.length === 0)) {
+      rows.push({ rowIndex: i, raw: line, error: 'HR 行必须提供第 5 列 subDepartmentIds' })
       continue
     }
     if (!email || !email.includes('@')) {
@@ -162,17 +219,24 @@ function parseBatchInput() {
     rows.push({
       rowIndex: i,
       raw: line,
-      data: { email, password, fullName, role: role as 'HR' | 'CANDIDATE' },
+      data: {
+        email,
+        password,
+        fullName,
+        role: role as 'HR' | 'CANDIDATE',
+        subDepartmentIds: role === 'HR' ? subDepartmentIds : undefined,
+      },
     })
   }
   parsedRows.value = rows
-  if (rows.length === 0) msg.warning('未解析到任何有效数据')
+  if (rows.length === 0)
+    msg.warning('未解析到任何有效数据')
   else msg.info(`已解析 ${rows.length} 行 · ${validParsed.value.length} 条可提交 / ${invalidParsed.value.length} 条本地校验失败`)
 }
 
 function fillBatchTemplate() {
   batchInput.value
-    = `# CSV · 每行：email,password,fullName,role\nhr.alice@example.com,${genPassword()},Alice Wang,HR\nhr.bob@example.com,${genPassword()},Bob Liu,HR\nhr.cathy@example.com,${genPassword()},Cathy Chen,HR\n`
+    = `# CSV · 每行：email,password,fullName,role,subDepartmentIds(HR必填)\nhr.alice@example.com,${genPassword()},Alice Wang,HR,1;2\nhr.bob@example.com,${genPassword()},Bob Liu,HR,3\n`
 }
 
 async function submitBatch() {
@@ -191,7 +255,8 @@ async function submitBatch() {
     msg.success(`批量创建完成 · 成功 ${batchResult.value.successCount} / 失败 ${batchResult.value.failureCount}`)
   }
   catch (e) {
-    if (e instanceof BizError) msg.error(e.message)
+    if (e instanceof BizError)
+      msg.error(e.message)
     else msg.error('批量创建请求失败')
   }
   finally {
@@ -200,7 +265,8 @@ async function submitBatch() {
 }
 
 function copyFailedRows() {
-  if (!batchResult.value) return
+  if (!batchResult.value)
+    return
   const failed = batchResult.value.items.filter((it: BatchCreateItem) => !it.success)
   if (failed.length === 0) {
     msg.info('没有失败行可以复制')
@@ -237,14 +303,14 @@ function renderGenButton(onClick: () => void) {
 </script>
 
 <template>
-  <div max-w="[1200px]" mx-auto p="x-6 b-16" class="pt-[calc(60px+40px)]">
+  <div max-w-1200px mx-auto p="x-6 b-16" class="pt-[calc(60px+40px)]">
     <!-- ─────────── Hero ─────────── -->
     <header mb-8>
       <p kicker mb-2>
         Admin · 账号管理
       </p>
-      <h1 m-0 text-[36px] text-gray-900 font="display black" tracking="[-0.03em]" leading="[1.05]">
-        新建 / 批量导入 <span class="text-gradient">HR 账号</span>
+      <h1 m-0 text-36px text-gray-900 font="display black" tracking="[-0.03em]" leading="[1.05]">
+        新建 / 批量导入 <span text-gradient>HR 账号</span>
       </h1>
       <p mt-2 text-secondary>
         ADMIN 专属 · 用于运营侧批量开通 HR / 候选人账户。<strong text-warning-700>初始密码请通过安全渠道告知对方，并提示首次登录后修改。</strong>
@@ -311,6 +377,21 @@ function renderGenButton(onClick: () => void) {
                 />
               </NFormItem>
 
+              <NFormItem
+                v-if="singleForm.role === 'HR'"
+                path="subDepartmentIds"
+                label="绑定子部门"
+              >
+                <NSelect
+                  v-model:value="singleForm.subDepartmentIds"
+                  :options="subDepartmentOptionsGrouped"
+                  multiple
+                  filterable
+                  placeholder="至少选择一个子部门"
+                  max-tag-count="responsive"
+                />
+              </NFormItem>
+
               <NSpace mt-4>
                 <NPopconfirm
                   :positive-text="`确认创建 ${singleForm.role}`"
@@ -327,13 +408,13 @@ function renderGenButton(onClick: () => void) {
                     </NButton>
                   </template>
                   即将创建 <strong>{{ singleForm.role }}</strong> 账号 ·
-                  <span class="font-mono">{{ singleForm.email || '（未填写邮箱）' }}</span> ·
+                  <span font-mono>{{ singleForm.email || '（未填写邮箱）' }}</span> ·
                   请确认初始密码已通过安全渠道告知对方。
                 </NPopconfirm>
                 <NButton
                   size="large"
                   :disabled="singleSubmitting"
-                  @click="() => { singleForm.email = ''; singleForm.password = ''; singleForm.fullName = '' }"
+                  @click="() => { singleForm.email = ''; singleForm.password = ''; singleForm.fullName = ''; singleForm.subDepartmentIds = [] }"
                 >
                   清空
                 </NButton>
@@ -363,8 +444,8 @@ function renderGenButton(onClick: () => void) {
                 border="b subtle"
                 flex="~ items-center justify-between gap-3"
               >
-                <div min-w-0 flex="~ col gap-[2px]">
-                  <span class="font-mono text-sm text-primary truncate">{{ item.email }}</span>
+                <div min-w-0 flex="~ col gap-2px">
+                  <span font-mono text-sm text-primary truncate>{{ item.email }}</span>
                   <span text-xs text-tertiary>{{ item.fullName }}</span>
                 </div>
                 <CopyButton
@@ -375,7 +456,7 @@ function renderGenButton(onClick: () => void) {
                 />
                 <span
                   shrink-0
-                  px-2 py-[2px]
+                  px-2 py-2px
                   rounded-md
                   text-xs font-semibold tracking-wide
                   :class="item.role === 'HR' ? 'text-brand-700 bg-brand-50' : 'text-info-700 bg-info-50'"
@@ -423,7 +504,7 @@ function renderGenButton(onClick: () => void) {
               type="textarea"
               :rows="14"
               :placeholder="batchPlaceholder"
-              class="font-mono"
+              font-mono
             />
             <NSpace>
               <NButton type="default" size="medium" @click="parseBatchInput">
@@ -463,7 +544,7 @@ function renderGenButton(onClick: () => void) {
             bg-elevated
             border="~ subtle"
             shadow-sm
-            min-h="[420px]"
+            min-h-420px
             flex="~ col gap-4"
           >
             <div flex="~ items-center justify-between gap-3">
@@ -512,7 +593,7 @@ function renderGenButton(onClick: () => void) {
                   </p>
                 </div>
               </div>
-              <ul m-0 p-0 list-none flex="~ col gap-2" overflow-y-auto max-h="[400px]">
+              <ul m-0 p-0 list-none flex="~ col gap-2" overflow-y-auto max-h-400px>
                 <li
                   v-for="item in batchResult.items"
                   :key="`${item.rowIndex}-${item.email}`"
@@ -522,8 +603,8 @@ function renderGenButton(onClick: () => void) {
                   flex="~ items-center justify-between gap-3"
                   :class="item.success ? 'bg-success-50 border-success-500/30' : 'bg-danger-50 border-danger-500/30'"
                 >
-                  <div min-w-0 flex="~ col gap-[2px]">
-                    <span class="font-mono text-sm text-primary truncate">{{ item.email }}</span>
+                  <div min-w-0 flex="~ col gap-2px">
+                    <span font-mono text-sm text-primary truncate>{{ item.email }}</span>
                     <span v-if="item.success" text-xs text-success-700>
                       ✓ 已创建 · userId={{ item.userId }} · role={{ item.role }}
                     </span>
@@ -541,7 +622,7 @@ function renderGenButton(onClick: () => void) {
               <div v-if="parsedRows.length === 0" py-12 text-center text-tertiary text-sm>
                 左侧填入 CSV 后点击「解析预览」，本地校验失败的行会标红
               </div>
-              <ul v-else m-0 p-0 list-none flex="~ col gap-2" overflow-y-auto max-h="[480px]">
+              <ul v-else m-0 p-0 list-none flex="~ col gap-2" overflow-y-auto max-h-480px>
                 <li
                   v-for="row in parsedRows"
                   :key="`pre-${row.rowIndex}`"
@@ -551,11 +632,11 @@ function renderGenButton(onClick: () => void) {
                   flex="~ items-center justify-between gap-3"
                   :class="row.error ? 'bg-danger-50 border-danger-500/30' : 'bg-elevated'"
                 >
-                  <div min-w-0 flex="~ col gap-[2px]">
-                    <span v-if="row.data" class="font-mono text-sm text-primary truncate">
+                  <div min-w-0 flex="~ col gap-2px">
+                    <span v-if="row.data" font-mono text-sm text-primary truncate>
                       {{ row.data.email }} · {{ row.data.fullName }} · {{ row.data.role }}
                     </span>
-                    <span v-else class="font-mono text-sm text-secondary truncate">
+                    <span v-else font-mono text-sm text-secondary truncate>
                       {{ row.raw }}
                     </span>
                     <span v-if="row.error" text-xs text-danger-700>

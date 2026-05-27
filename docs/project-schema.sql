@@ -129,70 +129,154 @@ CREATE TRIGGER trg_users_updated_at
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ────────────────────────────────────────────────────────────
---  2. departments — 部门表
+--  2a. root_orgs — 根组织表（M6：组织树根节点，固定单行）
 -- ────────────────────────────────────────────────────────────
 
-CREATE TABLE departments (
+CREATE TABLE root_orgs (
     id         BIGSERIAL     PRIMARY KEY,
     name       VARCHAR(100)  NOT NULL,
     created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT departments_name_unique UNIQUE (name)
+    CONSTRAINT root_orgs_name_unique UNIQUE (name)
 );
 
-COMMENT ON TABLE  departments      IS '部门信息，岗位关联到部门';
-COMMENT ON COLUMN departments.name IS '部门名称，全局唯一';
+COMMENT ON TABLE  root_orgs      IS '组织树根节点（M6）。业务上固定单行：「小西科技集团」。';
+COMMENT ON COLUMN root_orgs.name IS '集团/组织名称，全局唯一。前端展示为树根，不可编辑。';
+
+CREATE TRIGGER trg_root_orgs_updated_at
+    BEFORE UPDATE ON root_orgs
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────────────────
+--  2b. departments — 部门表（M6 改造：作为「中间节点」，可嵌套）
+--      - 直挂 root：parent_department_id IS NULL（root_org_id 必填）
+--      - 嵌套部门：parent_department_id 指向另一 dept（root_org_id 仍要一致）
+--      - 部门节点本身不关联 HR / 岗位 / 工作地点，那是 sub_departments 的事
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE departments (
+    id                    BIGSERIAL     PRIMARY KEY,
+    root_org_id           BIGINT        NOT NULL REFERENCES root_orgs(id) ON DELETE RESTRICT,
+    parent_department_id  BIGINT        REFERENCES departments(id) ON DELETE RESTRICT,
+    name                  VARCHAR(100)  NOT NULL,
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    -- 同一直接父节点下名称唯一（root + 同名 dept 也算冲突）
+    CONSTRAINT departments_parent_name_unique UNIQUE (root_org_id, parent_department_id, name)
+);
+
+COMMENT ON TABLE  departments                      IS '组织树中间节点（M6）。容纳子 departments 或 sub_departments。';
+COMMENT ON COLUMN departments.root_org_id          IS 'FK → root_orgs。每个部门必属一个根组织。';
+COMMENT ON COLUMN departments.parent_department_id IS 'FK → departments。NULL = 直挂 root；非空 = 嵌套子部门。';
+COMMENT ON COLUMN departments.name                 IS '部门名称，在同一直接父节点下唯一。';
+
+CREATE INDEX idx_departments_root_org_id   ON departments (root_org_id);
+CREATE INDEX idx_departments_parent_id     ON departments (parent_department_id);
+
+CREATE TRIGGER trg_departments_updated_at
+    BEFORE UPDATE ON departments
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────────────────
+--  2c. sub_departments — 子部门表（M6：组织树叶子节点）
+--      - 必挂在某个 department 下（不允许直挂 root）
+--      - 子部门没有子节点，但**关联 HR + 岗位 + 工作地点**
+--      - 工作地点字段从 jobs 表迁移过来，jobs.location 已 DROP（M6）
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE sub_departments (
+    id                    BIGSERIAL     PRIMARY KEY,
+    parent_department_id  BIGINT        NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+    name                  VARCHAR(100)  NOT NULL,
+    location              VARCHAR(200)  NOT NULL,
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT sub_departments_parent_name_unique UNIQUE (parent_department_id, name)
+);
+
+COMMENT ON TABLE  sub_departments                      IS '组织树叶子节点（M6）。挂 HR、岗位、工作地点。';
+COMMENT ON COLUMN sub_departments.parent_department_id IS 'FK → departments。必填，子部门必有上层部门。';
+COMMENT ON COLUMN sub_departments.name                 IS '子部门名称，在同一父部门下唯一。建议命名「部门-地点」。';
+COMMENT ON COLUMN sub_departments.location             IS '工作地点。原 jobs.location 字段下沉到此（M6）。';
+
+CREATE INDEX idx_sub_departments_parent_id ON sub_departments (parent_department_id);
+
+CREATE TRIGGER trg_sub_departments_updated_at
+    BEFORE UPDATE ON sub_departments
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ────────────────────────────────────────────────────────────
+--  2d. hr_sub_departments — HR ↔ 子部门 多对多关联表（M6）
+--      - 一个 HR 可同时服务多个子部门（跨地点 / 跨产品线）
+--      - 删 user CASCADE 同步清；删 sub_department 阻止（防孤儿）
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE hr_sub_departments (
+    user_id            BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sub_department_id  BIGINT      NOT NULL REFERENCES sub_departments(id) ON DELETE RESTRICT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (user_id, sub_department_id)
+);
+
+COMMENT ON TABLE hr_sub_departments IS 'HR 用户与子部门的多对多绑定（M6）。仅 HR 角色用户出现在此表。';
+
+CREATE INDEX idx_hr_sub_departments_sub_dept_id ON hr_sub_departments (sub_department_id);
 
 -- ────────────────────────────────────────────────────────────
 --  3. jobs — 岗位表（M2 增强：5 态状态机 + 结构化薪资 + 浏览量 + 软删）
 -- ────────────────────────────────────────────────────────────
 
 CREATE TABLE jobs (
-    id              BIGSERIAL       PRIMARY KEY,
-    department_id   BIGINT          REFERENCES departments(id) ON DELETE SET NULL,
-    created_by      BIGINT          NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    id                BIGSERIAL       PRIMARY KEY,
+    -- M6 改造：去掉旧的 department_id（指向中间节点），改为指向 sub_departments
+    -- 工作地点字段下沉到 sub_departments.location，jobs 表不再持有 location 列
+    sub_department_id BIGINT          NOT NULL REFERENCES sub_departments(id) ON DELETE RESTRICT,
+    created_by        BIGINT          NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 
-    title           VARCHAR(200)    NOT NULL,
-    description     TEXT,                                       -- 岗位 JD，支持 Markdown
-    location        VARCHAR(200),
-    work_type       job_work_type   NOT NULL DEFAULT 'FULL_TIME',
-    level           job_level       NOT NULL DEFAULT 'MID',
+    title             VARCHAR(200)    NOT NULL,
+    description       TEXT,                                       -- 岗位 JD，支持 Markdown
+    work_type         job_work_type   NOT NULL DEFAULT 'FULL_TIME',
+    level             job_level       NOT NULL DEFAULT 'MID',
 
-    salary_min      INTEGER         CHECK (salary_min >= 0),    -- 月薪下限（元），NULL 表示面议
-    salary_max      INTEGER         CHECK (salary_max >= 0),    -- 月薪上限（元）
-    headcount       SMALLINT        NOT NULL DEFAULT 1 CHECK (headcount > 0),
+    salary_min        INTEGER         CHECK (salary_min >= 0),    -- 月薪下限（元），NULL 表示面议
+    salary_max        INTEGER         CHECK (salary_max >= 0),    -- 月薪上限（元）
+    headcount         SMALLINT        NOT NULL DEFAULT 1 CHECK (headcount > 0),
 
-    status          job_status      NOT NULL DEFAULT 'DRAFT',
-    view_count      INTEGER         NOT NULL DEFAULT 0 CHECK (view_count >= 0),
-    published_at    TIMESTAMPTZ,                                -- 首次进入 PUBLISHED 的时间
-    closed_at       TIMESTAMPTZ,                                -- 进入 CLOSED 的时间
+    status            job_status      NOT NULL DEFAULT 'DRAFT',
+    view_count        INTEGER         NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+    published_at      TIMESTAMPTZ,                                -- 首次进入 PUBLISHED 的时间
+    closed_at         TIMESTAMPTZ,                                -- 进入 CLOSED 的时间
 
-    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    deleted_at      TIMESTAMPTZ,                                -- 软删，Admin 专用
+    created_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ,                                -- 软删，Admin 专用
 
     CONSTRAINT jobs_salary_range_chk
         CHECK (salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max)
 );
 
-COMMENT ON TABLE  jobs               IS '招聘岗位，5 态状态机由 JobStatusMachine 控制';
-COMMENT ON COLUMN jobs.department_id IS 'FK → departments，部门可被删除，置 NULL';
-COMMENT ON COLUMN jobs.created_by    IS 'FK → users，创建人（HR），不可删除';
-COMMENT ON COLUMN jobs.headcount     IS '招聘人数，至少为 1';
-COMMENT ON COLUMN jobs.salary_min    IS '月薪下限（元/月），NULL 表示薪资面议';
-COMMENT ON COLUMN jobs.salary_max    IS '月薪上限（元/月），≥ salary_min';
-COMMENT ON COLUMN jobs.status        IS 'DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED，流转规则见 JobStatusMachine';
-COMMENT ON COLUMN jobs.view_count    IS '岗位详情页浏览次数，候选人查看时 +1';
-COMMENT ON COLUMN jobs.published_at  IS '首次发布时间，用于「最新岗位」排序';
-COMMENT ON COLUMN jobs.deleted_at    IS '软删时间，Admin 物理删除入口在后台；候选人列表完全过滤';
+COMMENT ON TABLE  jobs                   IS '招聘岗位，5 态状态机由 JobStatusMachine 控制';
+COMMENT ON COLUMN jobs.sub_department_id IS 'FK → sub_departments。M6 起岗位必须挂在子部门（叶子节点），不可删除。';
+COMMENT ON COLUMN jobs.created_by        IS 'FK → users，创建人（HR），不可删除';
+COMMENT ON COLUMN jobs.headcount         IS '招聘人数，至少为 1';
+COMMENT ON COLUMN jobs.salary_min        IS '月薪下限（元/月），NULL 表示薪资面议';
+COMMENT ON COLUMN jobs.salary_max        IS '月薪上限（元/月），≥ salary_min';
+COMMENT ON COLUMN jobs.status            IS 'DRAFT/PUBLISHED/PAUSED/CLOSED/ARCHIVED，流转规则见 JobStatusMachine';
+COMMENT ON COLUMN jobs.view_count        IS '岗位详情页浏览次数，候选人查看时 +1';
+COMMENT ON COLUMN jobs.published_at      IS '首次发布时间，用于「最新岗位」排序';
+COMMENT ON COLUMN jobs.deleted_at        IS '软删时间，Admin 物理删除入口在后台；候选人列表完全过滤';
 
 -- 索引（带 WHERE deleted_at IS NULL 的 partial index 仅命中活跃岗位，体积更小）
-CREATE INDEX idx_jobs_status        ON jobs (status)                              WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_department_id ON jobs (department_id)                       WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_created_by    ON jobs (created_by)                          WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_published_at  ON jobs (published_at DESC NULLS LAST)        WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_work_type     ON jobs (work_type)                           WHERE deleted_at IS NULL;
-CREATE INDEX idx_jobs_level         ON jobs (level)                               WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_status            ON jobs (status)                              WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_sub_department_id ON jobs (sub_department_id)                   WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_created_by        ON jobs (created_by)                          WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_published_at      ON jobs (published_at DESC NULLS LAST)        WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_work_type         ON jobs (work_type)                           WHERE deleted_at IS NULL;
+CREATE INDEX idx_jobs_level             ON jobs (level)                               WHERE deleted_at IS NULL;
 
 -- 全文搜索组合拳：
 --   (1) title 走 pg_trgm GIN，加速 ILIKE '%kw%' 模糊匹配（中文/英文都行）
@@ -408,12 +492,45 @@ INSERT INTO users (email, password_hash, full_name, role) VALUES
      '张梦琪',
      'CANDIDATE');
 
-INSERT INTO departments (name) VALUES
-    ('技术研发'),
-    ('产品设计'),
-    ('市场营销'),
-    ('人力资源'),
-    ('财务法务');
+-- ────────────────────────────────────────────────────────────
+--  种子：组织树（M6）
+--    - 根：「小西科技集团」（固定 id=1，业务上不可编辑）
+--    - 5 个中间部门（直挂根；显式 id 便于后续 INSERT 引用，最后 setval 矫正序列）
+--    - 14 个子部门：按现有 25 个 seed jobs 的 (部门, location) 组合拆分
+-- ────────────────────────────────────────────────────────────
+
+INSERT INTO root_orgs (id, name) VALUES (1, '小西科技集团');
+SELECT setval('root_orgs_id_seq', 1);
+
+INSERT INTO departments (id, root_org_id, parent_department_id, name) VALUES
+    (1, 1, NULL, '技术研发'),
+    (2, 1, NULL, '产品设计'),
+    (3, 1, NULL, '市场营销'),
+    (4, 1, NULL, '人力资源'),
+    (5, 1, NULL, '财务法务');
+SELECT setval('departments_id_seq', 5);
+
+INSERT INTO sub_departments (id, parent_department_id, name, location) VALUES
+    -- 技术研发拆 5（覆盖 jobs#1..8 的 4 个地点）
+    (1, 1, '技术研发-上海浦东', '上海·浦东'),
+    (2, 1, '技术研发-远程办公', '远程办公'),
+    (3, 1, '技术研发-北京海淀', '北京·海淀'),
+    (4, 1, '技术研发-上海徐汇', '上海·徐汇'),
+    (5, 1, '技术研发-杭州西湖', '杭州·西湖'),
+    -- 产品设计拆 3（覆盖 jobs#9..13）
+    (6, 2, '产品设计-北京朝阳', '北京·朝阳'),
+    (7, 2, '产品设计-上海徐汇', '上海·徐汇'),
+    (8, 2, '产品设计-上海浦东', '上海·浦东'),
+    -- 市场营销拆 2（覆盖 jobs#14..17）
+    (9, 3, '市场营销-上海静安', '上海·静安'),
+    (10, 3, '市场营销-远程办公', '远程办公'),
+    -- 人力资源拆 2（覆盖 jobs#18..21）
+    (11, 4, '人力资源-上海浦东', '上海·浦东'),
+    (12, 4, '人力资源-北京朝阳', '北京·朝阳'),
+    -- 财务法务拆 2（覆盖 jobs#22..25）
+    (13, 5, '财务法务-上海浦东', '上海·浦东'),
+    (14, 5, '财务法务-北京朝阳', '北京·朝阳');
+SELECT setval('sub_departments_id_seq', 14);
 
 -- ────────────────────────────────────────────────────────────
 --  种子：标签库（前端选岗位标签时的下拉选项）
@@ -452,171 +569,182 @@ INSERT INTO tags (slug, name, category) VALUES
 
 -- ────────────────────────────────────────────────────────────
 --  种子：示例岗位（25 条，覆盖 5 部门 × 5 种状态）
+--    - M6 改造：sub_department_id 取代旧 department_id；location 列已 DROP
 --    - 大部分由 HR (users.id=2) 创建；少量由 ADMIN (users.id=1) 创建
 --    - 状态分布：18 PUBLISHED · 3 DRAFT · 2 PAUSED · 1 CLOSED · 1 ARCHIVED
---    - 部门覆盖：技术研发 8 / 产品设计 5 / 市场营销 4 / 人力资源 4 / 财务法务 4
+--    - 子部门覆盖：14 个子部门均有岗位
 --    - id 顺序与下方 INSERT 一致（id=1 高级 Java / id=2 Vue 中级 / ...）
 -- ────────────────────────────────────────────────────────────
 
 INSERT INTO jobs (
-    department_id, created_by, title, description, location,
+    sub_department_id, created_by, title, description,
     work_type, level, salary_min, salary_max, headcount,
     status, published_at
 ) VALUES
-    -- ═════════ 技术研发（8 个） ═════════
+    -- ═════════ 技术研发（8 个，sub_dept 1..5） ═════════
     (1, 2,
      '高级 Java 后端工程师',
      E'## 岗位描述\n\n负责 ATS 招聘平台核心服务的设计与开发，使用 Java 21 + Spring Boot 3.4 + PostgreSQL 16。\n\n## 任职要求\n\n- 5+ 年 Java 服务端开发经验\n- 精通 Spring 生态（Boot / Security / Data）\n- 熟悉 PostgreSQL 索引与调优、Redis 缓存设计\n- 有 Docker / Kubernetes 部署经验加分',
-     '上海·浦东', 'FULL_TIME', 'SENIOR', 30000, 50000, 2,
+     'FULL_TIME', 'SENIOR', 30000, 50000, 2,
      'PUBLISHED', NOW() - INTERVAL '3 days'),
 
-    (1, 2,
+    (2, 2,
      'Vue 前端工程师（中级）',
      E'## 岗位描述\n\n参与 ATS 招聘平台前端建设，技术栈 Vue 3.5 + TypeScript + Naive UI + UnoCSS。\n\n## 任职要求\n\n- 3+ 年 Vue 项目经验\n- 熟悉 TypeScript / Pinia / Vue Router\n- 注重交互细节，懂动效曲线设计',
-     '远程办公', 'REMOTE', 'MID', 20000, 35000, 1,
+     'REMOTE', 'MID', 20000, 35000, 1,
      'PUBLISHED', NOW() - INTERVAL '1 day'),
 
-    (1, 2,
+    (3, 2,
      '资深 Go 微服务工程师',
      E'## 岗位描述\n\n负责内部基础设施服务（消息队列网关、配置中心）的开发，技术栈 Go 1.22 + gRPC + etcd。\n\n## 任职要求\n\n- 4+ 年 Go 后端经验\n- 熟悉云原生体系（k8s operator / service mesh）\n- 有 SRE 或 infra 团队工作经验加分',
-     '北京·海淀', 'FULL_TIME', 'SENIOR', 35000, 55000, 1,
+     'FULL_TIME', 'SENIOR', 35000, 55000, 1,
      'PUBLISHED', NOW() - INTERVAL '5 days'),
 
     (1, 2,
      'DevOps / SRE 工程师',
      E'## 岗位描述\n\n维护 K8s 集群、CI/CD 流水线、监控告警体系，推进基础设施 Code 化。\n\n## 任职要求\n\n- 3+ 年 SRE 或 DevOps 经验\n- 熟悉 Terraform / Ansible / Prometheus / Grafana\n- 写过自动化脚本，能承担线上排障',
-     '上海·浦东', 'FULL_TIME', 'MID', 25000, 40000, 1,
+     'FULL_TIME', 'MID', 25000, 40000, 1,
      'PUBLISHED', NOW() - INTERVAL '7 days'),
 
-    (1, 2,
+    (4, 2,
      'iOS 移动端工程师',
      E'## 岗位描述\n\n负责候选人移动端 App 开发（招聘管理 iOS 端），Swift + SwiftUI + Combine。\n\n## 任职要求\n\n- 3+ 年 iOS 经验\n- 熟悉 SwiftUI 与现代响应式架构\n- 注重性能与体验细节',
-     '上海·徐汇', 'FULL_TIME', 'MID', 22000, 38000, 1,
+     'FULL_TIME', 'MID', 22000, 38000, 1,
      'PUBLISHED', NOW() - INTERVAL '4 days'),
 
-    (1, 1,
+    (5, 1,
      '初级算法工程师（实习转正）',
      E'## 岗位描述\n\n参与简历智能解析与岗位推荐算法迭代，方向 NLP / 推荐系统。\n\n## 任职要求\n\n- 计算机 / 数学相关硕士在读或 1 年内毕业\n- 熟悉 Python + PyTorch\n- 有 Kaggle 或 ACM 竞赛经验加分',
-     '杭州·西湖', 'INTERN', 'INTERN', 8000, 12000, 2,
+     'INTERN', 'INTERN', 8000, 12000, 2,
      'PUBLISHED', NOW() - INTERVAL '2 days'),
 
     (1, 2,
      '后端架构师（暂停收件）',
      E'## 岗位描述\n\n规划与演进招聘平台技术架构，主导跨团队技术评审。当前已收到足够简历，暂停收件。',
-     '上海·浦东', 'FULL_TIME', 'LEAD', 50000, 80000, 1,
+     'FULL_TIME', 'LEAD', 50000, 80000, 1,
      'PAUSED', NOW() - INTERVAL '20 days'),
 
     (1, 2,
      'QA 自动化测试工程师（草稿）',
      E'## 岗位描述（草稿）\n\nE2E 自动化测试体系搭建，技术栈待定（候选 Playwright vs Cypress）。\n\n详细 JD 撰写中。',
-     '上海·浦东', 'FULL_TIME', 'MID', 18000, 30000, 1,
+     'FULL_TIME', 'MID', 18000, 30000, 1,
      'DRAFT', NULL),
 
-    -- ═════════ 产品设计（5 个） ═════════
-    (2, 2,
+    -- ═════════ 产品设计（5 个，sub_dept 6..8） ═════════
+    (6, 2,
      '产品经理（招聘平台方向）',
      E'## 岗位描述\n\n负责 ATS 产品规划，深耕招聘场景，与 HR 用户共建需求。\n\n## 任职要求\n\n- 3+ 年 B2B SaaS 产品经验\n- 有 HR 或人力资源行业背景优先\n- 能写清晰的 PRD 与决策文档',
-     '北京·朝阳', 'FULL_TIME', 'SENIOR', 25000, 45000, 1,
+     'FULL_TIME', 'SENIOR', 25000, 45000, 1,
      'PUBLISHED', NOW() - INTERVAL '6 days'),
 
-    (2, 2,
+    (7, 2,
      '高级 UI/UX 设计师',
      E'## 岗位描述\n\n负责招聘平台整体视觉与交互设计，主导设计系统建设。\n\n## 任职要求\n\n- 4+ 年 B 端 SaaS 设计经验\n- Figma 重度用户，能输出可落地的组件库\n- 关注微交互与动效',
-     '上海·徐汇', 'FULL_TIME', 'SENIOR', 24000, 40000, 1,
+     'FULL_TIME', 'SENIOR', 24000, 40000, 1,
      'PUBLISHED', NOW() - INTERVAL '8 days'),
 
-    (2, 2,
+    (6, 2,
      '用户研究员',
      E'## 岗位描述\n\n执行可用性测试、用户访谈、问卷调研，输出研究报告辅助产品决策。\n\n## 任职要求\n\n- 2+ 年用户研究经验\n- 心理学 / 社会学 / HCI 背景优先',
-     '北京·朝阳', 'FULL_TIME', 'MID', 18000, 28000, 1,
+     'FULL_TIME', 'MID', 18000, 28000, 1,
      'PUBLISHED', NOW() - INTERVAL '10 days'),
 
-    (2, 1,
-     '初级产品助理（已关闭）',
+    (6, 1,
+     '初级产品助理(已关闭)',
      E'## 岗位描述\n\n协助产品经理梳理需求与日常事务。已招到合适人选，岗位关闭。',
-     '北京·朝阳', 'FULL_TIME', 'JUNIOR', 12000, 18000, 1,
+     'FULL_TIME', 'JUNIOR', 12000, 18000, 1,
      'CLOSED', NOW() - INTERVAL '60 days'),
 
-    (2, 2,
-     '前端架构师（草稿）',
-     E'## 岗位描述（草稿）\n\n前端基础设施与构建工具链规划，详细 JD 待补。',
-     '上海·浦东', 'FULL_TIME', 'LEAD', 40000, 65000, 1,
+    (8, 2,
+     '前端架构师(草稿)',
+     E'## 岗位描述(草稿)\n\n前端基础设施与构建工具链规划，详细 JD 待补。',
+     'FULL_TIME', 'LEAD', 40000, 65000, 1,
      'DRAFT', NULL),
 
-    -- ═════════ 市场营销（4 个） ═════════
-    (3, 2,
+    -- ═════════ 市场营销（4 个，sub_dept 9..10） ═════════
+    (9, 2,
      '内容营销经理',
      E'## 岗位描述\n\n负责招聘平台内容矩阵建设（公众号 / 知乎 / 行业白皮书）。\n\n## 任职要求\n\n- 3+ 年 B2B 内容营销经验\n- 文笔扎实，能独立产出深度长文',
-     '上海·静安', 'FULL_TIME', 'MID', 18000, 30000, 1,
+     'FULL_TIME', 'MID', 18000, 30000, 1,
      'PUBLISHED', NOW() - INTERVAL '9 days'),
 
-    (3, 2,
+    (9, 2,
      '增长 / 投放工程师',
      E'## 岗位描述\n\n执行付费投放（百度 / 腾讯广点通 / 朋友圈），分析转化漏斗。\n\n## 任职要求\n\n- 2+ 年 B 端获客 / 增长经验\n- 熟悉投放后台与归因模型',
-     '上海·静安', 'FULL_TIME', 'MID', 16000, 28000, 1,
+     'FULL_TIME', 'MID', 16000, 28000, 1,
      'PUBLISHED', NOW() - INTERVAL '11 days'),
 
-    (3, 2,
+    (9, 2,
      '品牌 / 视觉设计师',
      E'## 岗位描述\n\n负责品牌物料、活动 KV、社交媒体视觉输出。\n\n## 任职要求\n\n- 3+ 年品牌设计经验\n- 平面 + 动效双能力优先',
-     '上海·静安', 'CONTRACT', 'MID', 15000, 25000, 1,
+     'CONTRACT', 'MID', 15000, 25000, 1,
      'PUBLISHED', NOW() - INTERVAL '13 days'),
 
-    (3, 2,
-     '社群运营专员（暂停）',
+    (10, 2,
+     '社群运营专员(暂停)',
      E'## 岗位描述\n\n候选人社群与 HR 用户社群的日常运营。岗位暂时暂停。',
-     '远程办公', 'REMOTE', 'JUNIOR', 10000, 16000, 1,
+     'REMOTE', 'JUNIOR', 10000, 16000, 1,
      'PAUSED', NOW() - INTERVAL '30 days'),
 
-    -- ═════════ 人力资源（4 个） ═════════
-    (4, 2,
+    -- ═════════ 人力资源（4 个，sub_dept 11..12） ═════════
+    (11, 2,
      'HR 业务伙伴（HRBP）',
      E'## 岗位描述\n\n对接技术研发部门，承接组织发展、人才盘点、绩效落地等事项。\n\n## 任职要求\n\n- 5+ 年 HRBP 或 HR 综合岗经验\n- 服务过技术团队优先',
-     '上海·浦东', 'FULL_TIME', 'SENIOR', 25000, 40000, 1,
+     'FULL_TIME', 'SENIOR', 25000, 40000, 1,
      'PUBLISHED', NOW() - INTERVAL '12 days'),
 
-    (4, 2,
+    (11, 2,
      '招聘官（技术方向）',
      E'## 岗位描述\n\n承接技术研发部门招聘需求，覆盖 Java / 前端 / 算法等岗位。\n\n## 任职要求\n\n- 3+ 年技术岗招聘经验\n- 有自己的候选人池子优先',
-     '上海·浦东', 'FULL_TIME', 'MID', 18000, 30000, 2,
+     'FULL_TIME', 'MID', 18000, 30000, 2,
      'PUBLISHED', NOW() - INTERVAL '5 days'),
 
-    (4, 2,
+    (12, 2,
      '薪酬绩效专员',
      E'## 岗位描述\n\n负责薪酬体系日常运行（调薪 / 绩效结算 / 薪酬带宽分析）。\n\n## 任职要求\n\n- 2+ 年薪酬相关经验\n- Excel / 数据透视熟练',
-     '北京·朝阳', 'FULL_TIME', 'JUNIOR', 12000, 20000, 1,
+     'FULL_TIME', 'JUNIOR', 12000, 20000, 1,
      'PUBLISHED', NOW() - INTERVAL '15 days'),
 
-    (4, 1,
-     'HR 实习生（已归档）',
+    (11, 1,
+     'HR 实习生(已归档)',
      E'## 岗位描述\n\n协助招聘日常事务的实习岗，已暂时不开放，归档备查。',
-     '上海·浦东', 'INTERN', 'INTERN', 4000, 6000, 1,
+     'INTERN', 'INTERN', 4000, 6000, 1,
      'ARCHIVED', NOW() - INTERVAL '90 days'),
 
-    -- ═════════ 财务法务（4 个） ═════════
-    (5, 1,
+    -- ═════════ 财务法务（4 个，sub_dept 13..14） ═════════
+    (13, 1,
      '高级财务经理',
      E'## 岗位描述\n\n负责公司财务体系建设，对接审计与税务事项。\n\n## 任职要求\n\n- 8+ 年财务经验，3+ 年管理\n- CPA / ACCA 优先',
-     '上海·浦东', 'FULL_TIME', 'SENIOR', 30000, 50000, 1,
+     'FULL_TIME', 'SENIOR', 30000, 50000, 1,
      'PUBLISHED', NOW() - INTERVAL '7 days'),
 
-    (5, 2,
+    (13, 2,
      '税务专员',
      E'## 岗位描述\n\n日常增值税 / 企税申报、税务筹划支持。\n\n## 任职要求\n\n- 2+ 年税务相关工作经验\n- CTA 在读优先',
-     '上海·浦东', 'FULL_TIME', 'JUNIOR', 12000, 20000, 1,
+     'FULL_TIME', 'JUNIOR', 12000, 20000, 1,
      'PUBLISHED', NOW() - INTERVAL '14 days'),
 
-    (5, 1,
+    (14, 1,
      '法务顾问',
      E'## 岗位描述\n\n商业合同审核、知识产权维护、合规咨询。\n\n## 任职要求\n\n- 法学硕士 + 3 年企业法务\n- 通过国家司法考试',
-     '北京·朝阳', 'FULL_TIME', 'MID', 25000, 40000, 1,
+     'FULL_TIME', 'MID', 25000, 40000, 1,
      'PUBLISHED', NOW() - INTERVAL '6 days'),
 
-    (5, 2,
-     '内审主管（草稿）',
-     E'## 岗位描述（草稿）\n\n内部审计体系搭建，详细 JD 待补。',
-     '上海·浦东', 'FULL_TIME', 'SENIOR', 28000, 45000, 1,
+    (13, 2,
+     '内审主管(草稿)',
+     E'## 岗位描述(草稿)\n\n内部审计体系搭建，详细 JD 待补。',
+     'FULL_TIME', 'SENIOR', 28000, 45000, 1,
      'DRAFT', NULL);
+
+-- ────────────────────────────────────────────────────────────
+--  HR 用户 ↔ 子部门 多对多绑定（M6）
+--    - hr@ats.local (id=2) 是种子兼容性 HR，名下挂 25 个跨部门岗位
+--    - 给他绑定全部 14 个子部门，确保 HR 视角 + owner 鉴权链路不破
+--    - 业务后续创建新 HR 时由 admin 在 /admin/users 表单按需选子部门
+-- ────────────────────────────────────────────────────────────
+
+INSERT INTO hr_sub_departments (user_id, sub_department_id)
+SELECT 2, id FROM sub_departments;
 
 -- 关联标签 · 仅给 PUBLISHED 与少量 PAUSED 岗位补，DRAFT/CLOSED/ARCHIVED 不挂标签
 INSERT INTO job_tags (job_id, tag_id)
