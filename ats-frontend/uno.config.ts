@@ -21,6 +21,8 @@ import {
  *     global.css 里，shortcuts 只负责"组合"它们。
  */
 export default defineConfig({
+  /** 与 tokens.css 的 [data-theme="dark"] 对齐，供 dark: 变体使用 */
+  darkMode: ['selector', '[data-theme="dark"]'],
   presets: [
     presetUno(),
     presetAttributify({ prefix: 'u-', prefixedOnly: false }),

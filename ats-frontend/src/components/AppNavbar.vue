@@ -2,6 +2,7 @@
 import { NDropdown, NIcon } from 'naive-ui'
 import { computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -199,6 +200,7 @@ function isActive(path: string) {
 
       <!-- ── Right ──────────────────────────────── -->
       <div flex items-center gap-3>
+        <ThemeToggle />
         <template v-if="auth.isLoggedIn">
           <NDropdown
             :options="menuOptions"

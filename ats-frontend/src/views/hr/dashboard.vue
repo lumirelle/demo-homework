@@ -513,7 +513,7 @@ onMounted(load)
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .row-arrow {
   font-size: 14px;

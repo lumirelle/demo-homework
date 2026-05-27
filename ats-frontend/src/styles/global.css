@@ -84,8 +84,19 @@ a {
 a:not(.btn-cta):hover { color: var(--brand-600); }
 
 ::selection {
-  background: var(--brand-100);
-  color: var(--brand-800);
+  background: var(--brand-200);
+  color: var(--brand-900);
+}
+
+[data-theme="dark"] ::selection {
+  background: rgba(16, 185, 129, 0.35);
+  color: var(--gray-950);
+}
+
+/* Markdown 岗位描述 · 深色下提高 brand 对比度 */
+[data-theme="dark"] .job-md h3,
+[data-theme="dark"] .job-md code {
+  color: var(--brand-300);
 }
 
 /* scrollbar — 中性极简 */
