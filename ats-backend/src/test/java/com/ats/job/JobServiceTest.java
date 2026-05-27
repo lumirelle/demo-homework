@@ -66,12 +66,23 @@ class JobServiceTest {
     @Mock JobTagMapper jobTagMapper;
     @Mock UserMapper userMapper;
     @Mock SubDepartmentMapper subDepartmentMapper;
+    @Mock HrJobScopeService hrJobScopeService;
 
     @InjectMocks JobService jobService;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        when(hrJobScopeService.canManageJob(any())).thenAnswer(inv -> {
+            Job job = inv.getArgument(0);
+            if (job == null) return false;
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) return false;
+            if (auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                return true;
+            }
+            return java.util.Objects.equals(Long.parseLong(auth.getName()), job.getCreatedBy());
+        });
         // 默认 stub：subDept / user / tagRow batch 查回空，简化 toVO 路径
         when(subDepartmentMapper.selectExpandedByIds(anyList())).thenReturn(Collections.emptyList());
         when(userMapper.selectByIds(anyList())).thenReturn(Collections.emptyList());

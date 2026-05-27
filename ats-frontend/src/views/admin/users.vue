@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FormInst, FormRules } from 'naive-ui'
-import type { BatchCreateItem, BatchCreateResult, CreateUserReq } from '@/api/admin'
+import type { AdminUserListItemVO, BatchCreateItem, BatchCreateResult, CreateUserReq, UpdateUserReq } from '@/api/admin'
 import type { SubDepartmentVO } from '@/api/departments'
 import { departmentsApi } from '@/api/departments'
 import {
@@ -9,8 +9,12 @@ import {
   NFormItem,
   NInput,
   NInputGroup,
+  NDrawer,
+  NDrawerContent,
   NPopconfirm,
   NSelect,
+  NSwitch,
+  NSpin,
   NSpace,
   NTabPane,
   NTabs,
@@ -50,6 +54,23 @@ const singleForm = reactive<CreateUserReq>({
 
 const subDepartments = ref<SubDepartmentVO[]>([])
 
+const userList = ref<AdminUserListItemVO[]>([])
+const listLoading = ref(false)
+
+async function fetchUserList() {
+  listLoading.value = true
+  try {
+    userList.value = await adminApi.listUsers()
+  }
+  catch (e) {
+    if (e instanceof BizError)
+      msg.error(e.message)
+  }
+  finally {
+    listLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     subDepartments.value = await departmentsApi.listAllSubDepartments()
@@ -57,6 +78,7 @@ onMounted(async () => {
   catch (e) {
     console.warn('load sub-departments failed', e)
   }
+  fetchUserList()
 })
 
 const subDepartmentOptionsGrouped = computed(() => {
@@ -132,6 +154,7 @@ async function submitSingle() {
   try {
     const me = await adminApi.createUser({ ...singleForm })
     msg.success(`已创建 ${me.role} 账号 · ${me.email}`)
+    fetchUserList()
     recentlyCreated.value.unshift({
       email: me.email,
       role: me.role,
@@ -292,6 +315,65 @@ function fmtTime(ts: number) {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
 }
 
+// ── 用户列表 · 编辑抽屉 ─────────────────────────────────────
+const editVisible = ref(false)
+const editSaving = ref(false)
+const editingId = ref<number | null>(null)
+const editForm = reactive<UpdateUserReq & { email: string }>({
+  email: '',
+  fullName: '',
+  role: 'HR',
+  active: true,
+  subDepartmentIds: [],
+  newPassword: '',
+})
+
+function openEdit(u: AdminUserListItemVO) {
+  if (u.role === 'ADMIN') {
+    msg.warning('管理员账号请通过数据库或运维流程维护')
+    return
+  }
+  editingId.value = u.id
+  editForm.email = u.email
+  editForm.fullName = u.fullName
+  editForm.role = u.role === 'CANDIDATE' ? 'CANDIDATE' : 'HR'
+  editForm.active = u.active
+  editForm.subDepartmentIds = [...(u.subDepartmentIds ?? [])]
+  editForm.newPassword = ''
+  editVisible.value = true
+}
+
+async function saveEdit() {
+  if (editingId.value == null)
+    return
+  if (editForm.role === 'HR' && (!editForm.subDepartmentIds || editForm.subDepartmentIds.length === 0)) {
+    msg.error('HR 至少绑定一个子部门')
+    return
+  }
+  editSaving.value = true
+  try {
+    const payload: UpdateUserReq = {
+      fullName: editForm.fullName,
+      role: editForm.role,
+      active: editForm.active,
+      subDepartmentIds: editForm.role === 'HR' ? editForm.subDepartmentIds : [],
+    }
+    if (editForm.newPassword?.trim())
+      payload.newPassword = editForm.newPassword.trim()
+    await adminApi.updateUser(editingId.value, payload)
+    msg.success('已保存')
+    editVisible.value = false
+    await fetchUserList()
+  }
+  catch (e) {
+    if (e instanceof BizError)
+      msg.error(e.message)
+  }
+  finally {
+    editSaving.value = false
+  }
+}
+
 // 渲染密码 input 右侧"生成"按钮（避免单独写 <template>）
 function renderGenButton(onClick: () => void) {
   return h(
@@ -319,6 +401,102 @@ function renderGenButton(onClick: () => void) {
 
     <!-- ─────────── Tabs ─────────── -->
     <NTabs type="line" size="large" animated>
+      <NTabPane name="list" tab="用户列表">
+        <NSpin :show="listLoading">
+          <section mt-4 p-4 rounded-xl bg-elevated border="~ subtle">
+            <p mb-3 text-sm text-secondary>
+              共 {{ userList.length }} 个账号（不含 ADMIN 修改入口在 PATCH）
+            </p>
+            <table w-full text-sm>
+              <thead>
+                <tr text-left text-tertiary border-b="~ subtle">
+                  <th py-2>邮箱</th>
+                  <th py-2>姓名</th>
+                  <th py-2>角色</th>
+                  <th py-2>状态</th>
+                  <th py-2>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="u in userList" :key="u.id" border-b="~ subtle">
+                  <td py-2>{{ u.email }}</td>
+                  <td py-2>{{ u.fullName }}</td>
+                  <td py-2>{{ u.role }}</td>
+                  <td py-2>{{ u.active ? '启用' : '禁用' }}</td>
+                  <td py-2>
+                    <NButton
+                      v-if="u.role !== 'ADMIN'"
+                      size="tiny"
+                      tertiary
+                      @click="openEdit(u)"
+                    >
+                      编辑
+                    </NButton>
+                    <span v-else text-tertiary>—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </NSpin>
+
+        <NDrawer v-model:show="editVisible" :width="420" placement="right">
+          <NDrawerContent title="编辑账号" closable>
+            <NForm label-placement="top">
+              <NFormItem label="邮箱">
+                <NInput :value="editForm.email" disabled />
+              </NFormItem>
+              <NFormItem label="姓名">
+                <NInput v-model:value="editForm.fullName" />
+              </NFormItem>
+              <NFormItem label="角色">
+                <NSelect
+                  v-model:value="editForm.role"
+                  :options="roleOptions"
+                />
+              </NFormItem>
+              <NFormItem label="状态">
+                <NSwitch v-model:value="editForm.active">
+                  <template #checked>启用</template>
+                  <template #unchecked>禁用</template>
+                </NSwitch>
+              </NFormItem>
+              <NFormItem v-if="editForm.role === 'HR'" label="绑定子部门">
+                <NSelect
+                  v-model:value="editForm.subDepartmentIds"
+                  :options="subDepartmentOptionsGrouped"
+                  multiple
+                  filterable
+                  max-tag-count="responsive"
+                />
+              </NFormItem>
+              <NFormItem label="重置密码（可选）">
+                <NInputGroup>
+                  <NInput
+                    v-model:value="editForm.newPassword"
+                    type="password"
+                    placeholder="留空则不修改"
+                    show-password-on="click"
+                  />
+                  <NButton tertiary @click="editForm.newPassword = genPassword()">
+                    生成
+                  </NButton>
+                </NInputGroup>
+              </NFormItem>
+            </NForm>
+            <template #footer>
+              <NSpace>
+                <NButton @click="editVisible = false">
+                  取消
+                </NButton>
+                <NButton type="primary" :loading="editSaving" @click="saveEdit">
+                  保存
+                </NButton>
+              </NSpace>
+            </template>
+          </NDrawerContent>
+        </NDrawer>
+      </NTabPane>
       <!-- ━━━━━━━━━━━━━━━ 单个创建 ━━━━━━━━━━━━━━━ -->
       <NTabPane name="single" tab="单个创建">
         <div

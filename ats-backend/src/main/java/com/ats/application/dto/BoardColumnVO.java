@@ -17,4 +17,6 @@ public class BoardColumnVO {
     private ApplicationStage stage;
     private long count;
     private List<ApplicationListItemVO> items;
+    /** 该列是否还有未加载的投递（count &gt; items.size()） */
+    private boolean hasMore;
 }

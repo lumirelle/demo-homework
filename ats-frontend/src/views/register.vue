@@ -95,7 +95,12 @@ async function handleSubmit() {
   loading.value = true
   errorMsg.value = ''
   try {
-    await authApi.register({ email: model.email, password: model.password, fullName: model.fullName })
+    await authApi.register({
+      email: model.email,
+      password: model.password,
+      fullName: model.fullName,
+      interests: interests.value.size ? [...interests.value] : undefined,
+    })
     done.value = true
     setTimeout(() => router.replace('/login'), 2000)
   }

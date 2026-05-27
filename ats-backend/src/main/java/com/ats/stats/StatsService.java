@@ -4,15 +4,22 @@ import com.ats.common.exception.BizException;
 import com.ats.common.exception.ErrorCode;
 import com.ats.common.security.SecurityUtil;
 import com.ats.entity.ApplicationStage;
+import com.ats.job.HrJobScope;
+import com.ats.job.HrJobScopeService;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.StatsMapper;
 import com.ats.stats.dto.FunnelItemVO;
 import com.ats.stats.dto.FunnelVO;
 import com.ats.stats.dto.OverviewVO;
 import com.ats.stats.dto.PublicStatsVO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -41,6 +48,12 @@ public class StatsService {
 
     private final ApplicationMapper applicationMapper;
     private final StatsMapper statsMapper;
+    private final HrJobScopeService hrJobScopeService;
+    private final StringRedisTemplate redis;
+    private final ObjectMapper objectMapper;
+
+    private static final String PUBLIC_STATS_CACHE_KEY = "stats:public:v1";
+    private static final Duration PUBLIC_STATS_TTL = Duration.ofSeconds(60);
 
     /** 业务时区与 application.yml 的 jackson.time-zone 对齐 */
     private static final ZoneId BIZ_ZONE = ZoneId.of("Asia/Shanghai");
@@ -58,9 +71,8 @@ public class StatsService {
     );
 
     public FunnelVO funnel(Long jobId) {
-        Long hrUserId = effectiveHrUserId();
-        // 复用 ApplicationMapper.countByStage：jobId/hrUserId 双过滤已支持
-        List<Map<String, Object>> rows = applicationMapper.countByStage(jobId, hrUserId);
+        HrJobScope hrScope = effectiveHrScope();
+        List<Map<String, Object>> rows = applicationMapper.countByStage(jobId, hrScope);
 
         Map<ApplicationStage, Long> counts = new HashMap<>();
         for (Map<String, Object> row : rows) {
@@ -95,7 +107,27 @@ public class StatsService {
      * 在 service 内做 5 stage group 聚合，避免新增 mapper 方法。
      */
     public PublicStatsVO publicStats() {
-        // 全平台（hrUserId = null, jobId = null）的 stage 分布
+        String cached = redis.opsForValue().get(PUBLIC_STATS_CACHE_KEY);
+        if (cached != null) {
+            try {
+                return objectMapper.readValue(cached, PublicStatsVO.class);
+            }
+            catch (JsonProcessingException e) {
+                log.warn("[STATS] public cache deserialize failed, recompute");
+            }
+        }
+        PublicStatsVO vo = computePublicStats();
+        try {
+            redis.opsForValue().set(PUBLIC_STATS_CACHE_KEY,
+                    objectMapper.writeValueAsString(vo), PUBLIC_STATS_TTL);
+        }
+        catch (JsonProcessingException e) {
+            log.warn("[STATS] public cache serialize failed");
+        }
+        return vo;
+    }
+
+    private PublicStatsVO computePublicStats() {
         List<Map<String, Object>> rows = applicationMapper.countByStage(null, null);
         long screening = 0;
         long interview = 0;
@@ -124,14 +156,24 @@ public class StatsService {
                 .build();
     }
 
+    /** 导出漏斗 CSV（HR/ADMIN）。 */
+    public String exportFunnelCsv(Long jobId) {
+        FunnelVO funnel = funnel(jobId);
+        StringBuilder sb = new StringBuilder("stage,count\n");
+        for (var item : funnel.getItems()) {
+            sb.append(item.getStage().name()).append(',').append(item.getCount()).append('\n');
+        }
+        return sb.toString();
+    }
+
     public OverviewVO overview() {
-        Long hrUserId = effectiveHrUserId();
+        HrJobScope hrScope = effectiveHrScope();
         OffsetDateTime since = monthStart();
 
-        long newApps = statsMapper.countNewApplications(since, hrUserId);
-        long offers = statsMapper.countTransitionsToStage(since, ApplicationStage.OFFER.name(), hrUserId);
-        long hires = statsMapper.countTransitionsToStage(since, ApplicationStage.HIRED.name(), hrUserId);
-        long activeJobs = statsMapper.countActiveJobs(hrUserId);
+        long newApps = statsMapper.countNewApplications(since, hrScope);
+        long offers = statsMapper.countTransitionsToStage(since, ApplicationStage.OFFER.name(), hrScope);
+        long hires = statsMapper.countTransitionsToStage(since, ApplicationStage.HIRED.name(), hrScope);
+        long activeJobs = statsMapper.countActiveJobs(hrScope);
 
         return OverviewVO.builder()
                 .newApplicationsThisMonth(newApps)
@@ -147,9 +189,9 @@ public class StatsService {
      * - HR 返回自己的 userId
      * - 其他角色应被 controller 拦截不到此处；保险起见抛 FORBIDDEN
      */
-    Long effectiveHrUserId() {
+    HrJobScope effectiveHrScope() {
         if (SecurityUtil.isAdmin()) return null;
-        if (SecurityUtil.isHr()) return SecurityUtil.requireUserId();
+        if (SecurityUtil.isHr()) return hrJobScopeService.currentScopeOrNull();
         throw BizException.of(ErrorCode.FORBIDDEN);
     }
 

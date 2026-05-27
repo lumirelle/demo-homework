@@ -2,6 +2,7 @@ package com.ats.file;
 
 import com.ats.common.exception.BizException;
 import com.ats.common.exception.ErrorCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,7 +30,8 @@ class LocalFileStorageTest {
     void save_legal_pdf(@TempDir Path tmp) {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         MockMultipartFile pdf = new MockMultipartFile(
                 "file", "my-resume.pdf", "application/pdf", "%PDF-1.4 ...".getBytes());
@@ -51,7 +53,8 @@ class LocalFileStorageTest {
     void save_wrong_mime(@TempDir Path tmp) {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         MockMultipartFile png = new MockMultipartFile(
                 "file", "x.pdf", "image/png", "fakebytes".getBytes());
@@ -66,7 +69,8 @@ class LocalFileStorageTest {
     void save_wrong_ext(@TempDir Path tmp) {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         MockMultipartFile bad = new MockMultipartFile(
                 "file", "x.docx", "application/pdf", "fakebytes".getBytes());
@@ -81,7 +85,8 @@ class LocalFileStorageTest {
     void save_empty(@TempDir Path tmp) {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         MockMultipartFile empty = new MockMultipartFile(
                 "file", "x.pdf", "application/pdf", new byte[0]);
@@ -96,7 +101,8 @@ class LocalFileStorageTest {
     void load_not_found(@TempDir Path tmp) {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         assertThatThrownBy(() -> storage.load("resumes/2026-05/nope.pdf"))
                 .isInstanceOf(BizException.class)
@@ -112,7 +118,8 @@ class LocalFileStorageTest {
 
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         assertThatThrownBy(() -> storage.load("../secret.txt"))
                 .isInstanceOf(BizException.class)
@@ -124,7 +131,8 @@ class LocalFileStorageTest {
     void load_ok(@TempDir Path tmp) throws IOException {
         UploadProperties props = new UploadProperties();
         props.setPath(tmp.toString());
-        LocalFileStorage storage = new LocalFileStorage(props);
+        FileDedupIndex dedup = new FileDedupIndex(props, new ObjectMapper());
+        LocalFileStorage storage = new LocalFileStorage(props, dedup);
 
         MockMultipartFile pdf = new MockMultipartFile(
                 "file", "my.pdf", "application/pdf", "hello-pdf".getBytes());

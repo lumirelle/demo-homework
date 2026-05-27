@@ -11,6 +11,7 @@ import com.ats.entity.JobStatus;
 import com.ats.interview.dto.InterviewCreateReq;
 import com.ats.interview.dto.InterviewUpdateReq;
 import com.ats.interview.dto.InterviewVO;
+import com.ats.job.HrJobScopeService;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.InterviewMapper;
 import com.ats.repository.JobMapper;
@@ -59,12 +60,23 @@ class InterviewServiceTest {
     @Mock InterviewMapper interviewMapper;
     @Mock ApplicationMapper applicationMapper;
     @Mock JobMapper jobMapper;
+    @Mock HrJobScopeService hrJobScopeService;
 
     @InjectMocks InterviewService service;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        when(hrJobScopeService.canManageJob(any())).thenAnswer(inv -> {
+            Job job = inv.getArgument(0);
+            if (job == null) return false;
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) return false;
+            if (auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                return true;
+            }
+            return java.util.Objects.equals(Long.parseLong(auth.getName()), job.getCreatedBy());
+        });
     }
 
     @AfterEach

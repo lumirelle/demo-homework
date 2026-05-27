@@ -22,7 +22,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -54,6 +56,7 @@ class AuthServiceTest {
     @Mock JwtService jwtService;
     @Mock PasswordEncoder passwordEncoder;
     @Mock CookieUtil cookieUtil;
+    @Mock LoginRateLimiter loginRateLimiter;
 
     @InjectMocks AuthService authService;
 
@@ -62,6 +65,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(authService, "objectMapper", new ObjectMapper());
         req = mock(HttpServletRequest.class);
         resp = mock(HttpServletResponse.class);
     }

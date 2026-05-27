@@ -17,7 +17,9 @@ import com.ats.repository.UserMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.impl.DefaultClaims;
+import com.ats.entity.SubDepartment;
 import com.ats.entity.User;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -96,6 +98,11 @@ class WebSecurityIntegrationTest {
     @MockitoBean com.ats.repository.SubDepartmentMapper subDepartmentMapper;
     @MockitoBean com.ats.repository.HrSubDepartmentMapper hrSubDepartmentMapper;
 
+    @BeforeEach
+    void stubHrSubDepartmentBinding() {
+        when(subDepartmentMapper.selectById(anyLong())).thenReturn(new SubDepartment());
+    }
+
     // ════════════════════════════════════════════════════════════
     //                    401 · JWT 过滤器链
     // ════════════════════════════════════════════════════════════
@@ -163,7 +170,7 @@ class WebSecurityIntegrationTest {
             when(passwordEncoder.encode("password!")).thenReturn("BCRYPT");
 
             String body = """
-                    {"email":"hr@new.com","password":"password!","fullName":"NewHR","role":"HR"}
+                    {"email":"hr@new.com","password":"password!","fullName":"NewHR","role":"HR","subDepartmentIds":[1]}
                     """;
 
             mvc.perform(jsonPost("/admin/users", body)
@@ -231,8 +238,8 @@ class WebSecurityIntegrationTest {
 
             String body = """
                     {"users":[
-                        {"email":"hr1@b.com","password":"password!","fullName":"HR-1","role":"HR"},
-                        {"email":"hr2@b.com","password":"password!","fullName":"HR-2","role":"HR"}
+                        {"email":"hr1@b.com","password":"password!","fullName":"HR-1","role":"HR","subDepartmentIds":[1]},
+                        {"email":"hr2@b.com","password":"password!","fullName":"HR-2","role":"HR","subDepartmentIds":[1]}
                     ]}
                     """;
 
@@ -258,8 +265,8 @@ class WebSecurityIntegrationTest {
 
             String body = """
                     {"users":[
-                        {"email":"dup@b.com","password":"password!","fullName":"X","role":"HR"},
-                        {"email":"DUP@b.com","password":"password!","fullName":"Y","role":"HR"}
+                        {"email":"dup@b.com","password":"password!","fullName":"X","role":"HR","subDepartmentIds":[1]},
+                        {"email":"DUP@b.com","password":"password!","fullName":"Y","role":"HR","subDepartmentIds":[1]}
                     ]}
                     """;
 
@@ -284,8 +291,8 @@ class WebSecurityIntegrationTest {
 
             String body = """
                     {"users":[
-                        {"email":"old@b.com","password":"password!","fullName":"Old","role":"HR"},
-                        {"email":"new@b.com","password":"password!","fullName":"New","role":"HR"}
+                        {"email":"old@b.com","password":"password!","fullName":"Old","role":"HR","subDepartmentIds":[1]},
+                        {"email":"new@b.com","password":"password!","fullName":"New","role":"HR","subDepartmentIds":[1]}
                     ]}
                     """;
 

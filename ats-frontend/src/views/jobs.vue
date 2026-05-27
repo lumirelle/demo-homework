@@ -37,6 +37,7 @@ import {
 } from '@/api/jobs'
 import { BizError } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
+import { renderMarkdown } from '@/utils/markdown'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -302,68 +303,6 @@ function formatPublishedAt(iso: string | null) {
   if (diffH < 24 * 30)
     return `${Math.floor(diffH / (24 * 7))} 周前`
   return d.toISOString().slice(0, 10)
-}
-
-/**
- * 极简 Markdown → HTML 渲染（仅支持 # 标题、- 列表、空行段落、`code`）。
- * 所有用户输入先 escapeHTML，再做有限的 inline 替换；不引入 marked 等依赖。
- */
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function renderMarkdown(md: string | null | undefined): string {
-  if (!md)
-    return ''
-  const lines = escapeHtml(md).split('\n')
-  const out: string[] = []
-  let para: string[] = []
-  let list: string[] = []
-
-  function flushPara() {
-    if (para.length) {
-      out.push(`<p>${para.join(' ').replace(/`([^`]+)`/g, '<code>$1</code>')}</p>`)
-      para = []
-    }
-  }
-  function flushList() {
-    if (list.length) {
-      out.push(`<ul>${list.map(li => `<li>${li.replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`).join('')}</ul>`)
-      list = []
-    }
-  }
-
-  for (const raw of lines) {
-    const line = raw.trim()
-    if (!line) {
-      flushPara()
-      flushList()
-      continue
-    }
-    const h = line.match(/^(#{1,4})\s+(.*)/)
-    if (h) {
-      flushPara()
-      flushList()
-      const lvl = Math.min(h[1].length + 1, 5) // ## → h3
-      out.push(`<h${lvl}>${h[2]}</h${lvl}>`)
-      continue
-    }
-    const li = line.match(/^[-*]\s+(.*)/)
-    if (li) {
-      flushPara()
-      list.push(li[1])
-      continue
-    }
-    flushList()
-    para.push(line)
-  }
-  flushPara()
-  flushList()
-  return out.join('')
 }
 
 // ────────────────────────── lifecycle ──────────────────────────

@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class RegisterReq {
 
@@ -19,4 +21,7 @@ public class RegisterReq {
     @NotBlank(message = "姓名不能为空")
     @Size(max = 100, message = "姓名最多 100 字符")
     private String fullName;
+
+    /** 候选人自选兴趣（可选） */
+    private List<String> interests;
 }

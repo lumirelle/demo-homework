@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import type { ApplicationStage } from '@/api/applications'
 import type { FunnelVO, OverviewVO } from '@/api/stats'
+import { NButton, useMessage } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { downloadStageLogsCsv } from '@/api/audit'
 import { STAGE_LABEL } from '@/api/applications'
 import { statsApi } from '@/api/stats'
+import { BizError } from '@/api/request'
 import ErrorBlock from '@/components/ErrorBlock.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
+const msg = useMessage()
 
 const loading = ref(true)
+const exportingAudit = ref(false)
 const errMsg = ref<string | null>(null)
 const overview = ref<OverviewVO | null>(null)
 const funnel = ref<FunnelVO | null>(null)
@@ -85,6 +90,20 @@ function jumpToJobs() {
   router.push({ path: '/hr/jobs' })
 }
 
+async function exportAuditCsv() {
+  exportingAudit.value = true
+  try {
+    await downloadStageLogsCsv(auth.accessToken)
+    msg.success('阶段流转审计 CSV 已开始下载')
+  }
+  catch (e) {
+    msg.error(e instanceof BizError ? e.message : '导出失败')
+  }
+  finally {
+    exportingAudit.value = false
+  }
+}
+
 /** 漏斗 / metric 行支持键盘 Enter 触发 */
 function onRowKeydown(e: KeyboardEvent, stage: ApplicationStage) {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -99,17 +118,29 @@ onMounted(load)
 <template>
   <div class="dashboard-page">
     <header class="page-hero">
-      <div class="hero-kicker">
-        <span class="kicker-dot" />
-        OPERATIONS · {{ monthLabel }}
+      <div flex="~ items-start justify-between gap-4">
+        <div>
+          <div class="hero-kicker">
+            <span class="kicker-dot" />
+            OPERATIONS · {{ monthLabel }}
+          </div>
+          <h1 class="hero-title">
+            数据看板
+          </h1>
+          <p class="hero-subtitle">
+            本月招聘漏斗、Offer / 入职动态、在招岗位 ·
+            <span text-primary>{{ auth.role === 'ADMIN' ? '全平台视角' : '我的岗位视角' }}</span>
+          </p>
+        </div>
+        <NButton
+          v-if="auth.isHr || auth.isAdmin"
+          tertiary
+          :loading="exportingAudit"
+          @click="exportAuditCsv"
+        >
+          导出阶段审计 CSV
+        </NButton>
       </div>
-      <h1 class="hero-title">
-        数据看板
-      </h1>
-      <p class="hero-subtitle">
-        本月招聘漏斗、Offer / 入职动态、在招岗位 ·
-        <span text-primary>{{ auth.role === 'ADMIN' ? '全平台视角' : '我的岗位视角' }}</span>
-      </p>
     </header>
 
     <!-- 错误占位 —— 加载失败时整页 retry -->

@@ -7,6 +7,9 @@ import com.ats.stats.dto.OverviewVO;
 import com.ats.stats.dto.PublicStatsVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,5 +52,15 @@ public class StatsController {
     @GetMapping("/public")
     public ApiResponse<PublicStatsVO> publicStats() {
         return ApiResponse.ok(statsService.publicStats());
+    }
+
+    @GetMapping(value = "/funnel/export", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('HR', 'ADMIN')")
+    public ResponseEntity<String> exportFunnel(@RequestParam(required = false) Long jobId) {
+        String csv = statsService.exportFunnelCsv(jobId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=funnel.csv")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
     }
 }

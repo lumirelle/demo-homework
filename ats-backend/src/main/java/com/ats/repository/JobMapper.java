@@ -1,6 +1,7 @@
 package com.ats.repository;
 
 import com.ats.entity.Job;
+import com.ats.job.HrJobScope;
 import com.ats.job.dto.JobListReq;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -29,6 +30,7 @@ public interface JobMapper extends BaseMapper<Job> {
      */
     List<Job> listJobs(@Param("q") JobListReq q,
                        @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                       @Param("hrScope") HrJobScope hrScope,
                        @Param("visibleStatuses") List<String> visibleStatuses,
                        @Param("sortColumn") String sortColumn,
                        @Param("sortDir") String sortDir,
@@ -37,6 +39,7 @@ public interface JobMapper extends BaseMapper<Job> {
 
     long countJobs(@Param("q") JobListReq q,
                    @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                   @Param("hrScope") HrJobScope hrScope,
                    @Param("visibleStatuses") List<String> visibleStatuses);
 
     /**
@@ -46,8 +49,13 @@ public interface JobMapper extends BaseMapper<Job> {
      */
     List<Long> selectFilteredJobIds(@Param("q") JobListReq q,
                                     @Param("ownerOnlyUserId") Long ownerOnlyUserId,
+                                    @Param("hrScope") HrJobScope hrScope,
                                     @Param("visibleStatuses") List<String> visibleStatuses,
                                     @Param("limit") int limit);
+
+    /** HR 可见范围内全部岗位 id（无额外 keyword 等过滤）。 */
+    List<Long> selectJobIdsInHrScope(@Param("hrScope") HrJobScope hrScope,
+                                     @Param("limit") int limit);
 
     // M6: 部门字典查询已迁出至 DepartmentMapper / SubDepartmentMapper（独立 entity 后语义更清晰）。
 }

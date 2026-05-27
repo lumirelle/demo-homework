@@ -25,6 +25,8 @@ public class User {
     private String role;
 
     private Boolean isActive;
+    /** 候选人注册时自选兴趣方向，JSON 数组字符串 */
+    private String candidateInterests;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

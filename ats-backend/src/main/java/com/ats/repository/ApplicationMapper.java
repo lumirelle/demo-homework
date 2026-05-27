@@ -1,6 +1,7 @@
 package com.ats.repository;
 
 import com.ats.entity.Application;
+import com.ats.job.HrJobScope;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -17,7 +18,7 @@ public interface ApplicationMapper extends BaseMapper<Application> {
      * 用 {@code GROUP BY stage} 一次查询返回 8 行（包含计数为 0 的阶段需在 service 里补齐）。
      *
      * @param jobId 单岗位看板用；为 null 则按 HR ownerId 名下所有岗位聚合
-     * @param hrUserId HR 视角用：与 jobs.created_by 关联裁剪可见范围；Admin 视角传 null 不裁剪
+     * @param hrScope HR 视角：本人岗位 + 绑定子部门岗位；Admin 传 null
      */
     @Select({
         "<script>",
@@ -26,12 +27,19 @@ public interface ApplicationMapper extends BaseMapper<Application> {
         "JOIN jobs j ON j.id = a.job_id",
         "WHERE j.deleted_at IS NULL",
         "<if test='jobId != null'> AND a.job_id = #{jobId} </if>",
-        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "<if test='hrScope != null'>",
+        "  AND ( j.created_by = #{hrScope.hrUserId}",
+        "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+        "    OR j.sub_department_id IN",
+        "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+        "  </if>",
+        "  )",
+        "</if>",
         "GROUP BY a.stage",
         "</script>"
     })
     List<Map<String, Object>> countByStage(@Param("jobId") Long jobId,
-                                           @Param("hrUserId") Long hrUserId);
+                                           @Param("hrScope") HrJobScope hrScope);
 
     /**
      * 看板每列的投递明细（含候选人姓名 + 邮箱 + 投递时间 + 最近变更时间）。
@@ -47,15 +55,24 @@ public interface ApplicationMapper extends BaseMapper<Application> {
         "JOIN users u ON u.id = a.candidate_id",
         "WHERE j.deleted_at IS NULL",
         "<if test='jobId != null'> AND a.job_id = #{jobId} </if>",
-        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "<if test='hrScope != null'>",
+        "  AND ( j.created_by = #{hrScope.hrUserId}",
+        "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+        "    OR j.sub_department_id IN",
+        "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+        "  </if>",
+        "  )",
+        "</if>",
         "<if test='stage != null'> AND a.stage = #{stage}::application_stage </if>",
         "ORDER BY a.updated_at DESC",
+        "<if test='offset != null'> OFFSET #{offset} </if>",
         "<if test='limit != null'> LIMIT #{limit} </if>",
         "</script>"
     })
     List<Map<String, Object>> listBoardItems(@Param("jobId") Long jobId,
-                                             @Param("hrUserId") Long hrUserId,
+                                             @Param("hrScope") HrJobScope hrScope,
                                              @Param("stage") String stage,
+                                             @Param("offset") Integer offset,
                                              @Param("limit") Integer limit);
 
     /** 候选人「我的投递」：按 candidate_id 列出，带岗位标题与最近 stage。 */
@@ -91,12 +108,19 @@ public interface ApplicationMapper extends BaseMapper<Application> {
         "<if test='jobIds != null'>",
         "  AND a.job_id IN <foreach collection='jobIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
         "</if>",
-        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "<if test='hrScope != null'>",
+        "  AND ( j.created_by = #{hrScope.hrUserId}",
+        "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+        "    OR j.sub_department_id IN",
+        "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+        "  </if>",
+        "  )",
+        "</if>",
         "GROUP BY a.stage",
         "</script>"
     })
     List<Map<String, Object>> countByStageFiltered(@Param("jobIds") List<Long> jobIds,
-                                                   @Param("hrUserId") Long hrUserId);
+                                                   @Param("hrScope") HrJobScope hrScope);
 
     /**
      * 看板每列明细：按 stage + jobIds 拉取候选人/岗位字段。
@@ -114,14 +138,23 @@ public interface ApplicationMapper extends BaseMapper<Application> {
         "<if test='jobIds != null'>",
         "  AND a.job_id IN <foreach collection='jobIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
         "</if>",
-        "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+        "<if test='hrScope != null'>",
+        "  AND ( j.created_by = #{hrScope.hrUserId}",
+        "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+        "    OR j.sub_department_id IN",
+        "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+        "  </if>",
+        "  )",
+        "</if>",
         "<if test='stage != null'> AND a.stage = #{stage}::application_stage </if>",
         "ORDER BY a.updated_at DESC",
+        "<if test='offset != null'> OFFSET #{offset} </if>",
         "<if test='limit != null'> LIMIT #{limit} </if>",
         "</script>"
     })
     List<Map<String, Object>> listBoardItemsFiltered(@Param("jobIds") List<Long> jobIds,
-                                                     @Param("hrUserId") Long hrUserId,
+                                                     @Param("hrScope") HrJobScope hrScope,
                                                      @Param("stage") String stage,
+                                                     @Param("offset") Integer offset,
                                                      @Param("limit") Integer limit);
 }

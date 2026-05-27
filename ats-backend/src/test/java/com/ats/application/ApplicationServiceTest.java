@@ -13,6 +13,8 @@ import com.ats.entity.JobStatus;
 import com.ats.entity.JobWorkType;
 import com.ats.entity.StageLog;
 import com.ats.entity.User;
+import com.ats.job.HrJobScope;
+import com.ats.job.HrJobScopeService;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.JobMapper;
 import com.ats.repository.StageLogMapper;
@@ -38,6 +40,7 @@ import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,12 +69,33 @@ class ApplicationServiceTest {
     @Mock JobMapper jobMapper;
     @Mock UserMapper userMapper;
     @Mock SubDepartmentMapper subDepartmentMapper;
+    @Mock HrJobScopeService hrJobScopeService;
 
     @InjectMocks ApplicationService applicationService;
 
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        when(hrJobScopeService.canManageJob(any())).thenAnswer(inv -> {
+            Job job = inv.getArgument(0);
+            if (job == null) return false;
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) return false;
+            if (auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                return true;
+            }
+            if (!auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_HR"))) {
+                return false;
+            }
+            return Objects.equals(Long.parseLong(auth.getName()), job.getCreatedBy());
+        });
+        when(hrJobScopeService.currentScopeOrNull()).thenAnswer(inv -> {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || auth.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_HR"))) {
+                return null;
+            }
+            return new HrJobScope(Long.parseLong(auth.getName()), List.of());
+        });
         // 默认 stage logs / users 查空，避免 toDetailVO 路径出错
         when(stageLogMapper.findByApplicationId(anyLong())).thenReturn(Collections.emptyList());
         when(userMapper.selectById(anyLong())).thenReturn(makeUser(99L, "Candidate Cathy", "cathy@example.com", "CANDIDATE"));
@@ -396,7 +420,8 @@ class ApplicationServiceTest {
                     Map.<String, Object>of("stage", "APPLIED", "cnt", 3),
                     Map.<String, Object>of("stage", "OFFER", "cnt", 1)
             ));
-            when(applicationMapper.listBoardItemsFiltered(any(), any(), any(), any())).thenReturn(Collections.emptyList());
+            when(applicationMapper.listBoardItemsFiltered(any(), any(), any(), any(), any()))
+                    .thenReturn(Collections.emptyList());
 
             BoardVO board = applicationService.board(null, 50);
 

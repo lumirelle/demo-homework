@@ -250,6 +250,28 @@ function toBoardQuery(): BoardQueryReq {
   return req
 }
 
+async function loadMoreColumn(stage: ApplicationStage) {
+  const col = board.value?.columns.find(c => c.stage === stage)
+  if (!col?.hasMore)
+    return
+  try {
+    const extra = await applicationsApi.board({
+      ...toBoardQuery(),
+      stage,
+      columnOffset: col.items.length,
+    })
+    const patch = extra.columns[0]
+    if (patch) {
+      col.items.push(...patch.items)
+      col.hasMore = patch.hasMore ?? false
+    }
+  }
+  catch (e) {
+    if (e instanceof BizError)
+      message.error(e.message)
+  }
+}
+
 async function fetchBoard() {
   loading.value = true
   try {
@@ -970,6 +992,9 @@ onMounted(async () => {
           拖拽卡片到下一阶段即可推进 ·
           合法路径会高亮 · 拒绝需填写原因 · 终态（已入职 / 已拒绝）不可再变更
         </p>
+        <p v-if="board?.jobsTruncated" mt-2 text-xs text-amber-700>
+          匹配的岗位超过 500 个上限，结果可能不完整，请缩小筛选条件。
+        </p>
       </div>
     </header>
 
@@ -1229,8 +1254,17 @@ onMounted(async () => {
                 </article>
               </div>
 
-              <footer v-if="overflowCount(col.items) > 0" class="node-foot">
+              <footer v-if="col.hasMore || overflowCount(col.items) > 0" class="node-foot">
                 <button
+                  v-if="col.hasMore"
+                  type="button"
+                  class="more-chip"
+                  @click.stop="loadMoreColumn(col.stage)"
+                >
+                  加载更多（{{ col.items.length }}/{{ col.count }}）
+                </button>
+                <button
+                  v-else-if="overflowCount(col.items) > 0"
                   type="button"
                   class="more-chip"
                   @click.stop="openStageDrawer(col.stage)"

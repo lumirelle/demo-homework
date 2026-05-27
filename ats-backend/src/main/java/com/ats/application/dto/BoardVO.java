@@ -19,4 +19,6 @@ public class BoardVO {
     /** 每列固定按状态机顺序返回，前端无需再排序 */
     private List<BoardColumnVO> columns;
     private long totalApplications;
+    /** 岗位筛选命中数达到上限（默认 500），结果可能被截断 */
+    private boolean jobsTruncated;
 }

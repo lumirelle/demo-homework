@@ -12,6 +12,8 @@ import type {
 } from '@/api/jobs'
 import {
   NButton,
+  NRadioButton,
+  NRadioGroup,
   NCheckbox,
   NDataTable,
   NDrawer,
@@ -55,12 +57,14 @@ const STATUS_OPTIONS = (Object.keys(STATUS_LABEL) as JobStatus[]).map(v => ({ la
 const WORK_TYPE_OPTIONS = (Object.keys(WORK_TYPE_LABEL) as JobWorkType[]).map(v => ({ label: WORK_TYPE_LABEL[v], value: v }))
 const LEVEL_OPTIONS = (Object.keys(LEVEL_LABEL) as JobLevel[]).map(v => ({ label: LEVEL_LABEL[v], value: v }))
 
+type JobScope = 'mine' | 'team' | 'all'
+
 const filter = reactive({
   keyword: '',
   status: [] as JobStatus[],
   workType: [] as JobWorkType[],
   level: [] as JobLevel[],
-  mine: true, // HR 默认看自己的
+  scope: 'mine' as JobScope,
   includeArchived: false,
 })
 
@@ -79,7 +83,8 @@ async function fetchList() {
       status: filter.status.length ? filter.status : undefined,
       workType: filter.workType.length ? filter.workType : undefined,
       level: filter.level.length ? filter.level : undefined,
-      mine: filter.mine || undefined,
+      mine: filter.scope === 'mine' ? true : undefined,
+      team: filter.scope === 'team' ? true : undefined,
       includeArchived: filter.includeArchived || undefined,
       page: page.value,
       size: pageSize.value,
@@ -516,7 +521,7 @@ function formatTime(iso: string | null) {
 
 // 监听 filter 变化（select / checkbox），keyword 用回车/点搜索按钮触发
 watch(
-  () => [filter.status, filter.workType, filter.level, filter.mine, filter.includeArchived],
+  () => [filter.status, filter.workType, filter.level, filter.scope, filter.includeArchived],
   () => resetAndFetch(),
   { deep: true },
 )
@@ -629,9 +634,17 @@ onMounted(async () => {
         />
 
         <NSpace align="center" :wrap="false">
-          <NCheckbox v-model:checked="filter.mine">
-            仅看我创建
-          </NCheckbox>
+          <NRadioGroup v-model:value="filter.scope" size="small">
+            <NRadioButton value="mine">
+              我的岗位
+            </NRadioButton>
+            <NRadioButton value="team">
+              团队岗位
+            </NRadioButton>
+            <NRadioButton value="all">
+              全部
+            </NRadioButton>
+          </NRadioGroup>
           <NCheckbox v-model:checked="filter.includeArchived">
             含归档
           </NCheckbox>

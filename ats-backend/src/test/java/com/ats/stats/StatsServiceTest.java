@@ -3,6 +3,8 @@ package com.ats.stats;
 import com.ats.common.exception.BizException;
 import com.ats.common.exception.ErrorCode;
 import com.ats.entity.ApplicationStage;
+import com.ats.job.HrJobScope;
+import com.ats.job.HrJobScopeService;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.StatsMapper;
 import com.ats.stats.dto.FunnelVO;
@@ -14,9 +16,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,17 +50,38 @@ import static org.mockito.Mockito.when;
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 @DisplayName("StatsService 单测")
 class StatsServiceTest {
 
     @Mock ApplicationMapper applicationMapper;
     @Mock StatsMapper statsMapper;
+    @Mock HrJobScopeService hrJobScopeService;
+    @Mock StringRedisTemplate redis;
+    @Mock ValueOperations<String, String> valueOps;
 
     @InjectMocks StatsService service;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static HrJobScope hrScope(long userId) {
+        return new HrJobScope(userId, List.of());
+    }
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         SecurityContextHolder.clearContext();
+        when(redis.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(any())).thenReturn(null);
+        org.mockito.Mockito.lenient().doNothing().when(valueOps).set(any(), any(), any(java.time.Duration.class));
+        // 注入真实 ObjectMapper 供 cache 序列化（publicStats 测试走 DB 路径）
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "objectMapper", objectMapper);
+        when(hrJobScopeService.currentScopeOrNull()).thenAnswer(inv -> {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) return null;
+            boolean isHr = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_HR"));
+            return isHr ? hrScope(Long.parseLong(auth.getName())) : null;
+        });
     }
 
     @AfterEach
@@ -74,7 +100,7 @@ class StatsServiceTest {
         void hr_8_stages_with_zero_padding() {
             setAuth(10L, "HR");
             // 只返回 3 个 stage，其他 5 个应自动补 0
-            when(applicationMapper.countByStage(isNull(), eq(10L))).thenReturn(List.of(
+            when(applicationMapper.countByStage(isNull(), eq(hrScope(10L)))).thenReturn(List.of(
                     Map.of("stage", "APPLIED", "cnt", 12L),
                     Map.of("stage", "PHONE_INTERVIEW", "cnt", 4L),
                     Map.of("stage", "OFFER", "cnt", 1L)
@@ -114,14 +140,14 @@ class StatsServiceTest {
         @DisplayName("HR · 限定单岗位 jobId")
         void hr_with_jobId_filter() {
             setAuth(10L, "HR");
-            when(applicationMapper.countByStage(eq(42L), eq(10L))).thenReturn(List.of(
+            when(applicationMapper.countByStage(eq(42L), eq(hrScope(10L)))).thenReturn(List.of(
                     Map.of("stage", "HIRED", "cnt", 1L)
             ));
 
             FunnelVO vo = service.funnel(42L);
 
             assertThat(vo.getTotal()).isEqualTo(1L);
-            verify(applicationMapper).countByStage(eq(42L), eq(10L));
+            verify(applicationMapper).countByStage(eq(42L), eq(hrScope(10L)));
         }
 
         @Test
@@ -137,7 +163,7 @@ class StatsServiceTest {
         @DisplayName("Number 子类型（Integer/Long/BigInteger）兼容")
         void number_subtypes_compatible() {
             setAuth(10L, "HR");
-            when(applicationMapper.countByStage(isNull(), eq(10L))).thenReturn(List.of(
+            when(applicationMapper.countByStage(isNull(), eq(hrScope(10L)))).thenReturn(List.of(
                     Map.of("stage", "APPLIED", "cnt", 5),                                   // int
                     Map.of("stage", "OFFER", "cnt", java.math.BigInteger.valueOf(3))        // BigInteger
             ));
@@ -157,10 +183,10 @@ class StatsServiceTest {
         @DisplayName("HR · 4 指标聚合 + 切自己 ownerId")
         void hr_4_metrics() {
             setAuth(10L, "HR");
-            when(statsMapper.countNewApplications(any(OffsetDateTime.class), eq(10L))).thenReturn(20L);
-            when(statsMapper.countTransitionsToStage(any(OffsetDateTime.class), eq("OFFER"), eq(10L))).thenReturn(3L);
-            when(statsMapper.countTransitionsToStage(any(OffsetDateTime.class), eq("HIRED"), eq(10L))).thenReturn(1L);
-            when(statsMapper.countActiveJobs(eq(10L))).thenReturn(7L);
+            when(statsMapper.countNewApplications(any(OffsetDateTime.class), eq(hrScope(10L)))).thenReturn(20L);
+            when(statsMapper.countTransitionsToStage(any(OffsetDateTime.class), eq("OFFER"), eq(hrScope(10L)))).thenReturn(3L);
+            when(statsMapper.countTransitionsToStage(any(OffsetDateTime.class), eq("HIRED"), eq(hrScope(10L)))).thenReturn(1L);
+            when(statsMapper.countActiveJobs(eq(hrScope(10L)))).thenReturn(7L);
 
             OverviewVO vo = service.overview();
 

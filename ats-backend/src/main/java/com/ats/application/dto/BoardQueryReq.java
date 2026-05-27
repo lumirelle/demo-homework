@@ -59,4 +59,11 @@ public class BoardQueryReq {
     @Min(1)
     @Max(200)
     private Integer itemsPerColumn = 50;
+
+    /** 列内分页偏移（加载更多时使用，与 {@link #stage} 配合） */
+    @Min(0)
+    private Integer columnOffset = 0;
+
+    /** 仅加载指定列（加载更多时必填） */
+    private com.ats.entity.ApplicationStage stage;
 }

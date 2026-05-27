@@ -83,6 +83,26 @@ const routes: RouteRecordRaw[] = [
       transition: 'fade-slide',
     },
   },
+  {
+    path: '/me/profile',
+    name: 'MyProfile',
+    component: () => import('@/views/me/profile.vue'),
+    meta: {
+      title: '个人资料',
+      requiresAuth: true,
+      transition: 'fade-slide',
+    },
+  },
+  {
+    path: '/me/settings',
+    name: 'MySettings',
+    component: () => import('@/views/me/settings.vue'),
+    meta: {
+      title: '修改密码',
+      requiresAuth: true,
+      transition: 'fade-slide',
+    },
+  },
   // ── M3 · 招聘看板（HR / Admin · 状态机拖拽）──
   {
     path: '/hr/board',

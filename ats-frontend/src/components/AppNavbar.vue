@@ -109,6 +109,18 @@ const menuOptions = computed(() => [
     key: 'me-shortcut',
     icon: renderIcon('M5 4 H15 L19 8 V20 H5 Z M14 4 V8 H19 M8 12 H16 M8 16 H13'),
   },
+  ...(auth.isCandidate
+    ? [{
+        label: '个人资料',
+        key: 'profile',
+        icon: renderIcon('M12 12 A4 4 0 1 0 12 4 A4 4 0 0 0 12 12 M4 20 A8 8 0 0 1 20 20'),
+      }]
+    : []),
+  {
+    label: '修改密码',
+    key: 'settings',
+    icon: renderIcon('M12 15 V17 M8 11 H16 A4 4 0 0 0 12 7 A4 4 0 0 0 8 11 H8 A4 4 0 0 0 12 15 A4 4 0 0 0 16 11'),
+  },
   { type: 'divider', key: 'd1' },
   {
     label: '退出登录',
@@ -124,8 +136,15 @@ async function handleSelect(key: string) {
     return
   }
   if (key === 'me-shortcut') {
-    // 候选人 → 我的投递；HR/Admin → 招聘看板（最常进入的工作台）
     router.push(auth.isCandidate ? '/me/applications' : '/hr/board')
+    return
+  }
+  if (key === 'profile') {
+    router.push('/me/profile')
+    return
+  }
+  if (key === 'settings') {
+    router.push('/me/settings')
   }
 }
 

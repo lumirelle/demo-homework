@@ -1,10 +1,11 @@
-import { post, get } from './request'
+import { get, patch, post } from './request'
 
 export interface MeVO {
   id: number
   email: string
   fullName: string
   role: 'ADMIN' | 'HR' | 'CANDIDATE'
+  interests?: string[]
 }
 
 export interface TokenVO {
@@ -15,7 +16,7 @@ export interface TokenVO {
 }
 
 export const authApi = {
-  register: (data: { email: string; password: string; fullName: string }) =>
+  register: (data: { email: string, password: string, fullName: string, interests?: string[] }) =>
     post<MeVO>('/auth/register', data),
 
   login: (data: { email: string; password: string }) =>
@@ -27,4 +28,10 @@ export const authApi = {
   logout: () => post<void>('/auth/logout'),
 
   me: () => get<MeVO>('/auth/me'),
+
+  changePassword: (data: { currentPassword: string, newPassword: string }) =>
+    post<void>('/auth/change-password', data),
+
+  updateProfile: (data: { interests?: string[] }) =>
+    patch<MeVO>('/auth/profile', data),
 }

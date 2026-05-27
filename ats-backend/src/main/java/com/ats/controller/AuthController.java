@@ -1,6 +1,8 @@
 package com.ats.controller;
 
 import com.ats.auth.AuthService;
+import com.ats.auth.dto.ChangePasswordReq;
+import com.ats.auth.dto.ProfileUpdateReq;
 import com.ats.auth.dto.LoginReq;
 import com.ats.auth.dto.MeVO;
 import com.ats.auth.dto.RegisterReq;
@@ -13,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -62,5 +65,20 @@ public class AuthController {
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<MeVO> me(@AuthenticationPrincipal String userId) {
         return ApiResponse.ok(authService.me(Long.parseLong(userId)));
+    }
+
+    @PatchMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<MeVO> updateProfile(@AuthenticationPrincipal String userId,
+                                             @Valid @RequestBody ProfileUpdateReq req) {
+        return ApiResponse.ok(authService.updateProfile(Long.parseLong(userId), req));
+    }
+
+    @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<Void> changePassword(@AuthenticationPrincipal String userId,
+                                            @Valid @RequestBody ChangePasswordReq req) {
+        authService.changePassword(Long.parseLong(userId), req);
+        return ApiResponse.ok();
     }
 }

@@ -10,6 +10,7 @@ import com.ats.entity.Job;
 import com.ats.interview.dto.InterviewCreateReq;
 import com.ats.interview.dto.InterviewUpdateReq;
 import com.ats.interview.dto.InterviewVO;
+import com.ats.job.HrJobScopeService;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.InterviewMapper;
 import com.ats.repository.JobMapper;
@@ -51,6 +52,7 @@ public class InterviewService {
     private final InterviewMapper interviewMapper;
     private final ApplicationMapper applicationMapper;
     private final JobMapper jobMapper;
+    private final HrJobScopeService hrJobScopeService;
 
     /** 编辑窗口 24 小时（业务约束，硬编码常量便于测试 / 调整） */
     private static final long EDIT_WINDOW_HOURS = 24;
@@ -147,9 +149,7 @@ public class InterviewService {
         Job job = jobMapper.selectById(app.getJobId());
         if (job == null) throw BizException.of(ErrorCode.JOB_NOT_FOUND);
 
-        boolean isAdmin = SecurityUtil.isAdmin();
-        boolean isJobOwnerHr = SecurityUtil.isHr() && Objects.equals(job.getCreatedBy(), currentUserId);
-        if (!isAdmin && !isJobOwnerHr) {
+        if (!hrJobScopeService.canManageJob(job)) {
             throw BizException.of(ErrorCode.APPLICATION_ACCESS_DENIED);
         }
     }

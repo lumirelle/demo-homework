@@ -106,6 +106,7 @@ CREATE TABLE users (
     full_name     VARCHAR(100)    NOT NULL,
     role          user_role       NOT NULL DEFAULT 'CANDIDATE',
     is_active     BOOLEAN         NOT NULL DEFAULT TRUE,     -- 软删除/禁用标志
+    candidate_interests TEXT,                              -- 候选人兴趣标签 JSON 数组，如 ["fe","pm"]
     created_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
 

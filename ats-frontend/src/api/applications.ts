@@ -148,6 +148,7 @@ export interface BoardColumnVO {
   stage: ApplicationStage
   count: number
   items: ApplicationListItemVO[]
+  hasMore?: boolean
 }
 
 export interface BoardVO {
@@ -156,6 +157,7 @@ export interface BoardVO {
   /** 后端固定按 STAGE_ORDER 顺序返回，前端无需再排序 */
   columns: BoardColumnVO[]
   totalApplications: number
+  jobsTruncated?: boolean
 }
 
 /**
@@ -179,6 +181,8 @@ export interface BoardQueryReq {
   salaryMin?: number
   salaryMax?: number
   itemsPerColumn?: number
+  columnOffset?: number
+  stage?: ApplicationStage
 }
 
 // ─────────────────────────── API ───────────────────────────

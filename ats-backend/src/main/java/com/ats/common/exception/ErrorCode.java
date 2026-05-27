@@ -23,6 +23,7 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(10005, "邮箱或密码错误"),
     REFRESH_TOKEN_INVALID(10006, "Refresh token 无效或已过期，请重新登录"),
     USER_DISABLED(10007, "账号已被禁用，请联系管理员"),
+    TOO_MANY_LOGIN_ATTEMPTS(10008, "登录尝试过多，请稍后再试"),
 
     BIZ_RULE_VIOLATED(20001, "业务规则校验失败"),
     ILLEGAL_TRANSITION(20002, "非法状态流转"),

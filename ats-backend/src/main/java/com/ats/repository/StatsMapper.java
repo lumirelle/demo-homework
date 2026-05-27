@@ -1,5 +1,6 @@
 package com.ats.repository;
 
+import com.ats.job.HrJobScope;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -11,8 +12,8 @@ import java.time.OffsetDateTime;
  *
  * <h3>切片约定</h3>
  * <ul>
- *   <li><code>hrUserId == null</code> → ADMIN 视角，不裁剪</li>
- *   <li><code>hrUserId != null</code> → HR 视角，仅统计该用户 created_by 的 jobs</li>
+ *   <li><code>hrScope == null</code> → ADMIN 视角，不裁剪</li>
+ *   <li><code>hrScope != null</code> → HR 视角，本人岗位 + 绑定子部门岗位</li>
  * </ul>
  *
  * <h3>性能</h3>
@@ -29,11 +30,18 @@ public interface StatsMapper {
             "JOIN jobs j ON j.id = a.job_id",
             "WHERE j.deleted_at IS NULL",
             "  AND a.applied_at >= #{since}",
-            "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+            "<if test='hrScope != null'>",
+            "  AND ( j.created_by = #{hrScope.hrUserId}",
+            "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+            "    OR j.sub_department_id IN",
+            "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+            "  </if>",
+            "  )",
+            "</if>",
             "</script>"
     })
     long countNewApplications(@Param("since") OffsetDateTime since,
-                              @Param("hrUserId") Long hrUserId);
+                              @Param("hrScope") HrJobScope hrScope);
 
     /**
      * 本月推进到指定 stage 的<strong>次数</strong>（基于 stage_logs，更接近"本月动作"语义；
@@ -48,12 +56,19 @@ public interface StatsMapper {
             "WHERE j.deleted_at IS NULL",
             "  AND sl.to_stage = #{toStage}::application_stage",
             "  AND sl.operated_at >= #{since}",
-            "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+            "<if test='hrScope != null'>",
+            "  AND ( j.created_by = #{hrScope.hrUserId}",
+            "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+            "    OR j.sub_department_id IN",
+            "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+            "  </if>",
+            "  )",
+            "</if>",
             "</script>"
     })
     long countTransitionsToStage(@Param("since") OffsetDateTime since,
                                  @Param("toStage") String toStage,
-                                 @Param("hrUserId") Long hrUserId);
+                                 @Param("hrScope") HrJobScope hrScope);
 
     /** 当前 status = PUBLISHED 的岗位数。 */
     @Select({
@@ -61,10 +76,17 @@ public interface StatsMapper {
             "SELECT COUNT(*) FROM jobs j",
             "WHERE j.deleted_at IS NULL",
             "  AND j.status = 'PUBLISHED'::job_status",
-            "<if test='hrUserId != null'> AND j.created_by = #{hrUserId} </if>",
+            "<if test='hrScope != null'>",
+            "  AND ( j.created_by = #{hrScope.hrUserId}",
+            "  <if test='hrScope.subDepartmentIds != null and hrScope.subDepartmentIds.size() > 0'>",
+            "    OR j.sub_department_id IN",
+            "    <foreach collection='hrScope.subDepartmentIds' item='sid' open='(' separator=',' close=')'>#{sid}</foreach>",
+            "  </if>",
+            "  )",
+            "</if>",
             "</script>"
     })
-    long countActiveJobs(@Param("hrUserId") Long hrUserId);
+    long countActiveJobs(@Param("hrScope") HrJobScope hrScope);
 
     /**
      * 已被在招岗位覆盖的部门数 —— "至少有 1 个 PUBLISHED 岗位的子部门，所归属的上层部门"。

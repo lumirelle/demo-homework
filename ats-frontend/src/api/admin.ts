@@ -2,7 +2,7 @@
  * Admin 用户管理 API · 仅 ADMIN 角色可调用。
  * 后端：com.ats.controller.AdminController
  */
-import { post } from './request'
+import { get, patch, post } from './request'
 import type { MeVO } from './auth'
 
 /** 单个创建用户的请求体 · role 只能是 HR 或 CANDIDATE */
@@ -33,7 +33,31 @@ export interface BatchCreateResult {
   items: BatchCreateItem[]
 }
 
+export interface AdminUserListItemVO {
+  id: number
+  email: string
+  fullName: string
+  role: 'HR' | 'CANDIDATE' | 'ADMIN'
+  active: boolean
+  subDepartmentIds: number[]
+  createdAt: string
+}
+
+export interface UpdateUserReq {
+  fullName?: string
+  role?: 'HR' | 'CANDIDATE'
+  active?: boolean
+  subDepartmentIds?: number[]
+  newPassword?: string
+}
+
 export const adminApi = {
+  listUsers: (params?: { role?: string, activeOnly?: boolean }) =>
+    get<AdminUserListItemVO[]>('/admin/users', { params }),
+
+  updateUser: (id: number, data: UpdateUserReq) =>
+    patch<AdminUserListItemVO>(`/admin/users/${id}`, data),
+
   /** POST /admin/users · 单个创建 HR / CANDIDATE 账号 */
   createUser: (data: CreateUserReq) => post<MeVO>('/admin/users', data),
 

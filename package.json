@@ -39,6 +39,7 @@
     "fe:lint": "cd ats-frontend && bun run lint",
     "fe:lint:fix": "cd ats-frontend && bun run lint:fix",
     "fe:check": "cd ats-frontend && bun run typecheck && bun run lint",
+    "fe:e2e": "cd ats-frontend && bun run e2e",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
     "lint:oxlint": "oxlint",

@@ -113,6 +113,8 @@ export interface JobListReq {
   /** 工作地点模糊（M6 起从 sub_departments.location 取） */
   location?: string
   mine?: boolean
+  /** HR 团队视角：本人 + 绑定子部门下他人岗位 */
+  team?: boolean
   includeArchived?: boolean
   page?: number
   size?: number

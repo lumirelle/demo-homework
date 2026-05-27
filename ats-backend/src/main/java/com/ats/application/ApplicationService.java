@@ -16,6 +16,8 @@ import com.ats.entity.Job;
 import com.ats.entity.JobStatus;
 import com.ats.entity.StageLog;
 import com.ats.entity.User;
+import com.ats.job.HrJobScope;
+import com.ats.job.HrJobScopeService;
 import com.ats.job.dto.JobListReq;
 import com.ats.repository.ApplicationMapper;
 import com.ats.repository.JobMapper;
@@ -47,6 +49,7 @@ public class ApplicationService {
     private final JobMapper jobMapper;
     private final UserMapper userMapper;
     private final SubDepartmentMapper subDepartmentMapper;
+    private final HrJobScopeService hrJobScopeService;
 
     /**
      * 看板列固定按状态机顺序输出（即使某列计数为 0 也要返回空列），
@@ -120,10 +123,7 @@ public class ApplicationService {
         Job job = jobMapper.selectById(app.getJobId());
         if (job == null) throw BizException.of(ErrorCode.JOB_NOT_FOUND);
 
-        // 只有 Admin 或 该岗位 owner HR 能推进
-        boolean isAdmin = SecurityUtil.isAdmin();
-        boolean isJobOwnerHr = SecurityUtil.isHr() && Objects.equals(job.getCreatedBy(), currentUserId);
-        if (!isAdmin && !isJobOwnerHr) {
+        if (!hrJobScopeService.canManageJob(job)) {
             throw BizException.of(ErrorCode.APPLICATION_ACCESS_DENIED);
         }
 
@@ -166,10 +166,9 @@ public class ApplicationService {
 
         boolean isAdmin = SecurityUtil.isAdmin();
         boolean isOwnerCandidate = Objects.equals(currentUserId, app.getCandidateId());
-        boolean isJobOwnerHr = SecurityUtil.isHr() && Objects.equals(job.getCreatedBy(), currentUserId);
-        boolean canManage = isAdmin || isJobOwnerHr;
+        boolean canManage = hrJobScopeService.canManageJob(job);
 
-        if (!isAdmin && !isOwnerCandidate && !isJobOwnerHr) {
+        if (!isAdmin && !isOwnerCandidate && !canManage) {
             throw BizException.of(ErrorCode.APPLICATION_ACCESS_DENIED);
         }
 
@@ -271,7 +270,6 @@ public class ApplicationService {
      */
     @Transactional(readOnly = true)
     public BoardVO board(BoardQueryReq req) {
-        Long currentUserId = SecurityUtil.requireUserId();
         boolean isAdmin = SecurityUtil.isAdmin();
         boolean isHr = SecurityUtil.isHr();
         if (!isAdmin && !isHr) {
@@ -281,63 +279,70 @@ public class ApplicationService {
         Long jobId = req.getJobId();
         int itemsPerColumn = req.getItemsPerColumn() == null ? 50 : req.getItemsPerColumn();
         int limit = itemsPerColumn <= 0 ? 50 : Math.min(itemsPerColumn, 200);
-        Long hrUserId = isAdmin ? null : currentUserId;
+        int offset = req.getColumnOffset() == null || req.getColumnOffset() < 0 ? 0 : req.getColumnOffset();
+        HrJobScope hrScope = isAdmin ? null : hrJobScopeService.currentScopeOrNull();
 
-        // ── 单岗位看板：复用旧鉴权 + 走单 jobId 通道 ──
+        // ── 单岗位看板 ──
         if (jobId != null) {
             Job job = jobMapper.selectById(jobId);
             if (job == null) throw BizException.of(ErrorCode.JOB_NOT_FOUND);
-            if (!isAdmin && !Objects.equals(job.getCreatedBy(), currentUserId)) {
+            if (!hrJobScopeService.canManageJob(job)) {
                 throw BizException.of(ErrorCode.JOB_ACCESS_DENIED);
             }
-            return buildBoard(List.of(jobId), hrUserId, jobId, job.getTitle(), limit);
+            return buildBoard(List.of(jobId), null, jobId, job.getTitle(), limit, offset, req.getStage(), false);
         }
 
-        // ── 多维筛选模式：先用 JobMapper 求出符合条件的 jobIds，再聚合投递 ──
         boolean hasAnyFilter = hasAnyFilter(req);
-        List<Long> jobIds = null; // null = 不限制（即用 hrUserId 范围内全部岗位）
+        List<Long> jobIds = null;
+        boolean jobsTruncated = false;
         if (hasAnyFilter) {
             JobListReq jobReq = toJobListReq(req);
-            // HR 默认只能聚合"自己名下"岗位；Admin 不限制（ownerOnlyUserId=null）。
-            Long ownerOnlyUserId = isAdmin ? null : currentUserId;
-            // 看板覆盖所有非删除的岗位状态（包含 DRAFT / ARCHIVED），让 HR 也能看自己废弃岗位上的投递长尾。
             List<String> visibleStatuses = null;
-            jobIds = jobMapper.selectFilteredJobIds(jobReq, ownerOnlyUserId, visibleStatuses, BOARD_JOB_IDS_LIMIT);
-            log.info(
-                    "[BOARD] filter keyword={} location={} dept={} subDept={} workType={} level={} tags={} salary=[{},{}] → matched jobIds count={} (hr={}, ownerOnly={})",
-                    req.getKeyword(), req.getLocation(), req.getDepartmentId(), req.getSubDepartmentId(),
-                    req.getWorkType(), req.getLevel(), req.getTagSlugs(),
-                    req.getSalaryMin(), req.getSalaryMax(),
-                    jobIds.size(), hrUserId, ownerOnlyUserId);
-            // 没有任何岗位命中筛选 → 直接返回空看板（8 列，全 0）
+            jobIds = jobMapper.selectFilteredJobIds(jobReq, null, hrScope, visibleStatuses, BOARD_JOB_IDS_LIMIT + 1);
+            if (jobIds.size() > BOARD_JOB_IDS_LIMIT) {
+                jobsTruncated = true;
+                jobIds = jobIds.subList(0, BOARD_JOB_IDS_LIMIT);
+            }
             if (jobIds.isEmpty()) {
                 return emptyBoard();
             }
         }
-        else {
-            log.info("[BOARD] no filter (hr={}, all jobs in scope)", hrUserId);
-        }
 
-        return buildBoard(jobIds, hrUserId, null, null, limit);
+        HrJobScope appScope = jobIds != null ? null : hrScope;
+        BoardVO vo = buildBoard(jobIds, appScope, null, null, limit, offset, req.getStage(), jobsTruncated);
+        vo.setJobsTruncated(jobsTruncated);
+        return vo;
     }
 
-    /** 公共看板组装：jobIds==null 表示"不限制"（HR 默认看自己；Admin 看全部）。 */
-    private BoardVO buildBoard(List<Long> jobIds, Long hrUserId, Long singleJobId, String singleJobTitle, int limit) {
+    /**
+     * 公共看板组装。
+     * jobIds 非 null 时岗位已预筛选，appScope 传 null；否则用 appScope 裁剪 HR 可见岗位。
+     */
+    private BoardVO buildBoard(List<Long> jobIds,
+                               HrJobScope appScope,
+                               Long singleJobId,
+                               String singleJobTitle,
+                               int limit,
+                               int offset,
+                               ApplicationStage onlyStage,
+                               boolean jobsTruncated) {
         Map<ApplicationStage, Long> counts = new LinkedHashMap<>();
-        for (Map<String, Object> row : applicationMapper.countByStageFiltered(jobIds, hrUserId)) {
+        for (Map<String, Object> row : applicationMapper.countByStageFiltered(jobIds, appScope)) {
             counts.put(
                     ApplicationStage.valueOf((String) row.get("stage")),
                     ((Number) row.get("cnt")).longValue());
         }
 
-        List<BoardColumnVO> columns = new ArrayList<>(BOARD_ORDER.size());
-        long total = 0;
-        for (ApplicationStage st : BOARD_ORDER) {
+        List<ApplicationStage> stages = onlyStage != null ? List.of(onlyStage) : BOARD_ORDER;
+        List<BoardColumnVO> columns = new ArrayList<>(stages.size());
+        long total = counts.values().stream().mapToLong(Long::longValue).sum();
+
+        for (ApplicationStage st : stages) {
             long count = counts.getOrDefault(st, 0L);
-            total += count;
             List<Map<String, Object>> rows = count == 0
                     ? List.of()
-                    : applicationMapper.listBoardItemsFiltered(jobIds, hrUserId, st.name(), limit);
+                    : applicationMapper.listBoardItemsFiltered(
+                            jobIds, appScope, st.name(), offset > 0 ? offset : null, limit);
             List<ApplicationListItemVO> items = rows.stream()
                     .map(ApplicationService::toListItemVO)
                     .toList();
@@ -345,6 +350,7 @@ public class ApplicationService {
                     .stage(st)
                     .count(count)
                     .items(items)
+                    .hasMore(count > offset + items.size())
                     .build());
         }
 
@@ -353,19 +359,20 @@ public class ApplicationService {
                 .jobTitle(singleJobTitle)
                 .columns(columns)
                 .totalApplications(total)
+                .jobsTruncated(jobsTruncated)
                 .build();
     }
 
-    /** 空看板：8 列固定顺序、count=0、items=[]。 */
     private BoardVO emptyBoard() {
         List<BoardColumnVO> columns = BOARD_ORDER.stream()
-                .map(st -> BoardColumnVO.builder().stage(st).count(0L).items(List.of()).build())
+                .map(st -> BoardColumnVO.builder().stage(st).count(0L).items(List.of()).hasMore(false).build())
                 .toList();
         return BoardVO.builder()
                 .jobId(null)
                 .jobTitle(null)
                 .columns(columns)
                 .totalApplications(0L)
+                .jobsTruncated(false)
                 .build();
     }
 

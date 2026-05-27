@@ -20,6 +20,15 @@
     <if test="ownerOnlyUserId != null">
       AND j.created_by = #{ownerOnlyUserId}
     </if>
+    <if test="hrScope != null">
+      AND (
+        j.created_by = #{hrScope.hrUserId}
+        <if test="hrScope.subDepartmentIds != null and !hrScope.subDepartmentIds.isEmpty()">
+          OR j.sub_department_id IN
+          <foreach collection="hrScope.subDepartmentIds" item="sid" open="(" separator="," close=")">#{sid}</foreach>
+        </if>
+      )
+    </if>
     <if test="visibleStatuses != null and !visibleStatuses.isEmpty()">
       AND j.status::text IN
       <foreach collection="visibleStatuses" item="s" open="(" separator="," close=")">#{s}</foreach>
@@ -27,8 +36,11 @@
     <if test="q.keyword != null and q.keyword != ''">
       AND (
         j.title ILIKE '%' || #{q.keyword} || '%'
+        OR j.description ILIKE '%' || #{q.keyword} || '%'
         OR to_tsvector('english', coalesce(j.description, ''))
            @@ plainto_tsquery('english', #{q.keyword})
+        OR to_tsvector('simple', coalesce(j.description, ''))
+           @@ plainto_tsquery('simple', #{q.keyword})
       )
     </if>
     <if test="q.status != null and !q.status.isEmpty()">
@@ -109,6 +121,23 @@
     JOIN sub_departments sd ON sd.id = j.sub_department_id
     WHERE
       <include refid="conditions"/>
+    ORDER BY j.published_at DESC NULLS LAST, j.id DESC
+    LIMIT #{limit}
+  </select>
+
+  <select id="selectJobIdsInHrScope" resultType="long">
+    SELECT j.id FROM jobs j
+    JOIN sub_departments sd ON sd.id = j.sub_department_id
+    WHERE j.deleted_at IS NULL
+      <if test="hrScope != null">
+        AND (
+          j.created_by = #{hrScope.hrUserId}
+          <if test="hrScope.subDepartmentIds != null and !hrScope.subDepartmentIds.isEmpty()">
+            OR j.sub_department_id IN
+            <foreach collection="hrScope.subDepartmentIds" item="sid" open="(" separator="," close=")">#{sid}</foreach>
+          </if>
+        )
+      </if>
     ORDER BY j.published_at DESC NULLS LAST, j.id DESC
     LIMIT #{limit}
   </select>

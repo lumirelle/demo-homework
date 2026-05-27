@@ -48,6 +48,7 @@ public class JobService {
     private final JobTagMapper jobTagMapper;
     private final UserMapper userMapper;
     private final SubDepartmentMapper subDepartmentMapper;
+    private final HrJobScopeService hrJobScopeService;
 
     /** sortBy 白名单：snake_case 列名 */
     private static final Map<String, String> SORT_COLUMNS = Map.of(
@@ -219,17 +220,18 @@ public class JobService {
         // HR 默认看「自己创建的所有」+「他人 PUBLISHED/PAUSED/CLOSED」(由 ownerOnly 与 visibleStatuses 共同表达，但
         //   实际更简单：HR 不传 mine 时与候选人列表合并不太合理，所以这里强制：HR mine=true→只看自己；HR mine!=true→视为公开浏览)
         Long ownerOnlyUserId = null;
+        HrJobScope hrScope = null;
         List<String> visibleStatuses = null;
 
         if (isAdmin) {
-            // 任意：仅按 mine 过滤
             if (Boolean.TRUE.equals(req.getMine())) ownerOnlyUserId = currentUserId;
         }
         else if (isHr) {
             if (Boolean.TRUE.equals(req.getMine())) {
                 ownerOnlyUserId = currentUserId;
+            } else if (Boolean.TRUE.equals(req.getTeam())) {
+                hrScope = hrJobScopeService.currentScopeOrNull();
             } else {
-                // HR 不开 mine 时，按公开浏览处理（避免 HR 越权看到其他 HR 的 DRAFT）
                 visibleStatuses = CANDIDATE_VISIBLE;
             }
         }
@@ -256,10 +258,10 @@ public class JobService {
         int size = req.getSize() == null || req.getSize() < 1 ? 20 : Math.min(req.getSize(), 100);
         int offset = (page - 1) * size;
 
-        long total = jobMapper.countJobs(req, ownerOnlyUserId, visibleStatuses);
+        long total = jobMapper.countJobs(req, ownerOnlyUserId, hrScope, visibleStatuses);
         List<Job> jobs = total == 0
                 ? Collections.emptyList()
-                : jobMapper.listJobs(req, ownerOnlyUserId, visibleStatuses, sortColumn, sortDir, offset, size);
+                : jobMapper.listJobs(req, ownerOnlyUserId, hrScope, visibleStatuses, sortColumn, sortDir, offset, size);
 
         List<Long> jobIds = jobs.stream().map(Job::getId).toList();
         Map<Long, List<TagVO>> tagMap = batchLoadTags(jobIds);
@@ -289,9 +291,7 @@ public class JobService {
     }
 
     private void requireOwnerOrAdmin(Job job) {
-        Long uid = SecurityUtil.requireUserId();
-        if (SecurityUtil.isAdmin()) return;
-        if (!uid.equals(job.getCreatedBy())) {
+        if (!hrJobScopeService.canManageJob(job)) {
             throw BizException.of(ErrorCode.JOB_ACCESS_DENIED);
         }
     }

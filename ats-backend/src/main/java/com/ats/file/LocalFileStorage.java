@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.MessageDigest;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,9 +45,11 @@ public class LocalFileStorage implements FileStorage {
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
 
     private final Path uploadRoot;
+    private final FileDedupIndex dedupIndex;
 
-    public LocalFileStorage(UploadProperties props) {
+    public LocalFileStorage(UploadProperties props, FileDedupIndex dedupIndex) {
         this.uploadRoot = Paths.get(props.getPath()).toAbsolutePath().normalize();
+        this.dedupIndex = dedupIndex;
         try {
             Files.createDirectories(uploadRoot);
             log.info("[FILE] uploadRoot ready: {}", uploadRoot);
@@ -66,6 +69,24 @@ public class LocalFileStorage implements FileStorage {
         String ext = extractExtension(original);
         category.validate(file.getContentType(), ext);
 
+        try {
+            byte[] bytes = file.getBytes();
+            String hash = sha256Hex(bytes);
+            String existing = dedupIndex.findUrl(hash);
+            if (existing != null) {
+                log.info("[FILE] dedup hit hash={} url={}", hash.substring(0, 8), existing);
+                return existing;
+            }
+            String url = writeBytes(category, ext, bytes);
+            dedupIndex.put(hash, url);
+            return url;
+        }
+        catch (IOException ex) {
+            throw new BizException(ErrorCode.INTERNAL_ERROR, "读取上传文件失败");
+        }
+    }
+
+    private String writeBytes(FileCategory category, String ext, byte[] bytes) {
         String month = LocalDate.now().format(MONTH_FMT);
         String fileName = UUID.randomUUID() + ext;
         Path dir = uploadRoot.resolve(category.getSubDir()).resolve(month).normalize();
@@ -75,19 +96,31 @@ public class LocalFileStorage implements FileStorage {
 
         try {
             Files.createDirectories(dir);
-            try (InputStream in = file.getInputStream()) {
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.write(target, bytes);
         }
         catch (IOException ex) {
             log.error("[FILE] write failed: {}", target, ex);
             throw new BizException(ErrorCode.INTERNAL_ERROR, "文件写入失败");
         }
 
-        // 返回对外 URL：/uploads/resumes/2026-05/<uuid>.pdf（前端拿这个串进 application.resumeUrl）
         String url = "/uploads/" + category.getSubDir() + "/" + month + "/" + fileName;
-        log.info("[FILE] saved {} bytes ({}) to {}", file.getSize(), file.getContentType(), url);
+        log.info("[FILE] saved {} bytes to {}", bytes.length, url);
         return url;
+    }
+
+    private static String sha256Hex(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(data);
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        }
+        catch (Exception e) {
+            throw new BizException(ErrorCode.INTERNAL_ERROR, "计算文件哈希失败");
+        }
     }
 
     @Override

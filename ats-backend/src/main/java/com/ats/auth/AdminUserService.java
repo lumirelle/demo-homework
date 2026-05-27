@@ -3,8 +3,10 @@ package com.ats.auth;
 import com.ats.auth.dto.BatchCreateItemVO;
 import com.ats.auth.dto.BatchCreateUsersReq;
 import com.ats.auth.dto.BatchCreateUsersVO;
+import com.ats.auth.dto.AdminUserListItemVO;
 import com.ats.auth.dto.CreateUserReq;
 import com.ats.auth.dto.MeVO;
+import com.ats.auth.dto.UpdateUserReq;
 import com.ats.common.exception.BizException;
 import com.ats.common.exception.ErrorCode;
 import com.ats.entity.SubDepartment;
@@ -47,6 +49,51 @@ public class AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final SubDepartmentMapper subDepartmentMapper;
     private final HrSubDepartmentMapper hrSubDepartmentMapper;
+
+    public List<AdminUserListItemVO> listUsers(String role, Boolean activeOnly) {
+        LambdaQueryWrapper<User> q = new LambdaQueryWrapper<User>()
+                .orderByDesc(User::getCreatedAt);
+        if (role != null && !role.isBlank()) {
+            q.eq(User::getRole, role.toUpperCase());
+        }
+        if (Boolean.TRUE.equals(activeOnly)) {
+            q.eq(User::getIsActive, true);
+        }
+        return userMapper.selectList(q).stream().map(this::toListItem).toList();
+    }
+
+    @Transactional
+    public AdminUserListItemVO updateUser(Long id, UpdateUserReq req) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BizException(ErrorCode.NOT_FOUND, "用户不存在");
+        }
+        if ("ADMIN".equalsIgnoreCase(user.getRole())) {
+            throw new BizException(ErrorCode.FORBIDDEN, "不能修改 ADMIN 账号");
+        }
+        if (req.getFullName() != null) {
+            user.setFullName(req.getFullName().trim());
+        }
+        if (req.getRole() != null) {
+            user.setRole(req.getRole().toUpperCase());
+        }
+        if (req.getActive() != null) {
+            user.setIsActive(req.getActive());
+        }
+        if (req.getNewPassword() != null && !req.getNewPassword().isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        }
+        userMapper.updateById(user);
+
+        if (req.getSubDepartmentIds() != null) {
+            hrSubDepartmentMapper.deleteByUserId(id);
+            if ("HR".equalsIgnoreCase(user.getRole())) {
+                validateSubDepartmentIds(req.getSubDepartmentIds());
+                bindHrSubDepartments(id, user.getRole(), req.getSubDepartmentIds());
+            }
+        }
+        return toListItem(user);
+    }
 
     /** 创建单个 HR / CANDIDATE 账号。 */
     @Transactional
@@ -171,6 +218,21 @@ public class AdminUserService {
             return;
         }
         hrSubDepartmentMapper.batchInsert(userId, subDepartmentIds);
+    }
+
+    private AdminUserListItemVO toListItem(User user) {
+        List<Long> subIds = "HR".equalsIgnoreCase(user.getRole())
+                ? hrSubDepartmentMapper.selectSubDepartmentIdsByUserId(user.getId())
+                : List.of();
+        return AdminUserListItemVO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .active(user.getIsActive())
+                .subDepartmentIds(subIds)
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 
     private User persist(String email, String password, String fullName, String role) {

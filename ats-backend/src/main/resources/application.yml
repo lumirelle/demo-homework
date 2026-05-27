@@ -68,6 +68,21 @@ ats:
     path: ${UPLOAD_PATH:./uploads}
     max-file-mb: ${UPLOAD_MAX_FILE_MB:5}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
 logging:
   level:
     root: INFO

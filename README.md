@@ -178,8 +178,31 @@ GET    /api/v1/files/**                     # 鉴权下载
 
 # 数据看板（M5）
 GET    /api/v1/stats/funnel                 # 8 态投递漏斗（HR/ADMIN）
+GET    /api/v1/stats/funnel/export          # 漏斗 CSV 导出（HR/ADMIN）
 GET    /api/v1/stats/overview               # 本月概览 4 指标（HR/ADMIN）
+
+# 认证扩展
+POST   /api/v1/auth/change-password         # 已登录用户改密
+
+# Admin 用户管理
+GET    /api/v1/admin/users                  # 用户列表
+PATCH  /api/v1/admin/users/:id              # 更新用户 / 禁用 / 重绑子部门
+
+# Admin 组织树（M6）
+GET    /api/v1/admin/departments/tree
+POST   /api/v1/admin/departments
+PUT    /api/v1/admin/departments/:id
+DELETE /api/v1/admin/departments/:id
+POST   /api/v1/admin/sub-departments
+PUT    /api/v1/admin/sub-departments/:id
+DELETE /api/v1/admin/sub-departments/:id
+
+# 文档与健康
+GET    /api/v1/swagger-ui.html              # OpenAPI UI（开发）
+GET    /api/v1/actuator/health              # Spring Actuator
 ```
+
+**HR 数据范围**：看板 / 统计 / 岗位协作权限 = 本人创建的岗位 **或** 绑定子部门下的岗位（`hr_sub_departments`）。
 
 完整接口契约见 `docs/project-tech-design.html`。
 

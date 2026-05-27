@@ -55,6 +55,9 @@ public class JobListReq {
     /** 仅查询当前用户自己创建的岗位（HR 后台用） */
     private Boolean mine;
 
+    /** HR 团队视角：本人岗位 + 绑定子部门下他人岗位（与 mine 互斥，mine 优先） */
+    private Boolean team;
+
     /** 是否包含已归档（默认 false；候选人无效） */
     private Boolean includeArchived;
 
